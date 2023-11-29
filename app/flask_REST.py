@@ -65,6 +65,7 @@ connection_snapshot_schema = all_schemas["ConnectionSnapshot"]
 tests_schema = all_schemas["tests"]
 cables_schema = all_schemas["cables"]
 cable_templates_schema = all_schemas["cable_templates"]
+testpayload_schema = all_schemas["testpayload"]
 
 load_dotenv("../config/mongo.env")
 username = os.environ.get("MONGO_USERNAME")
@@ -85,6 +86,7 @@ tests_collection = db["tests"]
 cables_collection = db["cables"]
 cable_templates_collection = db["cable_templates"]
 crates_collection = db["crates"]
+testpayload_collection = db["testpayloads"]
 
 
 class ModulesResource(Resource):
@@ -175,35 +177,35 @@ class LogbookResource(Resource):
 
     Methods:
     --------
-    get(timestamp=None):
-        Retrieves a logbook entry with the specified timestamp, or all logbook entries if no timestamp is provided.
+    get(_id=None):
+        Retrieves a logbook entry with the specified _id, or all logbook entries if no _id is provided.
 
     post():
         Inserts a new logbook entry into the database.
 
-    put(timestamp):
-        Updates an existing logbook entry with the specified timestamp.
+    put(_id):
+        Updates an existing logbook entry with the specified _id.
 
-    delete(timestamp):
-        Deletes an existing logbook entry with the specified timestamp.
+    delete(_id):
+        Deletes an existing logbook entry with the specified _is.
     """
 
-    def get(self, timestamp=None):
+    def get(self, _id=None):
         """
-        Retrieves a logbook entry with the specified timestamp, or all logbook entries if no timestamp is provided.
+        Retrieves a logbook entry with the specified _id, or all logbook entries if no _id is provided.
 
         Parameters:
         -----------
         timestamp : str, optional
-            The timestamp of the logbook entry to retrieve.
+            The _id of the logbook entry to retrieve.
 
         Returns:
         --------
         dict or list
-            A dictionary representing the logbook entry with the specified timestamp, or a list of all logbook entries if no timestamp is provided.
+            A dictionary representing the logbook entry with the specified _id, or a list of all logbook entries if no timestamp is provided.
         """
-        if timestamp:
-            log = logbook_collection.find_one({"timestamp": timestamp})
+        if _id:
+            log = logbook_collection.find_one({"_id": ObjectId(_id)})
             if log:
                 log["_id"] = str(log["_id"])  # convert ObjectId to string
                 return jsonify(log)
@@ -226,7 +228,7 @@ class LogbookResource(Resource):
         Returns:
         --------
         dict
-            A dictionary containing a message indicating that the logbook entry was successfully inserted.
+            A dictionary containing the _id of the new entry
         """
         try:
             new_log = request.get_json()
@@ -247,18 +249,18 @@ class LogbookResource(Resource):
                 modules_in_the_details = findModuleIds(d) 
             new_log[key] = im + list(set(modules_in_the_details) - set(im))
             logbook_collection.insert_one(new_log)
-            return {"message": "Log inserted"}, 201
+            return {"_id": str(new_log["_id"])}, 201
         except ValidationError as e:
             return {"message": str(e)}, 400
 
-    def put(self, timestamp):
+    def put(self, _id):
         """
-        Updates an existing logbook entry with the specified timestamp.
+        Updates an existing logbook entry with the specified _id (as a string).
 
         Parameters:
         -----------
         timestamp : str
-            The timestamp of the logbook entry to update.
+            The _id of the logbook entry to update.
 
         Returns:
         --------
@@ -266,33 +268,33 @@ class LogbookResource(Resource):
             A dictionary containing a message indicating that the logbook entry was successfully updated.
         """
         updated_data = request.get_json()
-        logbook_collection.update_one({"timestamp": timestamp}, {"$set": updated_data})
+        logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
         return {"message": "Log updated"}, 200
 
-    def delete(self, timestamp):
+    def delete(self, _id):
         """
         Deletes an existing logbook entry with the specified timestamp.
 
         Parameters:
         -----------
         timestamp : str
-            The timestamp of the logbook entry to delete.
+            The _id of the logbook entry to delete.
 
         Returns:
         --------
         dict
             A dictionary containing a message indicating that the logbook entry was successfully deleted.
         """
-        log = logbook_collection.find_one({"timestamp": timestamp})
+        log = logbook_collection.find_one({"_id": ObjectId(_id)})
         if log:
-            logbook_collection.delete_one({"timestamp": timestamp})
+            logbook_collection.delete_one({"_id": ObjectId(_id)})
             return {"message": "Log deleted"}, 200
         else:
             return {"message": "Log not found"}, 404
 
 
 # API Routes
-api.add_resource(LogbookResource, "/logbook", "/logbook/<string:timestamp>")
+api.add_resource(LogbookResource, "/logbook", "/logbook/<string:_id>")
 
 
 class TestsResource(Resource):
@@ -350,6 +352,65 @@ class TestsResource(Resource):
 
 
 api.add_resource(TestsResource, "/tests", "/tests/<string:testID>")
+
+
+class TestPayloadsResource(Resource):
+    """
+    Resource for handling HTTP requests related to testpayloads.
+
+    Methods:
+    - get: retrieves a testpayload entry by ID or all testpayload entries if no ID is provided
+    - post: creates a new testpayload entry
+    - put: updates an existing testpayload entry by ID
+    - delete: deletes an existing testpayload entry by ID
+    """
+
+    def get(self, testpID=None):
+        if testpID:
+            entry = tests_collection.find_one({"_id": ObjectId(testpID)})
+            if entry:
+                entry["_id"] = str(entry["_id"])  # convert ObjectId to string
+                return jsonify(entry)
+            else:
+                return {"message": "Entry not found"}, 404
+        else:
+            entries = list(tests_collection.find())
+            for entry in entries:
+                entry["_id"] = str(entry["_id"])
+            return jsonify(entries)
+
+    def post(self):
+        try:
+            new_entry = request.get_json()
+            validate(instance=new_entry, schema=testpayload_schema)
+            result = (tests_collection.insert_one(new_entry))
+            _id = str(result.inserted_id)
+            return {"_id": str(_id)}, 201
+        except ValidationError as e:
+            return {"message": str(e)}, 400
+
+    def put(self, testpID):
+        if testID:
+            updated_data = request.get_json()
+            tests_collection.update_one({"_id": ObjectId(testpID)}, {"$set": updated_data})
+            return {"message": "Entry updated"}, 200
+        else:
+            return {"message": "Entry not found"}, 404
+
+    def delete(self, testpID):
+        if testpID:
+            entry = tests_collection.find_one({"_id": ObjectId(testpID)})
+            if entry:
+                tests_collection.delete_one({"_id": ObjectId(testpID)})
+                return {"message": "Entry deleted"}, 200
+            else:
+                return {"message": "Entry not found"}, 404
+        else:
+            return {"message": "Entry not found"}, 404
+
+
+api.add_resource(TestPayloadsResource, "/testpayloads", "/testpayloads/<string:testpID>")
+
 
 
 class CablesResource(Resource):
@@ -523,7 +584,7 @@ def SearchLogBookByText():
         for i in logs1:
             result.add(str(i["_id"]))
         results = list(result)
-        return jsonify(results), 200        
+        return  jsonify(results), 200        
 
     
 
@@ -703,6 +764,7 @@ def traverse_cables(cable, side, port):
                 )
             )
     return path
+
 
 
 # @app.route("/cablingSnapshot", methods=["POST"])
