@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from flask.json.provider import JSONProvider
 import re
 from bson import json_util
+import datetime
 
 
 # define regexps to select module ids, crateid, etc
@@ -66,6 +67,10 @@ tests_schema = all_schemas["tests"]
 cables_schema = all_schemas["cables"]
 cable_templates_schema = all_schemas["cable_templates"]
 testpayload_schema = all_schemas["testpayload"]
+testRun_schema = all_schemas["testRun"]
+moduleTest_schema = all_schemas["moduleTest"]
+
+
 
 load_dotenv("../config/mongo.env")
 username = os.environ.get("MONGO_USERNAME")
@@ -87,6 +92,8 @@ cables_collection = db["cables"]
 cable_templates_collection = db["cable_templates"]
 crates_collection = db["crates"]
 testpayload_collection = db["testpayloads"]
+testRuns_collection = db["testRun"]
+moduleTests_collection = db["moduleTest"]
 
 
 class ModulesResource(Resource):
@@ -765,132 +772,6 @@ def traverse_cables(cable, side, port):
             )
     return path
 
-
-
-# @app.route("/cablingSnapshot", methods=["POST"])
-# def cabling_snapshot():
-#     data = request.get_json()
-#     starting_point_name = data.get("starting_point_name")
-#     starting_side = data.get("starting_side")  # 'detSide' or 'crateSide'
-#     other_side = "crateSide" if starting_side == "detSide" else "detSide"
-#     starting_port = data.get("starting_port", 1)  # Default to port 1 if not specified
-
-#     # Try to find the starting point in modules, crates, or cables
-#     starting_point = (
-#         modules_collection.find_one({"moduleID": starting_point_name})
-#         or crates_collection.find_one({"name": starting_point_name})
-#         or cables_collection.find_one({"name": starting_point_name})
-#     )
-
-#     if not starting_point:
-#         return {"message": "Starting point not found"}, 404
-
-#     if "connectedTo" in starting_point:  # For modules or crates
-#         connected_cable_id = ObjectId(starting_point["connectedTo"])
-#         starting_cable = cables_collection.find_one({"_id": connected_cable_id})
-#         starting_port = next(
-#             (
-#                 conn["port"]
-#                 for conn in starting_cable[starting_side]
-#                 if str(conn["connectedTo"]) == str(starting_point["_id"])
-#             ),
-#             None,
-#         )
-#         if not starting_cable:
-#             return {"message": "Connected cable not found"}, 404
-#     else:  # For cables
-#         starting_cable = starting_point
-
-#     next_cable = starting_cable
-#     next_port = starting_port
-#     # Fetch all cable templates
-#     cable_templates = list(cable_templates_collection.find({}))
-#     path = [starting_point_name]
-#     while next_cable:
-#         path.append(next_cable["name"]) if next_cable[
-#             "name"
-#         ] != starting_point_name else None
-#         # Determine the next port using the cable template
-#         cable_template = next(
-#             (ct for ct in cable_templates if ct["type"] == next_cable["type"]), None
-#         )
-#         if starting_side == "detSide":
-#             next_port = int(cable_template["internalRouting"].get(str(next_port), None))
-#         else:
-#             next_port = int(
-#                 next(
-#                     (
-#                         port
-#                         for port, connection in cable_template[
-#                             "internalRouting"
-#                         ].items()
-#                         if next_port == connection
-#                     ),
-#                     None,
-#                 )
-#             )
-#         if not next_port:
-#             break
-#         print(next_cable[other_side])
-#         for conn in next_cable[other_side]:
-#             print(conn["port"], type(conn["port"]), next_port, type(next_port))
-
-#         next_cable_id = next(
-#             (
-#                 conn["connectedTo"]
-#                 for conn in next_cable[other_side]
-#                 if conn["port"] == next_port
-#             ),
-#             None,
-#         )
-#         previous_cable = next_cable
-#         next_cable = cables_collection.find_one({"_id": ObjectId(next_cable_id)})
-#         if not next_cable:
-#             # reached end of cables, append the crate if starting from a detSide
-#             if starting_side == "detSide":
-#                 next_crate_id = next(
-#                     (
-#                         conn["connectedTo"]
-#                         for conn in previous_cable[other_side]
-#                         if conn["port"] == next_port
-#                     ),
-#                     None,
-#                 )
-#                 next_crate = crates_collection.find_one(
-#                     {"_id": ObjectId(next_crate_id)}
-#                 )
-#                 if next_crate:
-#                     path.append(next_crate["name"])
-#             # reached end of cables, append the module if starting from crateSide
-#             else:
-#                 next_module_id = next(
-#                     (
-#                         conn["connectedTo"]
-#                         for conn in previous_cable[other_side]
-#                         if conn["port"] == next_port
-#                     ),
-#                     None,
-#                 )
-#                 next_module = modules_collection.find_one(
-#                     {"_id": ObjectId(next_module_id)}
-#                 )
-#                 if next_module:
-#                     path.append(next_module["moduleID"])
-#             break
-
-#         # else continue traversal
-#         next_port = next(
-#             (
-#                 conn["port"]
-#                 for conn in next_cable[starting_side]
-#                 if str(conn["connectedTo"]) == str(previous_cable["_id"])
-#             ),
-#             None,
-#         )
-
-#     return {"cablingPath": path}, 200
-
-
 def find_starting_cable(starting_point_name, starting_side, starting_port):
     """
     Find the starting cable and port based on the given starting point name, side, and port.
@@ -1060,7 +941,48 @@ def new_cabling_snapshot():
 
     return {"cablingPath": path}, 200
 
+@app.route('/addRun', methods=['POST'])
+def add_run():
+    data = request.get_json()
 
+    # Process test run data
+    run_entry = {
+        'runDate': datetime.datetime.strptime(data['runDate'], '%Y-%m-%d'),
+        'runID': data['runID'],
+        'runOperator': data['runOperator'],
+        'runStatus': data['runStatus'],
+        'runType': data['runType'],
+        'runBoards': data['runBoards'],
+        'tests': {},
+        'runFolder': data['runROOTFile'],
+        'runConfiguration': data['runConfiguration']
+    }
+    run_id = testRuns_collection.insert_one(run_entry).inserted_id
+
+    # Process each module test
+    for (board, optical_group), (module_id, hw_id) in data['runModules'].items():
+        # Update or find the module to get its ObjectId
+        module_doc = modules_collection.find_one_and_update(
+            {'moduleID': module_id},
+            {'$set': {'hardwareID': hw_id}},
+            upsert=True,
+            return_document=True
+        )
+        module_test_entry = {
+            'run': run_id,
+            'module': module_doc['_id'],
+            'result': data['runResults'][hw_id],
+            'noise': data['runNoise'][hw_id],
+            'board': board,
+            'opticalGroupID': optical_group
+        }
+        test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
+        run_entry['tests'][str(module_doc['_id'])] = test_id
+
+    # Update the test run with module test IDs
+    testRuns_collection.update_one({'_id': run_id}, {'$set': {'tests': run_entry['tests']}})
+
+    return jsonify({'message': 'Test run and module tests added successfully', 'run_id': str(run_id)}), 201
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=False)

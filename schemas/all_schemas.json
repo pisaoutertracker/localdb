@@ -39,6 +39,9 @@
             "moduleID": {
                 "type": "string"
             },
+            "hardwareID": {
+                "type": "string"
+            },
             "position": {
                 "type": "string"
             },
@@ -208,6 +211,78 @@
             "remoteFileList"
         ]
     },
+    "testRun": {
+        "type": "object",
+        "properties": {
+          "runDate": {
+            "bsonType": "date",
+            "description": "Date of the test run"
+          },
+          "runID": {
+            "type": "string",
+            "description": "Unique identifier for the test run"
+          },
+          "runOperator": {
+            "type": "string",
+            "description": "Name of the operator who conducted the test run"
+          },
+          "runStatus": {
+            "type": "string",
+            "description": "Status of the test run (e.g., 'failed', 'passed')"
+          },
+          "runType": {
+            "type": "string",
+            "description": "Type of the test run"
+          },
+          "runBoards": {
+            "type": "object",
+            "description": "Mapping of board numbers to names"
+          },
+          "tests": {
+            "type": "object",
+            "description": "Mapping of module IDs to test IDs"
+          },
+          "runFolder": {
+            "type": "string",
+            "description": "Path to the folder containing run data"
+          },
+          "runConfiguration": {
+            "type": "object",
+            "description": "Configuration settings for the test run"
+          }
+        },
+        "required": ["_id", "runDate", "runID", "runOperator", "runStatus", "runType", "runBoards", "tests", "runFolder", "runConfiguration"]
+      },  
+    "moduleTest": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "bsonType": "objectId",
+            "description": "Reference to the test run"
+          },
+          "module": {
+            "bsonType": "objectId",
+            "description": "Reference to the module being tested"
+          },
+          "result": {
+            "type": "string",
+            "description": "Result of the module test (e.g., 'pass', 'fail')"
+          },
+          "noise": {
+            "type": "object",
+            "description": "Noise data for the module test"
+          },
+          "board": {
+            "type": "string",
+            "description": "Name of the board used in the test"
+          },
+          "opticalGroupID": {
+            "type": "integer",
+            "description": "ID of the optical group"
+          }
+        },
+        "required": ["_id", "run", "module", "result", "noise", "board", "opticalGroupID"]
+      },       
     "tests": {
         "type": "object",
         "properties": {

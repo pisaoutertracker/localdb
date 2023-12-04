@@ -27,6 +27,8 @@ class TestAPI(TestCase):
         db.cables.drop()
         db.cables_templates.drop()
         db.crates.drop()
+        db.testRun.drop()
+        db.moduleTest.drop()
 
     def tearDown(self):
         db.modules.drop()
@@ -37,6 +39,8 @@ class TestAPI(TestCase):
         db.cables.drop()
         db.cables_templates.drop()
         db.crates.drop()
+        db.testRun.drop()
+        db.moduleTest.drop()
 
     def test_fetch_all_modules_empty(self):
         response = self.client.get("/modules")
@@ -550,7 +554,52 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+    def test_add_run(self):
+        # Sample data
+        test_run_data = {
+        'runDate': '1996-11-21',
+        'runID': 'T52',
+        'runOperator': 'Kristin Jackson',
+        'runStatus': 'failed',
+        'runType': 'Type1',
+        'runBoards': {
+            3: 'fc7ot2',
+            4: 'fc7ot3',
+        },
+        'runModules' : { ## (board, optical group) : (moduleID, hwIDmodule)
+            ('fc7ot2', 0) : ("M123", 0x67),
+            ('fc7ot2', 1) : ("M124", 0x68),
+            ('fc7ot3', 1) : ("M125", 0x69),
+        },
+        'runResults' : {
+            0x67 : "pass",
+            0x68 : "failed",
+            0x69 : "failed",
+        },
+        'runNoise' : {
+            0x67 : {
+                "SSA0": 4.348,
+                "SSA4": 3.348,
+                "MPA9": 2.348,
+            },
+            0x68 : {
+                "SSA0": 3.348,
+                "SSA1": 3.648,
+            },
+            0x69 : {
+                "SSA0": 3.548,
+                "SSA4": 3.248,
+            }
+        },
+        'runConfiguration' : {"a":"b"},
+        'runROOTFile' : "link"
+        }
+        
 
+        response = self.client.post('/addRun', json=test_run_data)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('run_id', response.json)
+        self.assertIn('message', response.json)
 
 
 
