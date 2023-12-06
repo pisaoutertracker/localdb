@@ -14,8 +14,8 @@ from bson import json_util
 import datetime
 
 # define getdb function to switch between test and production databases
-def get_db():
-    load_dotenv("../config/mongo.env")
+def get_db(env_path="../config/mongo.env"):
+    load_dotenv(env_path)
     username = os.environ.get("MONGO_USERNAME")
     password = os.environ.get("MONGO_PASSWORD")
     host_name = os.environ.get("MONGO_HOST_NAME")
@@ -84,7 +84,7 @@ testpayload_schema = all_schemas["testpayload"]
 testRun_schema = all_schemas["testRun"]
 moduleTest_schema = all_schemas["moduleTest"]
 
-db = get_db()
+db = get_db(env_path="../config/mongo.env")
 
 modules_collection = db["modules"]
 logbook_collection = db["logbook"]
