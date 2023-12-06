@@ -15,7 +15,7 @@ import datetime
 from importlib import import_module
 from dotenv import load_dotenv
 
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "utils")))
 # make it so that utils can be imported from anywhere
 from .utils import get_db, CustomJSONProvider
 # import configs as config_module
@@ -49,5 +49,9 @@ def create_app(config_name):
     app.register_blueprint(test_run_bp.bp)
 
     return app
+
+if __name__ == "__main__":
+    app = create_app("prod")
+    app.run()
 
     

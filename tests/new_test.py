@@ -1,6 +1,7 @@
 import unittest
 from flask_testing import TestCase
 import sys
+import os
 from dotenv import load_dotenv
 
 sys.path.append("..")
