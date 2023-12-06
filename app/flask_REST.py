@@ -960,7 +960,12 @@ def add_run():
     run_id = testRuns_collection.insert_one(run_entry).inserted_id
 
     # Process each module test
-    for (board, optical_group), (module_id, hw_id) in data['runModules'].items():
+    for board_and_optical_group, (module_id, hw_id) in data['runModules'].items():
+        # cast hw_id to str
+        hw_id = str(hw_id)
+        #split board_and_optical_group into board and optical_group
+        # format is board_optical0 and i want to store board and 0, without the optical
+        board, optical_group = board_and_optical_group.split('_optical')
         # Update or find the module to get its ObjectId
         module_doc = modules_collection.find_one_and_update(
             {'moduleID': module_id},
