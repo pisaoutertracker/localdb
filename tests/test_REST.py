@@ -566,26 +566,26 @@ class TestAPI(TestCase):
             4: 'fc7ot3',
         },
         'runModules' : { ## (board, optical group) : (moduleID, hwIDmodule)
-            ('fc7ot2', 0) : ("M123", 0x67),
-            ('fc7ot2', 1) : ("M124", 0x68),
-            ('fc7ot3', 1) : ("M125", 0x69),
+            'fc7ot2_optical0' : ("M123", 67),
+            'fc7ot2_optical1' : ("M124", 68),
+            'fc7ot3_optical2' : ("M125", 69),
         },
         'runResults' : {
-            0x67 : "pass",
-            0x68 : "failed",
-            0x69 : "failed",
+            67 : "pass",
+            68 : "failed",
+            69 : "failed",
         },
         'runNoise' : {
-            0x67 : {
+            67 : {
                 "SSA0": 4.348,
                 "SSA4": 3.348,
                 "MPA9": 2.348,
             },
-            0x68 : {
+            68 : {
                 "SSA0": 3.348,
                 "SSA1": 3.648,
             },
-            0x69 : {
+            69 : {
                 "SSA0": 3.548,
                 "SSA4": 3.248,
             }
