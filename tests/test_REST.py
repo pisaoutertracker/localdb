@@ -1,6 +1,7 @@
 import unittest
 from flask_testing import TestCase
 import sys
+from dotenv import load_dotenv
 
 sys.path.append("..")
 from app.flask_REST import (
@@ -8,14 +9,12 @@ from app.flask_REST import (
     db,
 )
 from bson import ObjectId
-
+from pymongo import MongoClient
+import os
 
 class TestAPI(TestCase):
     def create_app(self):
         app.config["TESTING"] = True
-        app.config["MONGODB_SETTINGS"] = {
-            "db": "unittest_db"  # replace with your test database name
-        }
         return app
 
     def setUp(self):

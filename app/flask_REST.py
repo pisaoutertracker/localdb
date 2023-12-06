@@ -13,9 +13,23 @@ import re
 from bson import json_util
 import datetime
 
+# define getdb function to switch between test and production databases
+def get_db():
+    load_dotenv("../config/mongo.env")
+    username = os.environ.get("MONGO_USERNAME")
+    password = os.environ.get("MONGO_PASSWORD")
+    host_name = os.environ.get("MONGO_HOST_NAME")
+
+    # Determine the database name based on the context
+    if app.config["TESTING"]:
+        db_name = "unittest_db"  # Use your test database name
+    else:
+        db_name = os.environ.get("MONGO_DB_NAME")
+
+    client = MongoClient(f"mongodb://{username}:{password}@{host_name}:27017")
+    return client[db_name]
 
 # define regexps to select module ids, crateid, etc
-
 def regExpPatterns(s):
     mapRE = {"ModuleID": "PS_\\d+"}
     if s in mapRE.keys():
@@ -70,19 +84,8 @@ testpayload_schema = all_schemas["testpayload"]
 testRun_schema = all_schemas["testRun"]
 moduleTest_schema = all_schemas["moduleTest"]
 
+db = get_db()
 
-
-load_dotenv("../config/mongo.env")
-username = os.environ.get("MONGO_USERNAME")
-password = os.environ.get("MONGO_PASSWORD")
-db_name = os.environ.get("MONGO_DB_NAME")
-host_name = os.environ.get("MONGO_HOST_NAME")
-
-client = MongoClient(f"mongodb://{username}:{password}@{host_name}:27017")
-db = client[db_name]
-# we already have a database called "test" from the previous example
-# db = client['test']
-# we also have a collection called "modules" from the previous example
 modules_collection = db["modules"]
 logbook_collection = db["logbook"]
 current_cabling_map_collection = db["current_cabling_map"]
