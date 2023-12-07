@@ -9,7 +9,21 @@ import os
 import json
 from dotenv import load_dotenv
 from flask.json.provider import JSONProvider
+import re
+from bson import json_util
 
+
+# define regexps to select module ids, crateid, etc
+
+def regExpPatterns(s):
+    mapRE = {"ModuleID": "PS_\\d+"}
+    if s in mapRE.keys():
+        return  mapRE[s]
+    else:
+        return None
+
+def findModuleIds(istring):
+    return re.findall(regExpPatterns("ModuleID"),istring)
 
 class CustomJSONEncoder(JSONEncoder):
     """
@@ -51,6 +65,7 @@ connection_snapshot_schema = all_schemas["ConnectionSnapshot"]
 tests_schema = all_schemas["tests"]
 cables_schema = all_schemas["cables"]
 cable_templates_schema = all_schemas["cable_templates"]
+testpayload_schema = all_schemas["testpayload"]
 
 load_dotenv("../config/mongo.env")
 username = os.environ.get("MONGO_USERNAME")
@@ -71,6 +86,7 @@ tests_collection = db["tests"]
 cables_collection = db["cables"]
 cable_templates_collection = db["cable_templates"]
 crates_collection = db["crates"]
+testpayload_collection = db["testpayloads"]
 
 
 class ModulesResource(Resource):
@@ -161,35 +177,35 @@ class LogbookResource(Resource):
 
     Methods:
     --------
-    get(timestamp=None):
-        Retrieves a logbook entry with the specified timestamp, or all logbook entries if no timestamp is provided.
+    get(_id=None):
+        Retrieves a logbook entry with the specified _id, or all logbook entries if no _id is provided.
 
     post():
         Inserts a new logbook entry into the database.
 
-    put(timestamp):
-        Updates an existing logbook entry with the specified timestamp.
+    put(_id):
+        Updates an existing logbook entry with the specified _id.
 
-    delete(timestamp):
-        Deletes an existing logbook entry with the specified timestamp.
+    delete(_id):
+        Deletes an existing logbook entry with the specified _is.
     """
 
-    def get(self, timestamp=None):
+    def get(self, _id=None):
         """
-        Retrieves a logbook entry with the specified timestamp, or all logbook entries if no timestamp is provided.
+        Retrieves a logbook entry with the specified _id, or all logbook entries if no _id is provided.
 
         Parameters:
         -----------
         timestamp : str, optional
-            The timestamp of the logbook entry to retrieve.
+            The _id of the logbook entry to retrieve.
 
         Returns:
         --------
         dict or list
-            A dictionary representing the logbook entry with the specified timestamp, or a list of all logbook entries if no timestamp is provided.
+            A dictionary representing the logbook entry with the specified _id, or a list of all logbook entries if no timestamp is provided.
         """
-        if timestamp:
-            log = logbook_collection.find_one({"timestamp": timestamp})
+        if _id:
+            log = logbook_collection.find_one({"_id": ObjectId(_id)})
             if log:
                 log["_id"] = str(log["_id"])  # convert ObjectId to string
                 return jsonify(log)
@@ -212,24 +228,39 @@ class LogbookResource(Resource):
         Returns:
         --------
         dict
-            A dictionary containing a message indicating that the logbook entry was successfully inserted.
+            A dictionary containing the _id of the new entry
         """
         try:
             new_log = request.get_json()
+            
             validate(instance=new_log, schema=logbook_schema)
+#
+# check involved modules
+#
+            im = []
+            key = "involved_modules"
+            det = "details"
+            d = ""
+            modules_in_the_details = []
+            if key in  new_log:
+                im = new_log["involved_modules"]
+            if det in new_log:
+                d = new_log["details"]
+                modules_in_the_details = findModuleIds(d) 
+            new_log[key] = im + list(set(modules_in_the_details) - set(im))
             logbook_collection.insert_one(new_log)
-            return {"message": "Log inserted"}, 201
+            return {"_id": str(new_log["_id"])}, 201
         except ValidationError as e:
             return {"message": str(e)}, 400
 
-    def put(self, timestamp):
+    def put(self, _id):
         """
-        Updates an existing logbook entry with the specified timestamp.
+        Updates an existing logbook entry with the specified _id (as a string).
 
         Parameters:
         -----------
         timestamp : str
-            The timestamp of the logbook entry to update.
+            The _id of the logbook entry to update.
 
         Returns:
         --------
@@ -237,33 +268,33 @@ class LogbookResource(Resource):
             A dictionary containing a message indicating that the logbook entry was successfully updated.
         """
         updated_data = request.get_json()
-        logbook_collection.update_one({"timestamp": timestamp}, {"$set": updated_data})
+        logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
         return {"message": "Log updated"}, 200
 
-    def delete(self, timestamp):
+    def delete(self, _id):
         """
         Deletes an existing logbook entry with the specified timestamp.
 
         Parameters:
         -----------
         timestamp : str
-            The timestamp of the logbook entry to delete.
+            The _id of the logbook entry to delete.
 
         Returns:
         --------
         dict
             A dictionary containing a message indicating that the logbook entry was successfully deleted.
         """
-        log = logbook_collection.find_one({"timestamp": timestamp})
+        log = logbook_collection.find_one({"_id": ObjectId(_id)})
         if log:
-            logbook_collection.delete_one({"timestamp": timestamp})
+            logbook_collection.delete_one({"_id": ObjectId(_id)})
             return {"message": "Log deleted"}, 200
         else:
             return {"message": "Log not found"}, 404
 
 
 # API Routes
-api.add_resource(LogbookResource, "/logbook", "/logbook/<string:timestamp>")
+api.add_resource(LogbookResource, "/logbook", "/logbook/<string:_id>")
 
 
 class TestsResource(Resource):
@@ -321,6 +352,65 @@ class TestsResource(Resource):
 
 
 api.add_resource(TestsResource, "/tests", "/tests/<string:testID>")
+
+
+class TestPayloadsResource(Resource):
+    """
+    Resource for handling HTTP requests related to testpayloads.
+
+    Methods:
+    - get: retrieves a testpayload entry by ID or all testpayload entries if no ID is provided
+    - post: creates a new testpayload entry
+    - put: updates an existing testpayload entry by ID
+    - delete: deletes an existing testpayload entry by ID
+    """
+
+    def get(self, testpID=None):
+        if testpID:
+            entry = tests_collection.find_one({"_id": ObjectId(testpID)})
+            if entry:
+                entry["_id"] = str(entry["_id"])  # convert ObjectId to string
+                return jsonify(entry)
+            else:
+                return {"message": "Entry not found"}, 404
+        else:
+            entries = list(tests_collection.find())
+            for entry in entries:
+                entry["_id"] = str(entry["_id"])
+            return jsonify(entries)
+
+    def post(self):
+        try:
+            new_entry = request.get_json()
+            validate(instance=new_entry, schema=testpayload_schema)
+            result = (tests_collection.insert_one(new_entry))
+            _id = str(result.inserted_id)
+            return {"_id": str(_id)}, 201
+        except ValidationError as e:
+            return {"message": str(e)}, 400
+
+    def put(self, testpID):
+        if testID:
+            updated_data = request.get_json()
+            tests_collection.update_one({"_id": ObjectId(testpID)}, {"$set": updated_data})
+            return {"message": "Entry updated"}, 200
+        else:
+            return {"message": "Entry not found"}, 404
+
+    def delete(self, testpID):
+        if testpID:
+            entry = tests_collection.find_one({"_id": ObjectId(testpID)})
+            if entry:
+                tests_collection.delete_one({"_id": ObjectId(testpID)})
+                return {"message": "Entry deleted"}, 200
+            else:
+                return {"message": "Entry not found"}, 404
+        else:
+            return {"message": "Entry not found"}, 404
+
+
+api.add_resource(TestPayloadsResource, "/testpayloads", "/testpayloads/<string:testpID>")
+
 
 
 class CablesResource(Resource):
@@ -481,7 +571,34 @@ api.add_resource(
 )
 
 ### CUSTOM ROUTES ###
+@app.route("/searchLogBookByText", methods=["POST"])
+def SearchLogBookByText():
+        data = request.get_json()
+        pattern = data.get("modules")
+        rexp = re.compile(pattern, re.IGNORECASE)
+        logs =logbook_collection.find({"event": rexp})
+        logs1 = logbook_collection.find({"details": rexp})
+        result = set()
+        for i in logs:
+           result.add(str(i["_id"])) 
+        for i in logs1:
+            result.add(str(i["_id"]))
+        results = list(result)
+        return  jsonify(results), 200        
 
+    
+
+@app.route("/searchLogBookByModuleIDs", methods=["POST"])
+def SearchLogBookByModuleIDs():
+        data = request.get_json()
+        pattern = data.get("modules")
+        rexp = re.compile(pattern, re.IGNORECASE)
+        logs =logbook_collection.find({"involved_modules": rexp})     
+#        logs =logbook_collection.find({"involved_modules": ""})
+        result = []
+        for i in logs:
+           result.append(str(i["_id"])) 
+        return jsonify(result), 200        
 
 @app.route("/disconnectCables", methods=["POST"])
 def disconnect():
@@ -647,130 +764,6 @@ def traverse_cables(cable, side, port):
                 )
             )
     return path
-
-
-# @app.route("/cablingSnapshot", methods=["POST"])
-# def cabling_snapshot():
-#     data = request.get_json()
-#     starting_point_name = data.get("starting_point_name")
-#     starting_side = data.get("starting_side")  # 'detSide' or 'crateSide'
-#     other_side = "crateSide" if starting_side == "detSide" else "detSide"
-#     starting_port = data.get("starting_port", 1)  # Default to port 1 if not specified
-
-#     # Try to find the starting point in modules, crates, or cables
-#     starting_point = (
-#         modules_collection.find_one({"moduleID": starting_point_name})
-#         or crates_collection.find_one({"name": starting_point_name})
-#         or cables_collection.find_one({"name": starting_point_name})
-#     )
-
-#     if not starting_point:
-#         return {"message": "Starting point not found"}, 404
-
-#     if "connectedTo" in starting_point:  # For modules or crates
-#         connected_cable_id = ObjectId(starting_point["connectedTo"])
-#         starting_cable = cables_collection.find_one({"_id": connected_cable_id})
-#         starting_port = next(
-#             (
-#                 conn["port"]
-#                 for conn in starting_cable[starting_side]
-#                 if str(conn["connectedTo"]) == str(starting_point["_id"])
-#             ),
-#             None,
-#         )
-#         if not starting_cable:
-#             return {"message": "Connected cable not found"}, 404
-#     else:  # For cables
-#         starting_cable = starting_point
-
-#     next_cable = starting_cable
-#     next_port = starting_port
-#     # Fetch all cable templates
-#     cable_templates = list(cable_templates_collection.find({}))
-#     path = [starting_point_name]
-#     while next_cable:
-#         path.append(next_cable["name"]) if next_cable[
-#             "name"
-#         ] != starting_point_name else None
-#         # Determine the next port using the cable template
-#         cable_template = next(
-#             (ct for ct in cable_templates if ct["type"] == next_cable["type"]), None
-#         )
-#         if starting_side == "detSide":
-#             next_port = int(cable_template["internalRouting"].get(str(next_port), None))
-#         else:
-#             next_port = int(
-#                 next(
-#                     (
-#                         port
-#                         for port, connection in cable_template[
-#                             "internalRouting"
-#                         ].items()
-#                         if next_port == connection
-#                     ),
-#                     None,
-#                 )
-#             )
-#         if not next_port:
-#             break
-#         print(next_cable[other_side])
-#         for conn in next_cable[other_side]:
-#             print(conn["port"], type(conn["port"]), next_port, type(next_port))
-
-#         next_cable_id = next(
-#             (
-#                 conn["connectedTo"]
-#                 for conn in next_cable[other_side]
-#                 if conn["port"] == next_port
-#             ),
-#             None,
-#         )
-#         previous_cable = next_cable
-#         next_cable = cables_collection.find_one({"_id": ObjectId(next_cable_id)})
-#         if not next_cable:
-#             # reached end of cables, append the crate if starting from a detSide
-#             if starting_side == "detSide":
-#                 next_crate_id = next(
-#                     (
-#                         conn["connectedTo"]
-#                         for conn in previous_cable[other_side]
-#                         if conn["port"] == next_port
-#                     ),
-#                     None,
-#                 )
-#                 next_crate = crates_collection.find_one(
-#                     {"_id": ObjectId(next_crate_id)}
-#                 )
-#                 if next_crate:
-#                     path.append(next_crate["name"])
-#             # reached end of cables, append the module if starting from crateSide
-#             else:
-#                 next_module_id = next(
-#                     (
-#                         conn["connectedTo"]
-#                         for conn in previous_cable[other_side]
-#                         if conn["port"] == next_port
-#                     ),
-#                     None,
-#                 )
-#                 next_module = modules_collection.find_one(
-#                     {"_id": ObjectId(next_module_id)}
-#                 )
-#                 if next_module:
-#                     path.append(next_module["moduleID"])
-#             break
-
-#         # else continue traversal
-#         next_port = next(
-#             (
-#                 conn["port"]
-#                 for conn in next_cable[starting_side]
-#                 if str(conn["connectedTo"]) == str(previous_cable["_id"])
-#             ),
-#             None,
-#         )
-
-#     return {"cablingPath": path}, 200
 
 
 def find_starting_cable(starting_point_name, starting_side, starting_port):
