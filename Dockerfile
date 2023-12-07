@@ -1,6 +1,7 @@
 FROM python:3.11-alpine
 RUN pip install PyMongo Flask flask_restful flask_testing jsonschema python-dotenv 
 RUN pip install flask-cors 
+RUN pip install gunicorn 
 EXPOSE 5000
-WORKDIR ./localdb/app
-CMD ["python3","flask_REST.py"]
+WORKDIR ./localdb/deploy
+CMD ["gunicorn", "-w", "1", "-b", "127.0.0.1:5000","deploy:app"]
