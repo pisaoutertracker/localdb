@@ -1,3 +1,4 @@
+config*.py
 *.env
 *.session.cache
 # Byte-compiled / optimized / DLL files
