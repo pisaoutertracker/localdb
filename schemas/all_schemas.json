@@ -218,7 +218,7 @@
             "bsonType": "date",
             "description": "Date of the test run"
           },
-          "runID": {
+          "test_runID": {
             "type": "string",
             "description": "Unique identifier for the test run"
           },
@@ -251,7 +251,7 @@
             "description": "Configuration settings for the test run"
           }
         },
-        "required": ["_id", "runDate", "runID", "runOperator", "runStatus", "runType", "runBoards", "tests", "runFolder", "runConfiguration"]
+        "required": ["runDate", "test_runID", "runOperator", "runStatus", "runType", "runBoards", "tests", "runFolder", "runConfiguration"]
       },  
     "moduleTest": {
         "type": "object",

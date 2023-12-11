@@ -40,7 +40,7 @@ def create_app(config_name):
     api.add_resource(cables.CablesResource, "/cables", "/cables/<string:name>")
     api.add_resource(crates.CratesResource, "/crates", "/crates/<string:name>")
     api.add_resource(cable_templates.CableTemplatesResource, "/cable_templates", "/cable_templates/<string:cable_type>")
-    api.add_resource(test_run.TestRunResource, "/test_run", "/test_run/<string:testID>")
+    api.add_resource(test_run.TestRunResource, "/test_run", "/test_run/<string:test_runID>")
     api.add_resource(module_test.ModuleTestsResource, "/module_test", "/module_test/<string:module_testID>")
 
     # Load blueprints
