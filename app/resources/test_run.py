@@ -25,14 +25,12 @@ class TestRunResource(Resource):
         if test_runID:
             entry = test_runs_collection.find_one({"test_runID": test_runID})
             if entry:
-                entry["_id"] = str(entry["_id"])  # convert ObjectId to string
                 return jsonify(entry)
             else:
                 return {"message": "Entry not found"}, 404
         else:
             entries = list(test_runs_collection.find())
-            for entry in entries:
-                entry["_id"] = str(entry["_id"])
+
             return jsonify(entries)
 
     def post(self):

@@ -563,7 +563,7 @@ class TestAPI(TestCase):
         # Sample data
         test_run_data = {
         'runDate': '1996-11-21',
-        'runID': 'T52',
+        'test_runID': 'T52',
         'runOperator': 'Kristin Jackson',
         'runStatus': 'failed',
         'runType': 'Type1',
@@ -604,6 +604,43 @@ class TestAPI(TestCase):
         response = self.client.post('/addRun', json=test_run_data)
         self.assertEqual(response.status_code, 201)
         self.assertIn('run_id', response.json)
+        self.assertIn('message', response.json)
+
+    def test_run_get(self):
+
+        run_entry = {
+        "runDate": "1996-11-21",
+        "test_runID": "T53",
+        "runOperator": "Kristin Jackson",
+        "runStatus": "failed",
+        "runType": "Type1",
+        "runBoards": {
+            3: 'fc7ot2',
+            4: 'fc7ot3',
+        },
+        "tests": {},
+        "runFolder": "link",
+        "runConfiguration": {"a":"b"},
+        }
+        # insert it
+        response = self.client.post('/test_run', json=run_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+        # get it back
+        response = self.client.get('/test_run/T52')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['test_runID'], 'T52')
+        # modify it
+        run_entry['runStatus'] = 'passed'
+        response = self.client.put('/test_run/T52', json=run_entry)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('message', response.json)
+        # get all test_runs
+        response = self.client.get('/test_run')
+        self.assertEqual(response.status_code, 200)
+        # delete it
+        response = self.client.delete('/test_run/T52')
+        self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
 
 

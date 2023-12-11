@@ -28,6 +28,7 @@ def findModuleIds(istring):
 class CustomJSONEncoder(JSONEncoder):
     """
     A custom JSON encoder that converts MongoDB ObjectIds to strings.
+    and datetime objects to isoformat
 
     This encoder is used to ensure that MongoDB ObjectIds are properly serialized
     when returning JSON responses from a Flask REST API.
@@ -36,7 +37,9 @@ class CustomJSONEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, ObjectId):
             return str(obj)
-        return super().default(self, obj)
+        elif isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 class CustomJSONProvider(JSONProvider):
