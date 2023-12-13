@@ -20,7 +20,8 @@ def add_run():
 
     # Process test run data
     run_entry = {
-        "runDate": datetime.datetime.strptime(data["runDate"], "%Y-%m-%d"),
+        # run date includes seconds
+        "runDate": datetime.datetime.strptime(data["runDate"], "%Y-%m-%dT%H:%M:%S"),
         "test_runID": data["test_runID"],
         "runOperator": data["runOperator"],
         "runStatus": data["runStatus"],
