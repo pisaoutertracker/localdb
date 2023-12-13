@@ -110,101 +110,6 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {"message": "Log deleted"})
 
-    # def test_insert_and_retrieve_test(self):
-    #     new_test = {
-    #         "testID": "T001",
-    #         "modules_list": ["M1", "M2"],
-    #         "testType": "Type1",
-    #         "testDate": "2023-11-01",
-    #         "testStatus": "completed",
-    #         "testResults": {},
-    #     }
-
-    #     # Insert
-    #     response = self.client.post("/tests", json=new_test)
-    #     self.assertEqual(response.status_code, 201)
-    #     self.assertEqual(response.get_json(), {"message": "Entry inserted"})
-
-    #     # Retrieve
-    #     response = self.client.get("/tests/T001")
-    #     retrieved_test = response.get_json()
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertEqual(retrieved_test["testID"], "T001")
-
-    # def test_delete_test(self):
-    #     # Delete
-    #     new_test = {
-    #         "testID": "T001",
-    #         "modules_list": ["M1", "M2"],
-    #         "testType": "Type1",
-    #         "testDate": "2023-11-01",
-    #         "testStatus": "completed",
-    #         "testResults": {},
-    #     }
-
-    #     # Insert
-    #     insert = self.client.post("/tests", json=new_test)
-    #     response = self.client.delete("/tests/T001")
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertEqual(response.get_json(), {"message": "Entry deleted"})
-
-    #     # Verify Deletion
-    #     response = self.client.get("/tests/T001")
-    #     self.assertEqual(response.status_code, 404)
-
-    #     """    def newTest(self):
-    #     try:
-    #         new_entry = request.get_json()
-    #         validate(instance=new_entry, schema=tests_schema)
-    #         tests_collection.insert_one(new_entry)
-        
-    #         for moduleID in new_entry["modules_list"]:
-    #             modules_collection.update_one({"moduleID": moduleID}, {"$push": {"tests": new_entry["testID"]}})
-    #         return {"message": "Entry inserted"}, 201
-        
-    #     except ValidationError as e:
-    #         return {"message": str(e)}, 400
-    #     """
-
-    # def test_addTest(self):
-    #     new_test = {
-    #         "testID": "T001",
-    #         "modules_list": ["M1", "M2"],
-    #         "testType": "Type1",
-    #         "testDate": "2023-11-01",
-    #         "testStatus": "completed",
-    #         "testResults": {},
-    #     }
-    #     # create modules
-    #     new_module = {
-    #         "moduleID": "M1",
-    #         "position": "cleanroom",
-    #         "status": "readyformount",
-    #         # ... (other properties)
-    #     }
-    #     response = self.client.post("/modules", json=new_module)
-    #     self.assertEqual(response.status_code, 201)
-    #     self.assertEqual(response.json, {"message": "Module inserted"})
-    #     new_module = {
-    #         "moduleID": "M2",
-    #         "position": "cleanroom",
-    #         "status": "readyformount",
-    #         # ... (other properties)
-    #     }
-    #     response = self.client.post("/modules", json=new_module)
-    #     self.assertEqual(response.status_code, 201)
-    #     self.assertEqual(response.json, {"message": "Module inserted"})
-
-    #     response = self.client.post("/addTest", json=new_test)
-    #     self.assertEqual(response.status_code, 201)
-    #     self.assertEqual(response.get_json(), {"message": "Entry inserted"})
-
-    #     # check if the test was inserted in the modules
-    #     response = self.client.get("/modules/M1")
-    #     retrieved_module = response.get_json()
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertEqual(retrieved_module["tests"], ["T001"])
-
     def test_insert_cable_templates(self):
         cable_templates = [
             {
@@ -562,9 +467,7 @@ class TestAPI(TestCase):
     def test_add_run(self):
         # Sample data
         test_run_data = {
-        'runDate': '1996-11-21',
-        'test_runID': 'T52',
-        'runOperator': 'Kristin Jackson',
+        'runDate': '1996-11-21T10:00:56',
         'runStatus': 'failed',
         'runType': 'Type1',
         'runBoards': {
@@ -597,7 +500,7 @@ class TestAPI(TestCase):
             }
         },
         'runConfiguration' : {"a":"b"},
-        'runROOTFile' : "link"
+        'runFile' : "link"
         }
         
 
@@ -611,7 +514,6 @@ class TestAPI(TestCase):
         run_entry = {
         "runDate": "1996-11-21",
         "test_runID": "T53",
-        "runOperator": "Kristin Jackson",
         "runStatus": "failed",
         "runType": "Type1",
         "runBoards": {
@@ -619,7 +521,7 @@ class TestAPI(TestCase):
             4: 'fc7ot3',
         },
         "tests": {},
-        "runFolder": "link",
+        "runFile": "link",
         "runConfiguration": {"a":"b"},
         }
         # insert it
@@ -627,19 +529,19 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertIn('message', response.json)
         # get it back
-        response = self.client.get('/test_run/T52')
+        response = self.client.get('/test_run/T53')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['test_runID'], 'T52')
+        self.assertEqual(response.json['test_runID'], 'T53')
         # modify it
         run_entry['runStatus'] = 'passed'
-        response = self.client.put('/test_run/T52', json=run_entry)
+        response = self.client.put('/test_run/T53', json=run_entry)
         self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
         # get all test_runs
         response = self.client.get('/test_run')
         self.assertEqual(response.status_code, 200)
         # delete it
-        response = self.client.delete('/test_run/T52')
+        response = self.client.delete('/test_run/T53')
         self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
 

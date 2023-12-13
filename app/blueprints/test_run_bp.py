@@ -10,6 +10,7 @@ from utils import get_db, cable_templates_schema, cables_schema
 
 bp = Blueprint("add_run", __name__)
 
+
 @bp.route("/addRun", methods=["POST"])
 def add_run():
     testRuns_collection = get_db()["test_runs"]
@@ -18,23 +19,40 @@ def add_run():
 
     data = request.get_json()
 
+    # get the length of the testRuns collection
+    # this will be used to generate the test_runID
+    test_run_count = testRuns_collection.count_documents({})
+    # generate the test_runID
+    run_key = "run" + str(test_run_count + 1)
+    # check if the test_runID already exists
+    # if it does, return an error
+    if testRuns_collection.count_documents({"test_runID": run_key}) != 0:
+        return (
+            jsonify(
+                {
+                    "message": "Test run ID already exists. Please try again.",
+                    "test_runID": run_key,
+                }
+            ),
+            400,
+        )
+
     # Process test run data
     run_entry = {
         # run date includes seconds
         "runDate": datetime.datetime.strptime(data["runDate"], "%Y-%m-%dT%H:%M:%S"),
-        "test_runID": data["test_runID"],
-        "runOperator": data["runOperator"],
+        "test_runID": run_key,
         "runStatus": data["runStatus"],
         "runType": data["runType"],
         "runBoards": data["runBoards"],
-        "tests": {},
-        "runFolder": data["runROOTFile"],
+        "tests": [],
+        "runFile": data["runFile"],
         "runConfiguration": data["runConfiguration"],
     }
     run_id = testRuns_collection.insert_one(run_entry).inserted_id
 
     # Process each module test
-    for board_and_optical_group, (module_id, hw_id) in data["runModules"].items():
+    for board_and_optical_group, (module_key, hw_id) in data["runModules"].items():
         # cast hw_id to str
         hw_id = str(hw_id)
         # split board_and_optical_group into board and optical_group
@@ -43,23 +61,46 @@ def add_run():
         optical_group = int(optical_group)
         # Update or find the module to get its ObjectId
         module_doc = modules_collection.find_one_and_update(
-            {"moduleID": module_id},
+            {"moduleID": module_key},
             {"$set": {"hardwareID": hw_id}},
             upsert=True,
             return_document=True,
         )
+        # create the module testID as
+        # (module_name)__(test_runID)
+        moduleTestKey = module_key + "__" + run_key
+        # check if the module testID already exists
+        # if it does, return an error
+        if moduleTests_collection.count_documents({"moduleTestKey": moduleTestKey}) != 0:
+            return (
+                jsonify(
+                    {
+                        "message": "Module test ID already exists. Please try again.",
+                        "moduleTestKey": moduleTestKey,
+                    }
+                ),
+                400,
+            )
+        # create the module test entry
         module_test_entry = {
+            "moduleTestKey": moduleTestKey,
             "run": run_id,
             "module": module_doc["_id"],
-            "result": data["runResults"][hw_id],
             "noise": data["runNoise"][hw_id],
             "board": board,
             "opticalGroupID": optical_group,
         }
         test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
-        run_entry["tests"][str(module_doc["_id"])] = test_id
+        run_entry["tests"].append((moduleTestKey, test_id))
 
-    # Update the test run with module test IDs
+        # update the module entry by appending to the moduleTests list
+        #the tuple (module test ID, module test ObjectId)
+        modules_collection.update_one(
+            {"moduleID": module_key},
+            {"$push": {"moduleTests": (moduleTestKey, test_id)}},
+        )
+
+    # Update the test run with module test mongo ObjectIds
     testRuns_collection.update_one(
         {"_id": run_id}, {"$set": {"tests": run_entry["tests"]}}
     )

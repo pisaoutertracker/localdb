@@ -18,10 +18,14 @@ class ModuleTestsResource(Resource):
         - delete: deletes an existing module_test entry by ID
         """
 
-        def get(self, module_testID=None):
+        def get(self, moduleTestKey=None):
             module_tests_collection = get_db()["module_tests"]
-            if module_testID:
-                entry = module_tests_collection.find_one({"module_testID": module_testID})
+            if moduleTestKey:
+                # first try to get by moduleTestKey, otherwise get by _id
+                entry = module_tests_collection.find_one({"moduleTestKey": moduleTestKey})
+                if not entry:
+                    entry = module_tests_collection.find_one({"_id": moduleTestKey})
+
                 if entry:
                     entry["_id"] = str(entry["_id"])  # convert ObjectId to string
                     return jsonify(entry)
@@ -43,21 +47,21 @@ class ModuleTestsResource(Resource):
             except ValidationError as e:
                 return {"message": str(e)}, 400
 
-        def put(self, module_testID):
+        def put(self, moduleTestKey):
             module_tests_collection = get_db()["module_tests"]
-            if module_testID:
+            if moduleTestKey:
                 updated_data = request.get_json()
-                module_tests_collection.update_one({"module_testID": module_testID}, {"$set": updated_data})
+                module_tests_collection.update_one({"moduleTestKey": moduleTestKey}, {"$set": updated_data})
                 return {"message": "Entry updated"}, 200
             else:
                 return {"message": "Entry not found"}, 404
 
-        def delete(self, module_testID):
+        def delete(self, moduleTestKey):
             module_tests_collection = get_db()["module_tests"]
-            if module_testID:
-                entry = module_tests_collection.find_one({"module_testID": module_testID})
+            if moduleTestKey:
+                entry = module_tests_collection.find_one({"moduleTestKey": moduleTestKey})
                 if entry:
-                    module_tests_collection.delete_one({"module_testID": module_testID})
+                    module_tests_collection.delete_one({"moduleTestKey": moduleTestKey})
                     return {"message": "Entry deleted"}, 200
                 else:
                     return {"message": "Entry not found"}, 404
