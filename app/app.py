@@ -19,7 +19,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "utils")
 # make it so that utils can be imported from anywhere
 from .utils import get_db, CustomJSONProvider
 # import configs as config_module
-from .resources import modules, logbook, tests, test_payloads, cables, crates, cable_templates, test_run, module_test
+from .resources import modules, logbook, tests, test_payloads, cables, crates, cable_templates, test_run, module_test, session
 from .blueprints import logbook_bp, cables_bp, test_run_bp
 
 def create_app(config_name):
@@ -42,6 +42,7 @@ def create_app(config_name):
     api.add_resource(cable_templates.CableTemplatesResource, "/cable_templates", "/cable_templates/<string:cable_type>")
     api.add_resource(test_run.TestRunResource, "/test_run", "/test_run/<string:test_runID>")
     api.add_resource(module_test.ModuleTestsResource, "/module_test", "/module_test/<string:moduleTestKey>")
+    api.add_resource(session.SessionsResource, "/sessions", "/sessions/<string:sessionKey>")
 
     # Load blueprints
     app.register_blueprint(logbook_bp.bp)

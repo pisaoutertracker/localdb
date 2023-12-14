@@ -211,6 +211,48 @@
             "remoteFileList"
         ]
     },
+    "session":{
+        "type": "object",
+        "properties": {
+            "sessionKey": {
+                "type": "string"
+            },
+            "operator": {
+                "type": "string"
+            },
+            "timestamp": {
+                "type": "string",
+                "format": "date-time"
+            },
+            "description": {
+                "type": "string"
+            },
+            "configuration": {
+                "type": "object"
+            },
+            "modulesList": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "log": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "required": [
+            "sessionKey",
+            "operator",
+            "timestamp",
+            "description",
+            "modulesList",
+            "configuration",
+            "log"
+        ]
+    },
     "testRun": {
         "type": "object",
         "properties": {
@@ -221,6 +263,14 @@
           "test_runID": {
             "type": "string",
             "description": "Unique identifier for the test run"
+          },
+          "runSession": {
+            "type": "string",
+            "description": "Reference to the session in which the test run was performed"
+          },
+          "runSession_id": {
+            "type": "string",
+            "description": "Reference to the session in which the test run was performed"
           },
           "runStatus": {
             "type": "string",
@@ -245,9 +295,19 @@
           "runConfiguration": {
             "type": "object",
             "description": "Configuration settings for the test run"
-          }
+          },
+          "analysisList":
+            {
+                "type": "array",
+                "description": "List of analysis results for the test run"
+            },
+          "referenceAnalysis":
+            {
+                "type": "string",
+                "description": "Reference to the ref analysis for the test run"
+            }
         },
-        "required": ["runDate", "test_runID", "runStatus", "runType", "runBoards", "tests", "runFile", "runConfiguration"]
+        "required": ["runDate", "test_runID", "runSession", "runStatus", "runType", "runBoards", "tests", "runFile", "runConfiguration"]
       },  
     "moduleTest": {
         "type": "object",
@@ -278,7 +338,42 @@
           }
         },
         "required": ["moduleTestKey", "run", "module", "noise", "board", "opticalGroupID"]
-      },       
+      },
+    "moduleTestAnalysis":{
+        "type": "object",
+        "properties": {
+            // note: this will be passed by silvio
+            "moduleTestAnalysisKey": {
+                "type": "string",
+                "description": "Unique identifier for the module test analysis"
+            },
+            "moduleTestKey": {
+                "type": "string",
+                "description": "Reference to the module test being analyzed"
+            },
+            "moduleTast_id": {
+                "type": "string",
+                "description": "Reference to the module test being analyzed"
+            },
+            "analysisVersion": {
+                "type": "string",
+                "description": "Version of the analysis code"
+            },
+            "analysisResults": {
+                "type": "object",
+                "description": "Results of the analysis"
+            },
+            "analysisSummary": {
+                "type": "object",
+                "description": "Summary of the analysis"
+            },
+            "analysisFile": {
+                "type": "string",
+                "description": "Path to the file containing analysis results"
+            }
+        },
+        "required": ["moduleTestAnalysisKey", "moduleTestKey", "analysisVersion", "analysisResults", "analysisSummary", "analysisFile"]
+    },
     "tests": {
         "type": "object",
         "properties": {

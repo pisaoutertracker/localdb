@@ -32,6 +32,7 @@ class TestAPI(TestCase):
             db.crates.drop()
             db.testRun.drop()
             db.moduleTest.drop()
+            db.sessions.drop()
 
     def tearDown(self):
         with self.app.app_context():
@@ -46,6 +47,7 @@ class TestAPI(TestCase):
             db.crates.drop()
             db.testRun.drop()
             db.moduleTest.drop()
+            db.sessions.drop()
 
     def test_fetch_all_modules_empty(self):
         response = self.client.get("/modules")
@@ -466,10 +468,26 @@ class TestAPI(TestCase):
 
     def test_add_run(self):
         # Sample data
+        session_entry = {
+            "timestamp": "2023-11-03T14:21:29",
+            "operator": "John Doe",
+            "description": "I tried to insert PS_88 and PS_44. and also PS_1.",
+            "modulesList": ['PS_1','PS_2'],
+            "configuration": {"a":"b"},
+            "log": ["uuhuh", 'pippo']
+        }
+        # insert it
+        response = self.client.post('/sessions', json=session_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+        # get the sessionKey from the response
+        sessionKey = response.json['sessionKey']
+
         test_run_data = {
         'runDate': '1996-11-21T10:00:56',
         'runStatus': 'failed',
         'runType': 'Type1',
+        'runSession': sessionKey,
         'runBoards': {
             3: 'fc7ot2',
             4: 'fc7ot3',
@@ -510,10 +528,25 @@ class TestAPI(TestCase):
         self.assertIn('message', response.json)
 
     def test_run_get(self):
+        session_entry = {
+            "timestamp": "2023-11-03T14:21:29",
+            "operator": "John Doe",
+            "description": "I tried to insert PS_88 and PS_44. and also PS_1.",
+            "modulesList": ['PS_1','PS_2'],
+            "configuration": {"a":"b"},
+            "log": ["uuhuh", 'pippo']
+        }
+        # insert it
+        response = self.client.post('/sessions', json=session_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+        # get the sessionKey from the response
+        sessionKey = response.json['sessionKey']
 
         run_entry = {
         "runDate": "1996-11-21",
         "test_runID": "T53",
+        "runSession": sessionKey,
         "runStatus": "failed",
         "runType": "Type1",
         "runBoards": {
@@ -542,6 +575,38 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 200)
         # delete it
         response = self.client.delete('/test_run/T53')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('message', response.json)
+
+    def test_session_resource(self):
+        session_entry = {
+            "timestamp": "2023-11-03T14:21:29",
+            "operator": "John Doe",
+            "description": "I tried to insert PS_88 and PS_44. and also PS_1.",
+            "modulesList": ['PS_1','PS_2'],
+            "configuration": {"a":"b"},
+            "log": ["uuhuh", 'pippo']
+        }
+        # insert it
+        response = self.client.post('/sessions', json=session_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+        # get the sessionKey from the response
+        sessionKey = response.json['sessionKey']
+        # get it back
+        response = self.client.get(f'/sessions/{sessionKey}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['sessionKey'], f'{sessionKey}')
+        # modify it
+        session_entry['operator'] = 'John Doe2'
+        response = self.client.put(f'/sessions/{sessionKey}', json=session_entry)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('message', response.json)
+        # get all sessions
+        response = self.client.get(f'/sessions')
+        self.assertEqual(response.status_code, 200)
+        # delete it
+        response = self.client.delete(f'/sessions/{sessionKey}')
         self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
 

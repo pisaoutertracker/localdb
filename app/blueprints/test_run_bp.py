@@ -42,13 +42,31 @@ def add_run():
         # run date includes seconds
         "runDate": datetime.datetime.strptime(data["runDate"], "%Y-%m-%dT%H:%M:%S"),
         "test_runID": run_key,
+        "runSession": data["runSession"],
         "runStatus": data["runStatus"],
         "runType": data["runType"],
         "runBoards": data["runBoards"],
         "tests": [],
+        "analysisList": [],
+        "referenceAnalysis": "",
         "runFile": data["runFile"],
         "runConfiguration": data["runConfiguration"],
     }
+    # get the ObjectId of the session
+    session_id = get_db()["sessions"].find_one({"sessionKey": data["runSession"]})["_id"]
+    # return error if session does not exist
+    if not session_id:
+        return (
+            jsonify(
+                {
+                    "message": "Session does not exist. Please try again.",
+                    "sessionKey": data["runSession"],
+                }
+            ),
+            400,
+        )
+    # add the session ObjectId as str to the run entryrunSession_id
+    run_entry["runSession_id"] = str(session_id)
     run_id = testRuns_collection.insert_one(run_entry).inserted_id
 
     # Process each module test
