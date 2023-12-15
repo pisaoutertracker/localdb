@@ -47,8 +47,6 @@ def add_run():
         "runType": data["runType"],
         "runBoards": data["runBoards"],
         "tests": [],
-        "analysisList": [],
-        "referenceAnalysis": "",
         "runFile": data["runFile"],
         "runConfiguration": data["runConfiguration"],
     }

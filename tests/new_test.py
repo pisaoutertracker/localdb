@@ -30,9 +30,10 @@ class TestAPI(TestCase):
             db.cables.drop()
             db.cables_templates.drop()
             db.crates.drop()
-            db.testRun.drop()
-            db.moduleTest.drop()
+            db.test_runs.drop()
+            db.module_tests.drop()
             db.sessions.drop()
+            db.module_test_analysis.drop()
 
     def tearDown(self):
         with self.app.app_context():
@@ -45,9 +46,10 @@ class TestAPI(TestCase):
             db.cables.drop()
             db.cables_templates.drop()
             db.crates.drop()
-            db.testRun.drop()
-            db.moduleTest.drop()
+            db.test_runs.drop()
+            db.module_tests.drop()
             db.sessions.drop()
+            db.module_test_analysis.drop()
 
     def test_fetch_all_modules_empty(self):
         response = self.client.get("/modules")
@@ -609,6 +611,84 @@ class TestAPI(TestCase):
         response = self.client.delete(f'/sessions/{sessionKey}')
         self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
+
+    def test_module_test_analysis_resource(self):
+        mta_entry = {
+            "moduleTestAnalysisKey": "MTA22",
+            "moduleTestKey": "MT1",
+            "analysisVersion": "v1",
+            "analysisResults": {"a":"b"},
+            "analysisSummary": {"a":"b"},
+            "analysisFile": "link"
+        }
+        # insert it
+        response = self.client.post('/module_test_analysis', json=mta_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+        # get it back
+        response = self.client.get('/module_test_analysis/MTA22')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['moduleTestAnalysisKey'], 'MTA22')
+        # get by Mongo _id
+        _id = response.json['_id']
+        response = self.client.get(f'/module_test_analysis/{_id}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['moduleTestAnalysisKey'], 'MTA22')
+        # modify it
+        mta_entry['analysisVersion'] = 'v2'
+        response = self.client.put('/module_test_analysis/MTA22', json=mta_entry)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('message', response.json)
+        # get all module_test_analysis
+        response = self.client.get('/module_test_analysis')
+        self.assertEqual(response.status_code, 200)
+        # delete it
+        response = self.client.delete('/module_test_analysis/MTA22')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('message', response.json)
+    
+    def test_add_analysis(self):
+
+        mta_entry = {
+            "moduleTestAnalysisKey": "MTA1",
+            "moduleTestKey": "MT1",
+            "analysisVersion": "v1",
+            "analysisResults": {"a":"b"},
+            "analysisSummary": {"a":"b"},
+            "analysisFile": "link"
+        }
+        # insert it
+        response = self.client.post('/module_test_analysis', json=mta_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+
+        mt_entry = {
+            "moduleTestKey": "MT1",
+            "run": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
+            "module": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
+            "noise": {"a":"b"},
+            "board": "fc7ot2",
+            "opticalGroupID": 1,
+        }
+
+        # insert it
+        response = self.client.post('/module_test', json=mt_entry)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.json)
+
+        # use the addAnalysis endpoint as get with MTA1 name
+        response = self.client.get('/addAnalysis', query_string={'moduleTestAnalysisKey': 'MTA1'})        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['message'], 'Analysis MTA1 added to module test MT1')
+        # get the module_test back
+        response = self.client.get('/module_test/MT1')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['moduleTestKey'], 'MT1')
+        # check the analysis list contains MTA1
+        self.assertEqual(response.json['analysesList'], ['MTA1'])
+        # check that referenceAnalysis is MTA1
+        self.assertEqual(response.json['referenceAnalysis'], 'MTA1')
+
 
 
 

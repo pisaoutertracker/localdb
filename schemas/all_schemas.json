@@ -295,17 +295,7 @@
           "runConfiguration": {
             "type": "object",
             "description": "Configuration settings for the test run"
-          },
-          "analysisList":
-            {
-                "type": "array",
-                "description": "List of analysis results for the test run"
-            },
-          "referenceAnalysis":
-            {
-                "type": "string",
-                "description": "Reference to the ref analysis for the test run"
-            }
+          }
         },
         "required": ["runDate", "test_runID", "runSession", "runStatus", "runType", "runBoards", "tests", "runFile", "runConfiguration"]
       },  
@@ -335,6 +325,16 @@
           "opticalGroupID": {
             "type": "integer",
             "description": "ID of the optical group"
+          },
+          "analysesList":
+          {
+              "type": "array",
+              "description": "List of analysis results for the test run"
+          },
+        "referenceAnalysis":
+          {
+              "type": "string",
+              "description": "Reference to the ref analysis for the test run"
           }
         },
         "required": ["moduleTestKey", "run", "module", "noise", "board", "opticalGroupID"]
@@ -342,7 +342,6 @@
     "moduleTestAnalysis":{
         "type": "object",
         "properties": {
-            // note: this will be passed by silvio
             "moduleTestAnalysisKey": {
                 "type": "string",
                 "description": "Unique identifier for the module test analysis"
@@ -351,7 +350,7 @@
                 "type": "string",
                 "description": "Reference to the module test being analyzed"
             },
-            "moduleTast_id": {
+            "moduleTest_id": {
                 "type": "string",
                 "description": "Reference to the module test being analyzed"
             },

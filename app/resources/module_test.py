@@ -4,6 +4,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from jsonschema import validate, ValidationError
 from flask import request, jsonify, current_app
 from flask_restful import Resource
+from bson import ObjectId
+import bson
 from utils import get_db, module_test_schema
 
 # a flask resource for module_tests
@@ -24,8 +26,12 @@ class ModuleTestsResource(Resource):
                 # first try to get by moduleTestKey, otherwise get by _id
                 entry = module_tests_collection.find_one({"moduleTestKey": moduleTestKey})
                 if not entry:
-                    entry = module_tests_collection.find_one({"_id": moduleTestKey})
+                    try: 
+                        moduleTestKey_id = ObjectId(moduleTestKey)
+                        entry = module_tests_collection.find_one({"_id": moduleTestKey_id})
 
+                    except bson.errors.InvalidId: 
+                        entry = None
                 if entry:
                     entry["_id"] = str(entry["_id"])  # convert ObjectId to string
                     return jsonify(entry)
@@ -42,6 +48,17 @@ class ModuleTestsResource(Resource):
             try:
                 new_entry = request.get_json()
                 validate(instance=new_entry, schema=module_test_schema)
+                # if an entry with the same Key already exists, return an error
+                if module_tests_collection.count_documents({"moduleTestKey": new_entry["moduleTestKey"]}) != 0:
+                    return (
+                        
+                            {
+                                "message": "Module test key already exists. Please try again.",
+                                "moduleTestKey": new_entry["moduleTestKey"],
+                            }
+                        ,
+                        400,
+                    )
                 module_tests_collection.insert_one(new_entry)
                 return {"message": "Entry inserted"}, 201
             except ValidationError as e:

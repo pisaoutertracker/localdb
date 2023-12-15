@@ -5,6 +5,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from jsonschema import validate, ValidationError
 from flask import request, jsonify, current_app
 from flask_restful import Resource
+from bson import ObjectId
+import bson
 from utils import get_db, test_run_schema
 
 
@@ -24,6 +26,12 @@ class TestRunResource(Resource):
         test_runs_collection = get_db()["test_runs"]
         if test_runID:
             entry = test_runs_collection.find_one({"test_runID": test_runID})
+            if not entry:
+                try:
+                    test_runID_id = ObjectId(test_runID)
+                    entry = test_runs_collection.find_one({"_id": test_runID_id})
+                except bson.errors.InvalidId:
+                    entry = None
             if entry:
                 return jsonify(entry)
             else:

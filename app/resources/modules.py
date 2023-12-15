@@ -5,6 +5,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from jsonschema import validate, ValidationError
 from flask import request, jsonify, current_app
 from flask_restful import Resource
+from bson import ObjectId
+import bson
 from utils import get_db, module_schema
 
 
@@ -28,8 +30,13 @@ class ModulesResource(Resource):
         modules_collection = get_db()["modules"]
         if moduleID:
             module = modules_collection.find_one({"moduleID": moduleID})
+            if not module:
+                try:
+                    moduleID_id = ObjectId(moduleID)
+                    module = modules_collection.find_one({"_id": moduleID_id})
+                except bson.errors.InvalidId:
+                    module = None
             if module:
-                # module["_id"] = str(module["_id"])  # convert ObjectId to string
                 return jsonify(module)
                 # return json.dumps(module, default=json_util.default)
             else:
@@ -51,8 +58,18 @@ class ModulesResource(Resource):
         try:
             new_module = request.get_json()
             validate(instance=new_module, schema=module_schema)
+            # if an module with the same ID already exists, return an error
+            if modules_collection.count_documents({"moduleID": new_module["moduleID"]}) != 0:
+                return (
+                    
+                        {
+                            "message": "Module ID already exists. Please try again.",
+                            "moduleID": new_module["moduleID"],
+                        }
+                    ,
+                    400,
+                )
             modules_collection.insert_one(new_module)
-            retrive = jsonify(modules_collection.find_one({"moduleID": new_module["moduleID"]}))
             return {"message": "Module inserted"}, 201
         except ValidationError as e:
             return {"message": str(e)}, 400
