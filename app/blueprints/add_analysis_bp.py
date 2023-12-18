@@ -18,23 +18,23 @@ def addAnalysis():
     module_test_analysis_collection = get_db()["module_test_analysis"]
     module_tests_collection = get_db()["module_tests"]
 
-    # get the moduleTestAnalysisKey from the request
-    moduleTestAnalysisKey = request.args.get("moduleTestAnalysisKey")
+    # get the moduleTestAnalysisName from the request
+    moduleTestAnalysisName = request.args.get("moduleTestAnalysisName")
     # get the module_test_analysis entry from the collection
-    module_test_analysis = module_test_analysis_collection.find_one({"moduleTestAnalysisKey": moduleTestAnalysisKey})
-    # get the module_testKey from the module_test_analysis entry
-    module_testKey = module_test_analysis["moduleTestKey"]
+    module_test_analysis = module_test_analysis_collection.find_one({"moduleTestAnalysisName": moduleTestAnalysisName})
+    # get the module_testName from the module_test_analysis entry
+    module_testName = module_test_analysis["moduleTestName"]
     # get the module_test entry from the collection
-    module_test = module_tests_collection.find_one({"moduleTestKey": module_testKey})
+    module_test = module_tests_collection.find_one({"moduleTestName": module_testName})
     # add the analysis to the list of analyses of the module_test
     # if the list of analyses doesn't exist, create it
     if "analysesList" not in module_test:
         module_test["analysesList"] = []
-    module_test["analysesList"].append(moduleTestAnalysisKey)
+    module_test["analysesList"].append(moduleTestAnalysisName)
     # set the reference_analysis of the module_test to the analysis
-    module_test["referenceAnalysis"] = moduleTestAnalysisKey
+    module_test["referenceAnalysis"] = moduleTestAnalysisName
     # drop the _id from module_test so that it can be inserted in the collection
     module_test.pop("_id")
     # update the module_test entry in the collection
-    module_tests_collection.update_one({"moduleTestKey": module_testKey}, {"$set": module_test})
-    return {"message": f"Analysis {moduleTestAnalysisKey} added to module test {module_testKey}"}, 200
+    module_tests_collection.update_one({"moduleTestName": module_testName}, {"$set": module_test})
+    return {"message": f"Analysis {moduleTestAnalysisName} added to module test {module_testName}"}, 200

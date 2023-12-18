@@ -20,15 +20,15 @@ class ModuleTestAnalysisResource(Resource):
         - delete: deletes an existing module test analysis entry by ID
         """
 
-        def get(self, moduleTestAnalysisKey=None):
+        def get(self, moduleTestAnalysisName=None):
             module_test_analysis_collection = get_db()["module_test_analysis"]
-            if moduleTestAnalysisKey:
-                # first try to get by moduleTestAnalysisKey, otherwise get by _id
-                entry = module_test_analysis_collection.find_one({"moduleTestAnalysisKey": moduleTestAnalysisKey})
+            if moduleTestAnalysisName:
+                # first try to get by moduleTestAnalysisName, otherwise get by _id
+                entry = module_test_analysis_collection.find_one({"moduleTestAnalysisName": moduleTestAnalysisName})
                 if not entry:
                     try:
-                        moduleTestAnalysisKey_id = ObjectId(moduleTestAnalysisKey)
-                        entry = module_test_analysis_collection.find_one({"_id": moduleTestAnalysisKey_id})
+                        moduleTestAnalysisName_id = ObjectId(moduleTestAnalysisName)
+                        entry = module_test_analysis_collection.find_one({"_id": moduleTestAnalysisName_id})
                     except bson.errors.InvalidId:
                         entry = None
                 if entry:
@@ -49,38 +49,38 @@ class ModuleTestAnalysisResource(Resource):
                 # add to the new_entry the moduleTestAnalysisId defined 
                 # as the length of the collection + 1
                 validate(instance=new_entry, schema=module_test_analysis_schema)
-                # if an entry with the same Key already exists, return an error
-                if module_test_analysis_collection.count_documents({"moduleTestAnalysisKey": new_entry["moduleTestAnalysisKey"]}) != 0:
-                    print("moduleTestAnalysisKey already exists")
+                # if an entry with the same Name already exists, return an error
+                if module_test_analysis_collection.count_documents({"moduleTestAnalysisName": new_entry["moduleTestAnalysisName"]}) != 0:
+                    print("moduleTestAnalysisName already exists")
                     return (
                             {
                                 "message": "Module test analysis key already exists. Please try again.",
-                                "moduleTestAnalysisKey": new_entry["moduleTestAnalysisKey"],
+                                "moduleTestAnalysisName": new_entry["moduleTestAnalysisName"],
                             }
                         ,
                         400,
                     )
 
                 module_test_analysis_collection.insert_one(new_entry)
-                # return the moduleTestAnalysisKey as well
-                return {"message": "Entry created", "moduleTestAnalysisKey": new_entry["moduleTestAnalysisKey"]}, 201
+                # return the moduleTestAnalysisName as well
+                return {"message": "Entry created", "moduleTestAnalysisName": new_entry["moduleTestAnalysisName"]}, 201
             except ValidationError as e:
                 print(e)
                 return {"message": str(e)}, 400
 
-        def put(self, moduleTestAnalysisKey):
+        def put(self, moduleTestAnalysisName):
             module_test_analysis_collection = get_db()["module_test_analysis"]
-            if moduleTestAnalysisKey:
+            if moduleTestAnalysisName:
                 updated_data = request.get_json()
-                module_test_analysis_collection.update_one({"moduleTestAnalysisKey": moduleTestAnalysisKey}, {"$set": updated_data})
+                module_test_analysis_collection.update_one({"moduleTestAnalysisName": moduleTestAnalysisName}, {"$set": updated_data})
                 return {"message": "Entry updated"}, 200
             
-        def delete(self, moduleTestAnalysisKey):
+        def delete(self, moduleTestAnalysisName):
             module_test_analysis_collection = get_db()["module_test_analysis"]
-            if moduleTestAnalysisKey:
-                entry = module_test_analysis_collection.find_one({"moduleTestAnalysisKey": moduleTestAnalysisKey})
+            if moduleTestAnalysisName:
+                entry = module_test_analysis_collection.find_one({"moduleTestAnalysisName": moduleTestAnalysisName})
                 if entry:
-                    module_test_analysis_collection.delete_one({"moduleTestAnalysisKey": moduleTestAnalysisKey})
+                    module_test_analysis_collection.delete_one({"moduleTestAnalysisName": moduleTestAnalysisName})
                     return {"message": "Entry deleted"}, 200
                 else:
                     return {"message": "Entry not found"}, 404

@@ -175,7 +175,7 @@ def find_starting_cable(starting_point_name, starting_side, starting_port):
     crates_collection = get_db()["crates"]
     cables_collection = get_db()["cables"]
     starting_point = (
-        modules_collection.find_one({"moduleID": starting_point_name})
+        modules_collection.find_one({"moduleName": starting_point_name})
         or crates_collection.find_one({"name": starting_point_name})
         or cables_collection.find_one({"name": starting_point_name})
     )
@@ -293,7 +293,7 @@ def traverse_cables(
                     {"_id": ObjectId(next_module_id)}
                 )
                 if next_module:
-                    path.append(next_module["moduleID"])
+                    path.append(next_module["moduleName"])
             break
 
         # else continue traversal

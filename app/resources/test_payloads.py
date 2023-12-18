@@ -14,16 +14,16 @@ class TestPayloadsResource(Resource):
     Resource for handling HTTP requests related to testpayloads.
 
     Methods:
-    - get: retrieves a testpayload entry by ID or all testpayload entries if no ID is provided
+    - get: retrieves a testpayload entry by Name or all testpayload entries if no Name is provided
     - post: creates a new testpayload entry
-    - put: updates an existing testpayload entry by ID
-    - delete: deletes an existing testpayload entry by ID
+    - put: updates an existing testpayload entry by Name
+    - delete: deletes an existing testpayload entry by Name
     """
 
-    def get(self, testpID=None):
+    def get(self, testpName=None):
         tests_collection = get_db()["testpayloads"]
-        if testpID:
-            entry = tests_collection.find_one({"_id": ObjectId(testpID)})
+        if testpName:
+            entry = tests_collection.find_one({"_id": ObjectId(testpName)})
             if entry:
                 entry["_id"] = str(entry["_id"])  # convert ObjectId to string
                 return jsonify(entry)
@@ -46,23 +46,23 @@ class TestPayloadsResource(Resource):
         except ValidationError as e:
             return {"message": str(e)}, 400
 
-    def put(self, testpID):
+    def put(self, testpName):
         tests_collection = get_db()["testpayloads"]
-        if testpID:
+        if testpName:
             updated_data = request.get_json()
             tests_collection.update_one(
-                {"_id": ObjectId(testpID)}, {"$set": updated_data}
+                {"_id": ObjectId(testpName)}, {"$set": updated_data}
             )
             return {"message": "Entry updated"}, 200
         else:
             return {"message": "Entry not found"}, 404
 
-    def delete(self, testpID):
+    def delete(self, testpName):
         tests_collection = get_db()["testpayloads"]
-        if testpID:
-            entry = tests_collection.find_one({"_id": ObjectId(testpID)})
+        if testpName:
+            entry = tests_collection.find_one({"_id": ObjectId(testpName)})
             if entry:
-                tests_collection.delete_one({"_id": ObjectId(testpID)})
+                tests_collection.delete_one({"_id": ObjectId(testpName)})
                 return {"message": "Entry deleted"}, 200
             else:
                 return {"message": "Entry not found"}, 404

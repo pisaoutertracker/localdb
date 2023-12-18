@@ -2,7 +2,7 @@
     "logbook": {
         "type": "object",
         "properties": {
-            "sessionID": {
+            "sessionName": {
                 "type": "string"
             }, 		    
 	    "station":{
@@ -36,10 +36,10 @@
     "module": {
         "type": "object",
         "properties": {
-            "moduleID": {
+            "moduleName": {
                 "type": "string"
             },
-            "hardwareID": {
+            "hardwareName": {
                 "type": "string"
             },
             "position": {
@@ -65,7 +65,7 @@
             }
         },
         "required": [
-            "moduleID",
+            "moduleName",
             "position",
             "status"
         ]
@@ -161,7 +161,7 @@
     "CurrentCablingMap": {
         "type": "object",
         "properties": {
-            "ID": {
+            "Name": {
                 "type": "string"
             },
             "detSide": {
@@ -178,7 +178,7 @@
             }
         },
         "required": [
-            "ID",
+            "Name",
             "detSide",
             "crateSide",
             "Type"
@@ -187,7 +187,7 @@
     "testpayload":{
         "type": "object",
         "properties": {
-            "sessionID": {
+            "sessionName": {
                 "type": "string"
             },
             "details":{
@@ -207,14 +207,14 @@
             }
         },
         "required": [
-            "sessionID",
+            "sessionName",
             "remoteFileList"
         ]
     },
     "session":{
         "type": "object",
         "properties": {
-            "sessionID": {
+            "sessionName": {
                 "type": "string"
             },
             "operator": {
@@ -244,7 +244,7 @@
             }
         },
         "required": [
-            "sessionID",
+            "sessionName",
             "operator",
             "timestamp",
             "description",
@@ -260,7 +260,7 @@
             "bsonType": "date",
             "description": "Date of the test run"
           },
-          "test_runID": {
+          "test_runName": {
             "type": "string",
             "description": "Unique identifier for the test run"
           },
@@ -286,7 +286,7 @@
           },
           "tests": {
             "type": "object",
-            "description": "Mapping of module IDs to test IDs"
+            "description": "Mapping of module Names to test Names"
           },
           "runFile": {
             "type": "string",
@@ -297,12 +297,12 @@
             "description": "Configuration settings for the test run"
           }
         },
-        "required": ["runDate", "test_runID", "runSession", "runStatus", "runType", "runBoards", "tests", "runFile", "runConfiguration"]
+        "required": ["runDate", "test_runName", "runSession", "runStatus", "runType", "runBoards", "tests", "runFile", "runConfiguration"]
       },  
     "moduleTest": {
         "type": "object",
         "properties": {
-        "moduleTestID": {
+        "moduleTestName": {
             "type": "string",
             "description": "Unique identifier for the module test"
           },
@@ -322,9 +322,9 @@
             "type": "string",
             "description": "Name of the board used in the test"
           },
-          "opticalGroupID": {
+          "opticalGroupName": {
             "type": "integer",
-            "description": "ID of the optical group"
+            "description": "Name of the optical group"
           },
           "analysesList":
           {
@@ -337,16 +337,16 @@
               "description": "Reference to the ref analysis for the test run"
           }
         },
-        "required": ["moduleTestID", "run", "module", "noise", "board", "opticalGroupID"]
+        "required": ["moduleTestName", "run", "module", "noise", "board", "opticalGroupName"]
       },
     "moduleTestAnalysis":{
         "type": "object",
         "properties": {
-            "moduleTestAnalysisID": {
+            "moduleTestAnalysisName": {
                 "type": "string",
                 "description": "Unique identifier for the module test analysis"
             },
-            "moduleTestID": {
+            "moduleTestName": {
                 "type": "string",
                 "description": "Reference to the module test being analyzed"
             },
@@ -371,12 +371,12 @@
                 "description": "Path to the file containing analysis results"
             }
         },
-        "required": ["moduleTestAnalysisID", "moduleTestID", "analysisVersion", "analysisResults", "analysisSummary", "analysisFile"]
+        "required": ["moduleTestAnalysisName", "moduleTestName", "analysisVersion", "analysisResults", "analysisSummary", "analysisFile"]
     },
     "tests": {
         "type": "object",
         "properties": {
-            "testID": {
+            "testName": {
                 "type": "string"
             },
             "modules_list": {
@@ -400,12 +400,12 @@
             "testResults": {
                 "type": "object"
             },
-            "testPayloadID": {
+            "testPayloadName": {
                 "type": "string"
             }
         },
         "required": [
-            "testID",
+            "testName",
             "testType",
             "modules_list",
             "testDate",

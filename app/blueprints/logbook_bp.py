@@ -26,8 +26,8 @@ def SearchLogBookByText():
     return jsonify(results), 200
 
 
-@bp.route("/searchLogBookByModuleIDs", methods=["POST"])
-def SearchLogBookByModuleIDs():
+@bp.route("/searchLogBookByModuleNames", methods=["POST"])
+def SearchLogBookByModuleNames():
     logbook_collection = get_db()["logbook"]
     data = request.get_json()
     pattern = data.get("modules")

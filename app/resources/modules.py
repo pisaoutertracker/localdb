@@ -17,23 +17,23 @@ class ModulesResource(Resource):
         Resource (Resource): Flask RESTful Resource
     """
 
-    def get(self, moduleID=None):
+    def get(self, moduleName=None):
         """
-        Retrieves a module from the database based on its moduleID number, or retrieves all modules if no moduleID number is provided.
+        Retrieves a module from the database based on its moduleName number, or retrieves all modules if no moduleName number is provided.
 
         Args:
-            moduleID (int, optional): The moduleID number of the module to retrieve. Defaults to None.
+            moduleName (int, optional): The moduleName number of the module to retrieve. Defaults to None.
 
         Returns:
-            If moduleID is provided, returns a JSON representation of the module. If moduleID is not provided, returns a JSON representation of all modules in the database.
+            If moduleName is provided, returns a JSON representation of the module. If moduleName is not provided, returns a JSON representation of all modules in the database.
         """
         modules_collection = get_db()["modules"]
-        if moduleID:
-            module = modules_collection.find_one({"moduleID": moduleID})
+        if moduleName:
+            module = modules_collection.find_one({"moduleName": moduleName})
             if not module:
                 try:
-                    moduleID_id = ObjectId(moduleID)
-                    module = modules_collection.find_one({"_id": moduleID_id})
+                    moduleName_id = ObjectId(moduleName)
+                    module = modules_collection.find_one({"_id": moduleName_id})
                 except bson.errors.InvalidId:
                     module = None
             if module:
@@ -58,13 +58,13 @@ class ModulesResource(Resource):
         try:
             new_module = request.get_json()
             validate(instance=new_module, schema=module_schema)
-            # if an module with the same ID already exists, return an error
-            if modules_collection.count_documents({"moduleID": new_module["moduleID"]}) != 0:
+            # if an module with the same Name already exists, return an error
+            if modules_collection.count_documents({"moduleName": new_module["moduleName"]}) != 0:
                 return (
                     
                         {
-                            "message": "Module ID already exists. Please try again.",
-                            "moduleID": new_module["moduleID"],
+                            "message": "Module Name already exists. Please try again.",
+                            "moduleName": new_module["moduleName"],
                         }
                     ,
                     400,
@@ -74,31 +74,31 @@ class ModulesResource(Resource):
         except ValidationError as e:
             return {"message": str(e)}, 400
 
-    def put(self, moduleID):
+    def put(self, moduleName):
         """
         Updates an existing module in the database.
 
         Args:
-            moduleID (int): The moduleID number of the module to update.
+            moduleName (int): The moduleName number of the module to update.
 
         Returns:
             If the module is successfully updated, returns a message indicating success.
         """
         modules_collection = get_db()["modules"]
         updated_data = request.get_json()
-        modules_collection.update_one({"moduleID": moduleID}, {"$set": updated_data})
+        modules_collection.update_one({"moduleName": moduleName}, {"$set": updated_data})
         return {"message": "Module updated"}, 200
 
-    def delete(self, moduleID):
+    def delete(self, moduleName):
         """
         Deletes an existing module from the database.
 
         Args:
-            moduleID (int): The moduleID number of the module to delete.
+            moduleName (int): The moduleName number of the module to delete.
 
         Returns:
             If the module is successfully deleted, returns a message indicating success.
         """
         modules_collection = get_db()["modules"]
-        modules_collection.delete_one({"moduleID": moduleID})
+        modules_collection.delete_one({"moduleName": moduleName})
         return {"message": "Module deleted"}, 200

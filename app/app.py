@@ -47,13 +47,13 @@ def create_app(config_name):
     app.json = CustomJSONProvider(app)
 
     # Load resources
-    api.add_resource(modules.ModulesResource, "/modules", "/modules/<string:moduleID>")
+    api.add_resource(modules.ModulesResource, "/modules", "/modules/<string:moduleName>")
     api.add_resource(logbook.LogbookResource, "/logbook", "/logbook/<string:_id>")
-    api.add_resource(tests.TestsResource, "/tests", "/tests/<string:testID>")
+    api.add_resource(tests.TestsResource, "/tests", "/tests/<string:testName>")
     api.add_resource(
         test_payloads.TestPayloadsResource,
         "/test_payloads",
-        "/test_payloads/<string:testpID>",
+        "/test_payloads/<string:testpName>",
     )
     api.add_resource(cables.CablesResource, "/cables", "/cables/<string:name>")
     api.add_resource(crates.CratesResource, "/crates", "/crates/<string:name>")
@@ -63,20 +63,20 @@ def create_app(config_name):
         "/cable_templates/<string:cable_type>",
     )
     api.add_resource(
-        test_run.TestRunResource, "/test_run", "/test_run/<string:test_runID>"
+        test_run.TestRunResource, "/test_run", "/test_run/<string:test_runName>"
     )
     api.add_resource(
         module_test.ModuleTestsResource,
         "/module_test",
-        "/module_test/<string:moduleTestKey>",
+        "/module_test/<string:moduleTestName>",
     )
     api.add_resource(
-        session.SessionsResource, "/sessions", "/sessions/<string:sessionKey>"
+        session.SessionsResource, "/sessions", "/sessions/<string:sessionName>"
     )
     api.add_resource(
         module_test_analysis.ModuleTestAnalysisResource,
         "/module_test_analysis",
-        "/module_test_analysis/<string:moduleTestAnalysisKey>",
+        "/module_test_analysis/<string:moduleTestAnalysisName>",
     )
 
     # Load blueprints
