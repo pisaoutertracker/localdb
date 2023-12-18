@@ -58,7 +58,7 @@ class TestAPI(TestCase):
 
     def test_insert_module(self):
         new_module = {
-            "moduleID": "INV001",
+            "moduleName": "INV001",
             "position": "cleanroom",
             "status": "readyformount",
             # ... (other properties)
@@ -69,7 +69,7 @@ class TestAPI(TestCase):
 
         response = self.client.get("/modules/INV001")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["moduleID"], "INV001")
+        self.assertEqual(response.json["moduleName"], "INV001")
 
     def test_fetch_specific_module_not_found(self):
         response = self.client.get("/modules/INV999")
@@ -264,7 +264,7 @@ class TestAPI(TestCase):
         cable4_id = cable4_response["_id"]
 
         module = {
-            "moduleID": "Module 1",
+            "moduleName": "Module 1",
             "position": "cleanroom",
             "status": "readyformount",
             "connectedTo": cable3_id,
@@ -397,7 +397,7 @@ class TestAPI(TestCase):
         self.assertEqual(len(logbook_entries.json),2)
 
 
-    def test_LogBookSearchByModuleIDs(self):
+    def test_LogBookSearchByModuleNames(self):
         #insert a few entriesi for testing
         new_log = {
             "timestamp": "2023-11-03T14:21:29Z",
@@ -419,7 +419,7 @@ class TestAPI(TestCase):
         response = self.client.post("/logbook", json=new_log2)
 
         logbook_entries = self.client.post(
-            "/searchLogBookByModuleIDs",
+            "/searchLogBookByModuleNames",
             json={
                 "modules": "PS.*"
             }
@@ -451,7 +451,7 @@ class TestAPI(TestCase):
 #################
     def test_insert_get_delete_testpayload(self):
         new_log = {
-            "sessionID": "testsession000",
+            "sessionName": "testsession000",
             "remoteFileList": ['http://cernbox.cern.ch/pippo_pluto','http://cernbox.cern.ch/cappero'],
             "details": " I tried to insert PS_88 and PS_44. and also PS_1."
         }
@@ -482,19 +482,19 @@ class TestAPI(TestCase):
         response = self.client.post('/sessions', json=session_entry)
         self.assertEqual(response.status_code, 201)
         self.assertIn('message', response.json)
-        # get the sessionKey from the response
-        sessionKey = response.json['sessionKey']
+        # get the sessionName from the response
+        sessionName = response.json['sessionName']
 
         test_run_data = {
         'runDate': '1996-11-21T10:00:56',
         'runStatus': 'failed',
         'runType': 'Type1',
-        'runSession': sessionKey,
+        'runSession': sessionName,
         'runBoards': {
             3: 'fc7ot2',
             4: 'fc7ot3',
         },
-        'runModules' : { ## (board, optical group) : (moduleID, hwIDmodule)
+        'runModules' : { ## (board, optical group) : (moduleName, hwNamemodule)
             'fc7ot2_optical0' : ("M123", 67),
             'fc7ot2_optical1' : ("M124", 68),
             'fc7ot3_optical2' : ("M125", 69),
@@ -542,13 +542,13 @@ class TestAPI(TestCase):
         response = self.client.post('/sessions', json=session_entry)
         self.assertEqual(response.status_code, 201)
         self.assertIn('message', response.json)
-        # get the sessionKey from the response
-        sessionKey = response.json['sessionKey']
+        # get the sessionName from the response
+        sessionName = response.json['sessionName']
 
         run_entry = {
         "runDate": "1996-11-21",
-        "test_runID": "T53",
-        "runSession": sessionKey,
+        "test_runName": "T53",
+        "runSession": sessionName,
         "runStatus": "failed",
         "runType": "Type1",
         "runBoards": {
@@ -566,7 +566,7 @@ class TestAPI(TestCase):
         # get it back
         response = self.client.get('/test_run/T53')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['test_runID'], 'T53')
+        self.assertEqual(response.json['test_runName'], 'T53')
         # modify it
         run_entry['runStatus'] = 'passed'
         response = self.client.put('/test_run/T53', json=run_entry)
@@ -593,29 +593,29 @@ class TestAPI(TestCase):
         response = self.client.post('/sessions', json=session_entry)
         self.assertEqual(response.status_code, 201)
         self.assertIn('message', response.json)
-        # get the sessionKey from the response
-        sessionKey = response.json['sessionKey']
+        # get the sessionName from the response
+        sessionName = response.json['sessionName']
         # get it back
-        response = self.client.get(f'/sessions/{sessionKey}')
+        response = self.client.get(f'/sessions/{sessionName}')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['sessionKey'], f'{sessionKey}')
+        self.assertEqual(response.json['sessionName'], f'{sessionName}')
         # modify it
         session_entry['operator'] = 'John Doe2'
-        response = self.client.put(f'/sessions/{sessionKey}', json=session_entry)
+        response = self.client.put(f'/sessions/{sessionName}', json=session_entry)
         self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
         # get all sessions
         response = self.client.get(f'/sessions')
         self.assertEqual(response.status_code, 200)
         # delete it
-        response = self.client.delete(f'/sessions/{sessionKey}')
+        response = self.client.delete(f'/sessions/{sessionName}')
         self.assertEqual(response.status_code, 200)
         self.assertIn('message', response.json)
 
     def test_module_test_analysis_resource(self):
         mta_entry = {
-            "moduleTestAnalysisKey": "MTA22",
-            "moduleTestKey": "MT1",
+            "moduleTestAnalysisName": "MTA22",
+            "moduleTestName": "MT1",
             "analysisVersion": "v1",
             "analysisResults": {"a":"b"},
             "analysisSummary": {"a":"b"},
@@ -628,12 +628,12 @@ class TestAPI(TestCase):
         # get it back
         response = self.client.get('/module_test_analysis/MTA22')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['moduleTestAnalysisKey'], 'MTA22')
+        self.assertEqual(response.json['moduleTestAnalysisName'], 'MTA22')
         # get by Mongo _id
         _id = response.json['_id']
         response = self.client.get(f'/module_test_analysis/{_id}')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['moduleTestAnalysisKey'], 'MTA22')
+        self.assertEqual(response.json['moduleTestAnalysisName'], 'MTA22')
         # modify it
         mta_entry['analysisVersion'] = 'v2'
         response = self.client.put('/module_test_analysis/MTA22', json=mta_entry)
@@ -650,8 +650,8 @@ class TestAPI(TestCase):
     def test_add_analysis(self):
 
         mta_entry = {
-            "moduleTestAnalysisKey": "MTA1",
-            "moduleTestKey": "MT1",
+            "moduleTestAnalysisName": "MTA1",
+            "moduleTestName": "MT1",
             "analysisVersion": "v1",
             "analysisResults": {"a":"b"},
             "analysisSummary": {"a":"b"},
@@ -663,12 +663,12 @@ class TestAPI(TestCase):
         self.assertIn('message', response.json)
 
         mt_entry = {
-            "moduleTestKey": "MT1",
+            "moduleTestName": "MT1",
             "run": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
             "module": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
             "noise": {"a":"b"},
             "board": "fc7ot2",
-            "opticalGroupID": 1,
+            "opticalGroupName": 1,
         }
 
         # insert it
@@ -677,13 +677,13 @@ class TestAPI(TestCase):
         self.assertIn('message', response.json)
 
         # use the addAnalysis endpoint as get with MTA1 name
-        response = self.client.get('/addAnalysis', query_string={'moduleTestAnalysisKey': 'MTA1'})        
+        response = self.client.get('/addAnalysis', query_string={'moduleTestAnalysisName': 'MTA1'})        
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json['message'], 'Analysis MTA1 added to module test MT1')
         # get the module_test back
         response = self.client.get('/module_test/MT1')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['moduleTestKey'], 'MT1')
+        self.assertEqual(response.json['moduleTestName'], 'MT1')
         # check the analysis list contains MTA1
         self.assertEqual(response.json['analysesList'], ['MTA1'])
         # check that referenceAnalysis is MTA1
