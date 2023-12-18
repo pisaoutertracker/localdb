@@ -214,7 +214,7 @@
     "session":{
         "type": "object",
         "properties": {
-            "sessionKey": {
+            "sessionID": {
                 "type": "string"
             },
             "operator": {
@@ -244,7 +244,7 @@
             }
         },
         "required": [
-            "sessionKey",
+            "sessionID",
             "operator",
             "timestamp",
             "description",
@@ -302,7 +302,7 @@
     "moduleTest": {
         "type": "object",
         "properties": {
-        "moduleTestKey": {
+        "moduleTestID": {
             "type": "string",
             "description": "Unique identifier for the module test"
           },
@@ -337,16 +337,16 @@
               "description": "Reference to the ref analysis for the test run"
           }
         },
-        "required": ["moduleTestKey", "run", "module", "noise", "board", "opticalGroupID"]
+        "required": ["moduleTestID", "run", "module", "noise", "board", "opticalGroupID"]
       },
     "moduleTestAnalysis":{
         "type": "object",
         "properties": {
-            "moduleTestAnalysisKey": {
+            "moduleTestAnalysisID": {
                 "type": "string",
                 "description": "Unique identifier for the module test analysis"
             },
-            "moduleTestKey": {
+            "moduleTestID": {
                 "type": "string",
                 "description": "Reference to the module test being analyzed"
             },
@@ -371,7 +371,7 @@
                 "description": "Path to the file containing analysis results"
             }
         },
-        "required": ["moduleTestAnalysisKey", "moduleTestKey", "analysisVersion", "analysisResults", "analysisSummary", "analysisFile"]
+        "required": ["moduleTestAnalysisID", "moduleTestID", "analysisVersion", "analysisResults", "analysisSummary", "analysisFile"]
     },
     "tests": {
         "type": "object",

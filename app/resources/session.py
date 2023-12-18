@@ -20,15 +20,15 @@ class SessionsResource(Resource):
         - delete: deletes an existing session entry by ID
         """
 
-        def get(self, sessionKey=None):
+        def get(self, sessionID=None):
             sessions_collection = get_db()["sessions"]
-            if sessionKey:
-                # first try to get by sessionKey, otherwise get by _id
-                entry = sessions_collection.find_one({"sessionKey": sessionKey})
+            if sessionID:
+                # first try to get by sessionID, otherwise get by _id
+                entry = sessions_collection.find_one({"sessionID": sessionID})
                 if not entry:
                     try:
-                        sessionKey_id = ObjectId(sessionKey)
-                        entry = sessions_collection.find_one({"_id": sessionKey_id})
+                        sessionID_id = ObjectId(sessionID)
+                        entry = sessions_collection.find_one({"_id": sessionID_id})
                     except bson.errors.InvalidId:
                         entry = None
 
@@ -47,41 +47,41 @@ class SessionsResource(Resource):
             sessions_collection = get_db()["sessions"]
             try:
                 new_entry = request.get_json()
-                # add to the new_entry the sessionKey defined 
+                # add to the new_entry the sessionID defined 
                 # as the length of the collection + 1
-                new_entry["sessionKey"] = f"session{sessions_collection.count_documents({}) + 1}"
+                new_entry["sessionID"] = f"session{sessions_collection.count_documents({}) + 1}"
                 validate(instance=new_entry, schema=session_schema)
-                # if an entry with the same Key already exists, return an error
-                if sessions_collection.count_documents({"sessionKey": new_entry["sessionKey"]}) != 0:
+                # if an entry with the same ID already exists, return an error
+                if sessions_collection.count_documents({"sessionID": new_entry["sessionID"]}) != 0:
                     return (
                         
                             {
-                                "message": "Session key already exists. Please try again.",
-                                "sessionKey": new_entry["sessionKey"],
+                                "message": "Session ID already exists. Please try again.",
+                                "sessionID": new_entry["sessionID"],
                             }
                         ,
                         400,
                     )
                 sessions_collection.insert_one(new_entry)
-                # return the sessionKey as well
-                return {"message": "Entry created", "sessionKey": new_entry["sessionKey"]}, 201
+                # return the sessionID as well
+                return {"message": "Entry created", "sessionID": new_entry["sessionID"]}, 201
             except ValidationError as e:
                 print(e)
                 return {"message": str(e)}, 400
 
-        def put(self, sessionKey):
+        def put(self, sessionID):
             sessions_collection = get_db()["sessions"]
-            if sessionKey:
+            if sessionID:
                 updated_data = request.get_json()
-                sessions_collection.update_one({"sessionKey": sessionKey}, {"$set": updated_data})
+                sessions_collection.update_one({"sessionID": sessionID}, {"$set": updated_data})
                 return {"message": "Entry updated"}, 200
             else:
                 return {"message": "Entry not found"}, 404
 
-        def delete(self, sessionKey):
+        def delete(self, sessionID):
             sessions_collection = get_db()["sessions"]
-            if sessionKey:
-                sessions_collection.delete_one({"sessionKey": sessionKey})
+            if sessionID:
+                sessions_collection.delete_one({"sessionID": sessionID})
                 return {"message": "Entry deleted"}, 200
             else:
                 return {"message": "Entry not found"}, 404
