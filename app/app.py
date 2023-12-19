@@ -14,6 +14,7 @@ from bson import json_util
 import datetime
 from importlib import import_module
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "utils")))
 # make it so that utils can be imported from anywhere
@@ -21,9 +22,10 @@ from .utils import get_db, CustomJSONProvider
 # import configs as config_module
 from .resources import modules, logbook, tests, test_payloads, cables, crates, cable_templates, test_run, module_test
 from .blueprints import logbook_bp, cables_bp, test_run_bp
-
+ 
 def create_app(config_name):
     app = Flask(__name__)
+    CORS(app)
 
     load_dotenv(f"../config/{config_name}.env")
     app.config["MONGO_URI"] = os.environ["MONGO_URI"]
