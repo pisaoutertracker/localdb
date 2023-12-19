@@ -282,9 +282,13 @@
             "type": "object",
             "description": "Mapping of board numbers to names"
           },
-          "tests": {
-            "type": "object",
-            "description": "Mapping of module Names to test Names"
+          "_moduleTest_id": {
+            "type": "array",
+            "description": "Index to the module tests by mongo id"
+          },
+          "moduleTestName": {
+            "type": "array",
+            "description": "Index to the module tests by name"
           },
           "runFile": {
             "type": "string",
@@ -295,7 +299,7 @@
             "description": "Configuration settings for the test run"
           }
         },
-        "required": ["runDate", "test_runName", "runSession", "runStatus", "runType", "runBoards", "tests", "runFile", "runConfiguration"]
+        "required": ["runDate", "test_runName", "runSession", "runStatus", "runType", "runBoards", "_moduleTest_id", "moduleTestName", "runFile", "runConfiguration"]
       },  
     "moduleTest": {
         "type": "object",
@@ -304,14 +308,22 @@
             "type": "string",
             "description": "Unique identifier for the module test"
           },
-          "run": {
+          "_test_run_id": {
             "bsonType": "objectId",
             "description": "Reference to the test run"
           },
-          "module": {
+          "test_runName": {
+            "type": "string",
+            "description": "Reference to the test run"
+          },
+          "_module_id": {
             "bsonType": "objectId",
             "description": "Reference to the module being tested"
           },
+            "moduleName": {
+                "type": "string",
+                "description": "Reference to the module being tested"
+            },
           "noise": {
             "type": "object",
             "description": "Noise data for the module test"
@@ -335,7 +347,7 @@
               "description": "Reference to the ref analysis for the test run"
           }
         },
-        "required": ["moduleTestName", "run", "module", "noise", "board", "opticalGroupName"]
+        "required": ["moduleTestName", "_test_run_id", "test_runName", "_module_id", "moduleName", "noise", "board", "opticalGroupName"]
       },
     "moduleTestAnalysis":{
         "type": "object",

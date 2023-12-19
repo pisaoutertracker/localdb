@@ -15,7 +15,7 @@ import os
 
 class TestAPI(TestCase):
     def create_app(self):
-        return create_app("test")
+        return create_app("unittest")
 
     def setUp(self):
         self.app = self.create_app()
@@ -555,10 +555,10 @@ class TestAPI(TestCase):
             3: 'fc7ot2',
             4: 'fc7ot3',
         },
-        "tests": {},
+        "_moduleTest_id": [],
+        "moduleTestName": [],
         "runFile": "link",
-        "runConfiguration": {"a":"b"},
-        }
+        "runConfiguration": {"a":"b"},}
         # insert it
         response = self.client.post('/test_run', json=run_entry)
         self.assertEqual(response.status_code, 201)
@@ -664,8 +664,10 @@ class TestAPI(TestCase):
 
         mt_entry = {
             "moduleTestName": "MT1",
-            "run": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
-            "module": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
+            "_test_run_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
+            "test_runName": "T53",
+            "_module_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),
+            "moduleName": "M123",
             "noise": {"a":"b"},
             "board": "fc7ot2",
             "opticalGroupName": 1,

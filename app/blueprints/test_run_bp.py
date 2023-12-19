@@ -46,7 +46,8 @@ def add_run():
         "runStatus": data["runStatus"],
         "runType": data["runType"],
         "runBoards": data["runBoards"],
-        "tests": [],
+        "_moduleTest_id": [],
+        "moduleTestName": [],
         "runFile": data["runFile"],
         "runConfiguration": data["runConfiguration"],
     }
@@ -100,14 +101,17 @@ def add_run():
         # create the module test entry
         module_test_entry = {
             "moduleTestName": moduleTestName,
-            "run": run_id,
-            "module": module_doc["_id"],
+            "_test_run_id": run_id,
+            "test_runName": run_key,
+            "_module_id": module_doc["_id"],
+            "moduleName": module_key,
             "noise": data["runNoise"][hw_id],
             "board": board,
             "opticalGroupName": optical_group,
         }
         test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
-        run_entry["tests"].append((moduleTestName, test_id))
+        run_entry["moduleTestName"].append(moduleTestName)
+        run_entry["_moduleTest_id"].append((test_id))
 
         # update the module entry by appending to the moduleTests list
         #the tuple (module test Name, module test ObjectId)
@@ -116,9 +120,9 @@ def add_run():
             {"$push": {"moduleTests": (moduleTestName, test_id)}},
         )
 
-    # Update the test run with module test mongo ObjectIds
+    # Update the test run with module test mongo ObjectIds and names
     testRuns_collection.update_one(
-        {"_id": run_id}, {"$set": {"tests": run_entry["tests"]}}
+        {"_id": run_id}, {"$set": {"moduleTestName": run_entry["moduleTestName"], "_moduleTest_id": run_entry["_moduleTest_id"]}}
     )
     return (
         jsonify(
