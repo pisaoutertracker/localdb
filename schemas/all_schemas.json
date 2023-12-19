@@ -248,9 +248,7 @@
             "operator",
             "timestamp",
             "description",
-            "modulesList",
-            "configuration",
-            "log"
+            "modulesList"
         ]
     },
     "testRun": {

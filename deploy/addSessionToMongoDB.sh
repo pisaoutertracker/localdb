@@ -9,8 +9,7 @@ SESSION_ENTRY='{
     "operator": "John Doe",
     "description": "I tried to insert PS_88 and PS_44. and also PS_1.",
     "modulesList": ["PS_1","PS_2"],
-    "configuration": {"a":"b"},
-    "log": ["uuhuh", "pippo"]
+    "thailandia": "PS_1"
 }'
 
 curl -X POST -H "Content-Type: application/json" -d "$SESSION_ENTRY" "$API_URL"

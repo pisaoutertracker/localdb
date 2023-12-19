@@ -124,6 +124,7 @@ def add_run():
         jsonify(
             {
                 "message": "Test run and module tests added successfully",
+                "test_runName": run_key,
                 "run_id": str(run_id),
             }
         ),
