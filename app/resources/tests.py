@@ -13,17 +13,17 @@ class TestsResource(Resource):
     Resource for handling HTTP requests related to tests.
 
     Methods:
-    - get: retrieves a test entry by ID or all test entries if no ID is provided
+    - get: retrieves a test entry by Name or all test entries if no Name is provided
     - post: creates a new test entry
-    - put: updates an existing test entry by ID
-    - delete: deletes an existing test entry by ID
+    - put: updates an existing test entry by Name
+    - delete: deletes an existing test entry by Name
     """
 
-    def get(self, testID=None):
+    def get(self, testName=None):
         tests_collection = get_db()["tests"]
 
-        if testID:
-            entry = tests_collection.find_one({"testID": testID})
+        if testName:
+            entry = tests_collection.find_one({"testName": testName})
             if entry:
                 entry["_id"] = str(entry["_id"])  # convert ObjectId to string
                 return jsonify(entry)
@@ -45,21 +45,21 @@ class TestsResource(Resource):
         except ValidationError as e:
             return {"message": str(e)}, 400
 
-    def put(self, testID):
+    def put(self, testName):
         tests_collection = get_db()["tests"]
-        if testID:
+        if testName:
             updated_data = request.get_json()
-            tests_collection.update_one({"testID": testID}, {"$set": updated_data})
+            tests_collection.update_one({"testName": testName}, {"$set": updated_data})
             return {"message": "Entry updated"}, 200
         else:
             return {"message": "Entry not found"}, 404
 
-    def delete(self, testID):
+    def delete(self, testName):
         tests_collection = get_db()["tests"]
-        if testID:
-            entry = tests_collection.find_one({"testID": testID})
+        if testName:
+            entry = tests_collection.find_one({"testName": testName})
             if entry:
-                tests_collection.delete_one({"testID": testID})
+                tests_collection.delete_one({"testName": testName})
                 return {"message": "Entry deleted"}, 200
             else:
                 return {"message": "Entry not found"}, 404
