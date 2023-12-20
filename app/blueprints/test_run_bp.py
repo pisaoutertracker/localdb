@@ -70,11 +70,12 @@ def add_run():
     run_entry["_runSession_id"] = str(session_id)
     run_id = testRuns_collection.insert_one(run_entry).inserted_id
 
-    if "test_runName" not in session:
-        session["test_runName"] = []
-        session["_test_run_id"] = []
-    session["test_runName"].append(run_key)
-    session["_test_run_id"].append(str(run_id))
+    # update the session entry by appending to the test_runName list
+    # and to _test_run_id the ObjectId of the test run
+    sessions_collection.update_one(
+        {"sessionName": data["runSession"]},
+        {"$push": {"test_runName": run_key, "_test_run_id": str(run_id)}},
+    )
 
     # Process each module test
     for board_and_optical_group, (module_key, hw_id) in data["runModules"].items():
