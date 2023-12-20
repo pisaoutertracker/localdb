@@ -28,9 +28,7 @@
         "required": [
             "timestamp",
             "operator",
-	        "sessionid",
-	        "station",
-	        "event"
+	    "event"
         ]
     },
     "module": {
