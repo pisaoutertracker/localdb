@@ -45,11 +45,24 @@ class SessionsResource(Resource):
 
         def post(self):
             sessions_collection = get_db()["sessions"]
+            metadata_collection = get_db()["metadata"]
+            # check for the metadata object in metadata collection, and create it if it does not exist
+            if metadata_collection.count_documents({"name": "metadata"}) == 0:
+                metadata_collection.insert_one({"name": "metadata", "lastSessionNumber": 0})
             try:
                 new_entry = request.get_json()
-                # add to the new_entry the sessionName defined 
-                # as the length of the collection + 1
-                new_entry["sessionName"] = f"session{sessions_collection.count_documents({}) + 1}"
+
+                # check that session collection is not empty
+                # if it is, set the sessionName to session1
+                if sessions_collection.count_documents({}) == 0:
+                    new_entry["sessionName"] = "session1"
+                    metadata_collection.update_one({"name": "metadata"}, {"$set": {"lastSessionNumber": 1}})
+                # if it is not, set the sessionName to last sessionName number +1
+                else:
+                    last_session = metadata_collection.find_one({"name": "metadata"})["lastSessionNumber"]
+                    new_entry["sessionName"] = "session" + str(last_session + 1)
+                    metadata_collection.update_one({"name": "metadata"}, {"$set": {"lastSessionNumber": last_session + 1}})
+
                 validate(instance=new_entry, schema=session_schema)
                 # if an entry with the same Name already exists, return an error
                 if sessions_collection.count_documents({"sessionName": new_entry["sessionName"]}) != 0:
