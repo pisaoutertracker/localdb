@@ -15,7 +15,7 @@ import os
 
 class TestAPI(TestCase):
     def create_app(self):
-        return create_app("unnitest")
+        return create_app("unittest")
 
     def setUp(self):
         self.app = self.create_app()
