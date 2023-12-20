@@ -10,9 +10,11 @@ cd ~/serverconfig/localdb
 git pull
 cd ~/serverconfig
 
+# stop and restart the docker container
 podman-compose --env ../pisaoutertracker.env down localdb 
-podman-compose --env ../pisaoutertracker.env up localdb 
+podman-compose --env ../pisaoutertracker.env up localdb -d
 
-podman-compose --env ../pisaoutertracker.env down logs
+#check logs to see that it started
+podman-compose --env ../pisaoutertracker.env logs localdb
 ```
 
