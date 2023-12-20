@@ -236,6 +236,18 @@
                     "type": "string"
                 }
             },
+            "test_runName":{
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "_test_run_id":{
+                "type": "array",
+                "items": {
+                    "bsonType": "objectId"
+                }
+            },
             "log": {
                 "type": "array",
                 "items": {
@@ -266,7 +278,7 @@
             "type": "string",
             "description": "Reference to the session in which the test run was performed"
           },
-          "runSession_id": {
+          "_runSession_id": {
             "type": "string",
             "description": "Reference to the session in which the test run was performed"
           },

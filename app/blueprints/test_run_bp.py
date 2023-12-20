@@ -16,6 +16,7 @@ def add_run():
     testRuns_collection = get_db()["test_runs"]
     modules_collection = get_db()["modules"]
     moduleTests_collection = get_db()["module_tests"]
+    sessions_collection = get_db()["sessions"]
 
     data = request.get_json()
 
@@ -52,7 +53,8 @@ def add_run():
         "runConfiguration": data["runConfiguration"],
     }
     # get the ObjectId of the session
-    session_id = get_db()["sessions"].find_one({"sessionName": data["runSession"]})["_id"]
+    session = sessions_collection.find_one({"sessionName": data["runSession"]})
+    session_id = session["_id"]
     # return error if session does not exist
     if not session_id:
         return (
@@ -65,8 +67,14 @@ def add_run():
             400,
         )
     # add the session ObjectId as str to the run entryrunSession_id
-    run_entry["runSession_id"] = str(session_id)
+    run_entry["_runSession_id"] = str(session_id)
     run_id = testRuns_collection.insert_one(run_entry).inserted_id
+
+    if "test_runName" not in session:
+        session["test_runName"] = []
+        session["_test_run_id"] = []
+    session["test_runName"].append(run_key)
+    session["_test_run_id"].append(str(run_id))
 
     # Process each module test
     for board_and_optical_group, (module_key, hw_id) in data["runModules"].items():
