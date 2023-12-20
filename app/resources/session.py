@@ -54,14 +54,9 @@ class SessionsResource(Resource):
 
                 # check that session collection is not empty
                 # if it is, set the sessionName to session1
-                if sessions_collection.count_documents({}) == 0:
-                    new_entry["sessionName"] = "session1"
-                    metadata_collection.update_one({"name": "metadata"}, {"$set": {"lastSessionNumber": 1}})
-                # if it is not, set the sessionName to last sessionName number +1
-                else:
-                    last_session = metadata_collection.find_one({"name": "metadata"})["lastSessionNumber"]
-                    new_entry["sessionName"] = "session" + str(last_session + 1)
-                    metadata_collection.update_one({"name": "metadata"}, {"$set": {"lastSessionNumber": last_session + 1}})
+                last_session = metadata_collection.find_one({"name": "metadata"})["lastSessionNumber"]
+                new_entry["sessionName"] = "session" + str(last_session + 1)
+                metadata_collection.update_one({"name": "metadata"}, {"$set": {"lastSessionNumber": last_session + 1}})
 
                 validate(instance=new_entry, schema=session_schema)
                 # if an entry with the same Name already exists, return an error
