@@ -121,11 +121,11 @@ def add_run():
         run_entry["moduleTestName"].append(moduleTestName)
         run_entry["_moduleTest_id"].append((test_id))
 
-        # update the module entry by appending to the moduleTests list
-        #the tuple (module test Name, module test ObjectId)
+        # update the module entry by appending to the moduleTestName list
+        #module test Name and to _moduleTesi_id the ObjectId of the module test
         modules_collection.update_one(
             {"moduleName": module_key},
-            {"$push": {"moduleTests": (moduleTestName, test_id)}},
+            {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
         )
 
     # Update the test run with module test mongo ObjectIds and names

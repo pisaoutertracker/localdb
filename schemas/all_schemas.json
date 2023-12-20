@@ -55,7 +55,10 @@
             "overall_grade": {
                 "type": "string"
             },
-            "moduleTests": {
+            "moduleTestName": {
+                "type": "array"
+            },
+            "_moduleTest_id": {
                 "type": "array"
             },
             "detSide": {
