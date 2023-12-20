@@ -35,7 +35,7 @@ from .resources import (
     session,
     module_test_analysis,
 )
-from .blueprints import logbook_bp, cables_bp, test_run_bp, add_analysis_bp
+from .blueprints import logbook_bp, cables_bp, test_run_bp, add_analysis_bp, webgui_bp
 
 
 def create_app(config_name):
@@ -87,8 +87,10 @@ def create_app(config_name):
     app.register_blueprint(cables_bp.bp)
     app.register_blueprint(test_run_bp.bp)
     app.register_blueprint(add_analysis_bp.bp)
+    app.register_blueprint(webgui_bp.bp)
 
     return app
+
 
 
 if __name__ == "__main__":
