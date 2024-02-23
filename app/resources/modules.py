@@ -69,6 +69,19 @@ class ModulesResource(Resource):
                     ,
                     400,
                 )
+            # if an module with the same hwId already exists, return an error
+            # check if the new module has a hwId
+            if "hwId" in new_module:
+                if modules_collection.count_documents({"hwId": new_module["hwId"]}) != 0:
+                    return (
+                        
+                            {
+                                "message": "Module hwId already exists. Please try again.",
+                                "hwId": new_module["hwId"],
+                            }
+                        ,
+                        400,
+                    )
             modules_collection.insert_one(new_module)
             return {"message": "Module inserted"}, 201
         except ValidationError as e:

@@ -78,56 +78,62 @@ def add_run():
     )
 
     # Process each module test
+    skipped_modules_count = 0
     for board_and_optical_group, (module_key, hw_id) in data["runModules"].items():
-        # cast hw_id to str
-        hw_id = str(hw_id)
-        # split board_and_optical_group into board and optical_group
-        # format is board_optical0 and i want to store board and 0, without the optical
-        board, optical_group = board_and_optical_group.split("_optical")
-        optical_group = int(optical_group)
-        # Update or find the module to get its ObjectId
-        module_doc = modules_collection.find_one_and_update(
-            {"moduleName": module_key},
-            {"$set": {"hardwareName": hw_id}},
-            upsert=True,
-            return_document=True,
-        )
-        # create the module testName as
-        # (module_name)__(test_runName)
-        moduleTestName = module_key + "__" + run_key
-        # check if the module testName already exists
-        # if it does, return an error
-        if moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0:
-            return (
-                jsonify(
-                    {
-                        "message": "Module test Name already exists. Please try again.",
-                        "moduleTestName": moduleTestName,
-                    }
-                ),
-                400,
+        if module_key == -1:
+            # print("a moduleID is -1, skipping")
+            skipped_modules_count += 1
+            continue
+        else:
+            # cast hw_id to str
+            hw_id = str(hw_id)
+            # split board_and_optical_group into board and optical_group
+            # format is board_optical0 and i want to store board and 0, without the optical
+            board, optical_group = board_and_optical_group.split("_optical")
+            optical_group = int(optical_group)
+            # Update or find the module to get its ObjectId
+            module_doc = modules_collection.find_one_and_update(
+                {"moduleName": module_key},
+                {"$set": {"hardwareName": hw_id}},
+                upsert=True,
+                return_document=True,
             )
-        # create the module test entry
-        module_test_entry = {
-            "moduleTestName": moduleTestName,
-            "_test_run_id": run_id,
-            "test_runName": run_key,
-            "_module_id": module_doc["_id"],
-            "moduleName": module_key,
-            "noise": data["runNoise"][hw_id],
-            "board": board,
-            "opticalGroupName": optical_group,
-        }
-        test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
-        run_entry["moduleTestName"].append(moduleTestName)
-        run_entry["_moduleTest_id"].append((test_id))
+            # create the module testName as
+            # (module_name)__(test_runName)
+            moduleTestName = module_key + "__" + run_key
+            # check if the module testName already exists
+            # if it does, return an error
+            if moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0:
+                return (
+                    jsonify(
+                        {
+                            "message": "Module test Name already exists. Please try again.",
+                            "moduleTestName": moduleTestName,
+                        }
+                    ),
+                    400,
+                )
+            # create the module test entry
+            module_test_entry = {
+                "moduleTestName": moduleTestName,
+                "_test_run_id": run_id,
+                "test_runName": run_key,
+                "_module_id": module_doc["_id"],
+                "moduleName": module_key,
+                "noise": data["runNoise"][hw_id],
+                "board": board,
+                "opticalGroupName": optical_group,
+            }
+            test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
+            run_entry["moduleTestName"].append(moduleTestName)
+            run_entry["_moduleTest_id"].append((test_id))
 
-        # update the module entry by appending to the moduleTestName list
-        #module test Name and to _moduleTesi_id the ObjectId of the module test
-        modules_collection.update_one(
-            {"moduleName": module_key},
-            {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
-        )
+            # update the module entry by appending to the moduleTestName list
+            # module test Name and to _moduleTest_id the ObjectId of the module test
+            modules_collection.update_one(
+                {"moduleName": module_key},
+                {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
+            )
 
     # Update the test run with module test mongo ObjectIds and names
     testRuns_collection.update_one(
@@ -139,6 +145,7 @@ def add_run():
                 "message": "Test run and module tests added successfully",
                 "test_runName": run_key,
                 "run_id": str(run_id),
+                "skipped_modules_count": skipped_modules_count,
             }
         ),
         201,

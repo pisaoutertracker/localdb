@@ -529,6 +529,51 @@ class TestAPI(TestCase):
         self.assertIn('run_id', response.json)
         self.assertIn('message', response.json)
 
+        # now test again a test_run_data with moduleName = -1
+        test_run_data = {
+            'runDate': '1996-11-21T11:00:56',
+            'runStatus': 'failed',
+            'runType': 'Type1',
+            'runSession': sessionName,
+            'runBoards': {
+                3: 'fc7ot2',
+                4: 'fc7ot3',
+            },
+            'runModules' : { ## (board, optical group) : (moduleName, hwNamemodule)
+                'fc7ot2_optical0' : (-1, 67),
+                'fc7ot2_optical1' : (-1, 68),
+                'fc7ot3_optical2' : (-1, 69),
+            },
+            'runResults' : {
+                67 : "pass",
+                68 : "failed",
+                69 : "failed",
+            },
+            'runNoise' : {
+                67 : {
+                    "SSA0": 4.348,
+                    "SSA4": 3.348,
+                    "MPA9": 2.348,
+                },
+                68 : {
+                    "SSA0": 3.348,
+                    "SSA1": 3.648,
+                },
+                69 : {
+                    "SSA0": 3.548,
+                    "SSA4": 3.248,
+                }
+            },
+            'runConfiguration' : {"a":"b"},
+            'runFile' : "link"
+        }
+
+        response = self.client.post('/addRun', json=test_run_data)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('run_id', response.json)
+        skipped = response.json["skipped_modules_count"] 
+        self.assertEqual(skipped,3)
+
     def test_run_get(self):
         session_entry = {
             "timestamp": "2023-11-03T14:21:29",
