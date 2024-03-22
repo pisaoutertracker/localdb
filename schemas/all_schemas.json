@@ -61,36 +61,19 @@
             "_moduleTest_id": {
                 "type": "array"
             },
-            "detSide": {
+            "type": {
+                "type": "string"
+            },
+            "crateSide": {
                 "type": "array",
-                "description": "List of connections on the detector side",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "port": {
-                            "type": "integer"
-                        },
-                        "connectedTo": {
-                            "bsonType": "objectId",
-                            "description": "Reference to the connected module or cable"
-                        },
-                        "type": {
-                            "type": "string",
-                            "description": "Type of entity this port is connected to, e.g., 'module', 'cable'"
-                        }
-                    },
-                    "required": [
-                        "port",
-                        "connectedTo",
-                        "type"
-                    ]
-                }
+                "description": "List of connections on the detector side"
             }
         },
         "required": [
             "moduleName",
             "position",
-            "status"
+            "status",
+            "type"
         ]
     },
     "cables": {
@@ -101,64 +84,18 @@
                 "description": "Human-readable name for the cable"
             },
             "type": {
-                "type": "string",
-                "description": "Type of cable, e.g., '12-to-1'"
+                "type": "string"
             },
             "detSide": {
-                "type": "array",
-                "description": "List of connections on the detector side",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "port": {
-                            "type": "integer"
-                        },
-                        "connectedTo": {
-                            "bsonType": "objectId",
-                            "description": "Reference to the connected module or cable"
-                        },
-                        "type": {
-                            "type": "string",
-                            "description": "Type of entity this port is connected to, e.g., 'module', 'cable'"
-                        }
-                    },
-                    "required": [
-                        "port",
-                        "connectedTo",
-                        "type"
-                    ]
-                }
-            },
+                "description": "List of connections on the detector side"
+                },
             "crateSide": {
-                "type": "array",
-                "description": "List of connections on the crate side",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "port": {
-                            "type": "integer"
-                        },
-                        "connectedTo": {
-                            "bsonType": "objectId",
-                            "description": "Reference to the connected crate or cable"
-                        },
-                        "type": {
-                            "type": "string",
-                            "description": "Type of entity this port is connected to, e.g., 'crate', 'cable'"
-                        }
-                    },
-                    "required": [
-                        "port",
-                        "connectedTo",
-                        "type"
-                    ]
+                "description": "List of connections on the crate side"
                 }
-            }
+            
         },
         "required": [
-            "type",
-            "detSide",
-            "crateSide"
+            "type"
         ]
     },
     "cable_templates": {
@@ -167,18 +104,10 @@
             "type": {
                 "type": "string",
                 "description": "Type of cable, e.g., '12-to-1'"
-            },
-            "internalRouting": {
-                "type": "object",
-                "additionalProperties": {
-                    "type": ["integer", "array"]
-                },
-                "description": "Mapping of input ports to output ports"
             }
         },
         "required": [
-            "type",
-            "internalRouting"
+            "type"
         ]
     },
     "CurrentCablingMap": {

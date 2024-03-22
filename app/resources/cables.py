@@ -39,6 +39,10 @@ class CablesResource(Resource):
         try:
             new_entry = request.get_json()
             validate(instance=new_entry, schema=cables_schema)
+            # if any cable with the same name already exists, return an error
+            if cables_collection.find_one({"name": new_entry["name"]}):
+                return {"message": "Entry already exists"}, 400
+            
             cables_collection.insert_one(new_entry)
             return {"message": "Entry inserted"}, 201
         except ValidationError as e:
@@ -48,6 +52,8 @@ class CablesResource(Resource):
         cables_collection = get_db()["cables"]
         if name:
             updated_data = request.get_json()
+            # update the cable entry with the new data
+            # but leave the 
             cables_collection.update_one({"name": name}, {"$set": updated_data})
             return {"message": "Entry updated"}, 200
         else:

@@ -57,6 +57,8 @@ class ModulesResource(Resource):
         modules_collection = get_db()["modules"]
         try:
             new_module = request.get_json()
+            if "type" not in new_module:
+                new_module["type"] = "module"
             validate(instance=new_module, schema=module_schema)
             # if an module with the same Name already exists, return an error
             if modules_collection.count_documents({"moduleName": new_module["moduleName"]}) != 0:
@@ -82,6 +84,7 @@ class ModulesResource(Resource):
                         ,
                         400,
                     )
+            # if module has no type field, add it as "module"
             modules_collection.insert_one(new_module)
             return {"message": "Module inserted"}, 201
         except ValidationError as e:

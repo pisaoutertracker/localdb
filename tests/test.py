@@ -1,5 +1,6 @@
 import unittest
 from flask_testing import TestCase
+from flask import jsonify
 import sys
 import os
 from dotenv import load_dotenv
@@ -30,7 +31,7 @@ class TestAPI(TestCase):
             db.tests.drop()
             db.testpayloads.drop()
             db.cables.drop()
-            db.cables_templates.drop()
+            db.cable_templates.drop()
             db.crates.drop()
             db.test_runs.drop()
             db.module_tests.drop()
@@ -135,28 +136,8 @@ class TestAPI(TestCase):
         new_cable = {
  		"name": "E31",
  		"type": "exapus",
- 		"detSide": 
- 			{
- 			  1: ("Module001",6),
- 			  2: ("Module001",7),
- 			  5: ("Module002",6),
- 			  6: ("Module002",7),
- 			},
- 		"crateSide": 
- 			{
- 			  1: ("D41",1),
- 			  2: ("D41",2),
- 			  3: ("D41",3),
- 			  4: ("D41",4),
- 			  5: ("D41",5),
- 			  6: ("D41",6),
- 			  7: ("D41",7),
- 			  8: ("D41",8),
- 			  9: ("D41",9),
- 			  10: ("D41",10),
- 			  11: ("D41",11),
- 			  12: ("D41",12),
- 			},
+ 		"detSide": {},
+         "crateSide": {}
  		}
 
         response = self.client.post("/cables", json=new_cable)
@@ -168,63 +149,153 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["name"], new_cable["name"])
         self.assertEqual(response.json["type"], new_cable["type"])
-        # self.assertListEqual(response.json["detSide"], new_cable["detSide"])
-        # self.assertListEqual(response.json["crateSide"], new_cable["crateSide"])
 
-    # def test_create_connect_disconnect_cables(self):
-    #     # 1. Create some cables
-    #     cables = [
-    #         {"name": "Cable 1", "type": "12-to-1", "detSide": [], "crateSide": []},
-    #         {"name": "Cable 2", "type": "12-to-1", "detSide": [], "crateSide": []},
-    #     ]
-    #     for cable in cables:
-    #         response = self.client.post("/cables", json=cable)
-    #         self.assertEqual(response.status_code, 201)
+        # # update the cable
+        # update = { "detSide": 
+ 		# 	{
+ 		# 	  1: ["Module001",6],
+ 		# 	  2: ["Module001",7],
+ 		# 	  5: ["Module002",6],
+ 		# 	  6: ["Module002",7],
+ 		# 	},
+ 		# "crateSide": 
+ 		# 	{
+ 		# 	  1: ["D41",1],
+ 		# 	  2: ["D41",2],
+ 		# 	  3: ["D41",3],
+ 		# 	  4: ["D41",4],
+ 		# 	  5: ["D41",5],
+ 		# 	  6: ["D41",6],
+ 		# 	  7: ["D41",7],
+ 		# 	  8: ["D41",8],
+ 		# 	  9: ["D41",9],
+ 		# 	  10: ["D41",10],
+ 		# 	  11: ["D41",11],
+ 		# 	  12: ["D41",12],
+ 		# 	},}
+        
+        # self.client.put(f"/cables/{new_cable['name']}", json=update)
+        # response = self.client.get(f"/cables/{new_cable['name']}")
 
-    #     # 2. Connect them
-    #     connect_data = {
-    #         "cable1_name": "Cable 1",
-    #         "cable1_port": 1,
-    #         "cable1_side": "crateSide",
-    #         "cable2_name": "Cable 2",
-    #         "cable2_port": 1,
-    #     }
-    #     response = self.client.post("/connectCables", json=connect_data)
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertEqual(response.json, {"message": "Cables connected"})
+        # self.assertEqual(response.json["detSide"], jsonify(update["detSide"]).json)
+        # self.assertEqual(response.json["crateSide"], jsonify(update["crateSide"]).json)
 
-    #     # Check if cables are connected correctly
-    #     response = self.client.get("/cables/Cable 1")
-    #     self.assertEqual(response.status_code, 200)
-    #     # Fetch Cable 2's ObjectId for comparison
-    #     cable2_response = self.client.get("/cables/Cable 2")
-    #     cable2_id = cable2_response.json["_id"]
-    #     connection_exists = any(
-    #         conn["port"] == 1 and conn["connectedTo"] == cable2_id
-    #         for conn in response.json["crateSide"]
-    #     )
-    #     self.assertTrue(connection_exists)
+        # update2 = { "detSide": 
+        #          {
+ 		# 	  5: ["Module003",6],
+ 		# 	  6: ["Module003",7],
+ 		# 	},  
+        #      "crateSide":
+        #      {
+ 		# 	  10: ["D42",10],
+ 		# 	  11: ["D42",11],
+ 		# 	  12: ["D42",12],
+ 		# 	},
+        # }     
 
-    #     # 3. Disconnect them
-    #     disconnect_data = {
-    #         "cable1_name": "Cable 1",
-    #         "cable1_port": 1,
-    #         "cable1_side": "crateSide",
-    #         "cable2_name": "Cable 2",
-    #         "cable2_port": 1,
-    #     }
-    #     response = self.client.post("/disconnectCables", json=disconnect_data)
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertEqual(response.json, {"message": "Cable disconnected"})
+        # self.client.put(f"/cables/{new_cable['name']}", json=update2)
+        # response = self.client.get(f"/cables/{new_cable['name']}")
+        # print(response.json)
+        # # check that only the relevant connections have been updated
+        # self.assertEqual(response.json["detSide"]["5"], ["Module003",6])
+        # self.assertEqual(response.json["crateSide"]["10"], ["D42",10])
+        # self.assertEqual(response.json["detSide"]["1"], ["Module001",6])
+        # self.assertEqual(response.json["crateSide"]["1"], ["D41",1])
+         
 
-    #     # Check if cables are disconnected correctly
-    #     response = self.client.get("/cables/Cable 1")
-    #     self.assertEqual(response.status_code, 200)
-    #     connection_not_exists = all(
-    #         conn["port"] != 1 or conn["connectedTo"] != cable2_id
-    #         for conn in response.json["crateSide"]
-    #     )
-    #     self.assertTrue(connection_not_exists)
+    def test_create_connect_disconnect_cables(self):
+
+        # read cables.json from the examples folder
+        cable_templates = cables_templates
+
+        for template in cable_templates:
+            response = self.client.post("/cable_templates", json=template)
+            self.assertEqual(response.status_code, 201)
+            self.assertIn("message", response.json)
+            self.assertEqual(response.json["message"], "Template inserted")
+
+            cable_type = template["type"]
+            response = self.client.get(f"/cable_templates/{cable_type}")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json["type"], cable_type)
+
+        # 1. Create some cables
+        new_cable = {
+            "name": "E31",
+            "type": "exapus",
+            "detSide": {},
+            "crateSide": {}
+            }
+
+        new_cable1 = {
+            "name": "D31",
+            "type": "dodecapus",
+            "detSide": {},
+            "crateSide": {}
+            }
+
+        response = self.client.post("/cables", json=new_cable)
+        self.assertEqual(response.status_code, 201)
+        response = self.client.post("/cables", json=new_cable1)
+        self.assertEqual(response.status_code, 201)
+
+        # 2. Connect them
+        connect_data = {
+            "cable1": "E31",
+            "port1": "A",
+            "cable2": "D31",
+            "port2": "A",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables connected successfully"})
+
+        # Check if cables are connected correctly
+        response = self.client.get("/cables/E31")
+        self.assertEqual(response.status_code, 200)
+        
+        self.assertEqual(response.json["crateSide"], 
+            jsonify({1: ["D31", 1],
+                    2: ["D31", 2],
+                    3: ["D31", 3],
+                    4: ["D31", 4],
+                    5: ["D31", 5],
+                    6: ["D31", 6],
+                    7: ["D31", 7],
+                    8: ["D31", 8],
+                    9: ["D31", 9],
+                    10: ["D31", 10],
+                    11: ["D31", 11],
+                    12: ["D31", 12]}).json)
+
+        # 3. Disconnect them
+        disconnect_data = {
+            "cable1": "E31",
+            "cable2": "D31",
+        }
+
+        response = self.client.post("/disconnect", json=disconnect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables disconnected successfully"})
+        # Check if cables are disconnected correctly
+        response = self.client.get("/cables/E31")
+        self.assertEqual(response.status_code, 200)
+        empty_side = {"1":[],
+                      "2":[],
+                      "3":[],
+                      "4":[],
+                      "5":[],
+                      "6":[],
+                      "7":[],
+                      "8":[],
+                      "9":[],
+                      "10":[],
+                      "11":[],
+                      "12":[]}
+        self.assertEqual(response.json["crateSide"], empty_side)
+        response = self.client.get("/cables/D31")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["detSide"], empty_side)
 
     # def test_cabling_snapshot(self):
     #     # 1. Create module, crate, and cables
