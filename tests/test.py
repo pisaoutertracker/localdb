@@ -161,7 +161,6 @@ class TestAPI(TestCase):
         response = self.client.post("/cables", json=new_cable2)
         self.assertEqual(response.status_code, 400)
 
-
     def test_create_connect_disconnect_cables(self):
 
         self.test_insert_cable_templates()
@@ -409,122 +408,83 @@ class TestAPI(TestCase):
         response = self.client.post("/disconnect", json=disconnect_data)
         self.assertEqual(response.status_code, 400)
 
+    def test_cabling_snapshot(self):
 
-    # def test_cabling_snapshot(self):
-    #     # 1. Create module, crate, and cables
-    #     cables = [
-    #         {"name": "Cable 3", "type": "extfib", "detSide": [], "crateSide": []},
-    #         {"name": "Cable 4", "type": "extfib", "detSide": [], "crateSide": []},
-    #     ]
-    #     for cable in cables:
-    #         self.client.post("/cables", json=cable)
+        self.test_insert_cable_templates()
 
-    #     # get the cables ids
-    #     cable3_response = self.client.get("/cables/Cable 3").json
-    #     cable3_id = cable3_response["_id"]
-    #     cable4_response = self.client.get("/cables/Cable 4").json
-    #     cable4_id = cable4_response["_id"]
+        new_cable = {"name": "E31", "type": "exapus", "detSide": {}, "crateSide": {}}
+        # insert
+        response = self.client.post("/cables", json=new_cable)
 
-    #     module = {
-    #         "moduleName": "Module 1",
-    #         "position": "cleanroom",
-    #         "status": "readyformount",
-    #         "connectedTo": cable3_id,
-    #     }
-    #     crate = {"name": "Crate 1", "connectedTo": cable4_id}
+        new_cable1 = {
+            "name": "B31",
+            "type": "burninslot",
+            "detSide": {},
+            "crateSide": {},
+        }
+        response = self.client.post("/cables", json=new_cable1)
 
-    #     module_insert = self.client.post("/modules", json=module)
-    #     crate_insert = self.client.post("/crates", json=crate)
+        new_cable2 = {
+            "name": "S31",
+            "type": "singlefiber",
+            "detSide": {},
+            "crateSide": {},
+        }
+        response = self.client.post("/cables", json=new_cable2)
 
-    #     # get crate and module ids
-    #     respone = self.client.get("/modules/Module 1")
-    #     self.assertEqual(respone.status_code, 200)
-    #     module_id = self.client.get("/modules/Module 1").json["_id"]
-    #     crate_id = self.client.get("/crates/Crate 1").json["_id"]
-    #     # add module and crate to the cables
-    #     crate_conn= {
-    #         "port": 1,
-    #         "connectedTo": crate_id,
-    #         "type": "crate"
-    #     }
-    #     module_conn= {
-    #         "port": 2,
-    #         "connectedTo": module_id,
-    #         "type": "module"
-    #     }
-    #     # update cables
-    #     cable3_response["detSide"].append(module_conn)
-    #     cable4_response["crateSide"].append(crate_conn)
-    #     assert cable4_id == cable4_response["_id"]
-    #     # pop _id
-    #     cable3_response.pop("_id")
-    #     cable4_response.pop("_id")
+        new_cable3 = {
+            "name": "D31",
+            "type": "dodecapus",
+            "detSide": {},
+            "crateSide": {},
+        }
+        response = self.client.post("/cables", json=new_cable3)
 
-    #     self.client.put(f"/cables/Cable 4", json=cable4_response)
-    #     self.client.put(f"/cables/Cable 3", json=cable3_response)
-    #     # check that insertions were successful
-    #     response = self.client.get("/cables/Cable 3")
-    #     self.assertEqual(response.status_code, 200)
-    #     connection_exists = any(
-    #         conn["port"] == 2 and conn["connectedTo"] == module_id
-    #         for conn in response.json["detSide"]
-    #     )
-    #     self.assertTrue(connection_exists)
-    #     response = self.client.get("/cables/Cable 4")
-    #     self.assertEqual(response.status_code, 200)
-    #     connection_exists = any(
-    #         conn["port"] == 1 and conn["connectedTo"] == crate_id
-    #         for conn in response.json["crateSide"]
-    #     )
-    #     self.assertTrue(connection_exists)
+        module = {
+            "moduleName": "Module 1",
+            "position": "cleanroom",
+            "status": "readyformount",
+        }
+        response = self.client.post("/modules", json=module)
 
-    #     # 2. Connect the cables
-    #     connect_data = {
-    #         "cable1_name": "Cable 3",
-    #         "cable1_port": 2,
-    #         "cable1_side": "crateSide",
-    #         "cable2_name": "Cable 4",
-    #         "cable2_port": 1,
-    #     }
-    #     self.client.post("/connectCables", json=connect_data)
-    #     # check if cables are connected correctly
-    #     response = self.client.get("/cables/Cable 3")
-    #     self.assertEqual(response.status_code, 200)
-    #     connection_exists = any(
-    #         conn["port"] == 2 and conn["connectedTo"] == cable4_id
-    #         for conn in response.json["crateSide"]
-    #     )
-    #     self.assertTrue(connection_exists)
+        # connect module to new_cable
+        connect_data = {
+            "cable1": "Module 1",
+            "port1": "fiber",
+            "cable2": "B31",
+            "port2": "fiber",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
 
-    #     # 3. Perform the three snapshots
-    #     # Snapshot from Module
-    #     snapshot_module = self.client.post(
-    #         "/cablingSnapshot",
-    #         json={"starting_point_name": "Module 1", "starting_side": "detSide"},
-    #     )
+        # connect new_cable to new_cable1
+        connect_data = {
+            "cable1": "B31",
+            "port1": "fiber",
+            "cable2": "E31",
+            "port2": "B",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
 
-    #     self.assertEqual(snapshot_module.status_code, 200)
-    #     self.assertEqual(snapshot_module.json["cablingPath"], ["Module 1", "Cable 3", "Cable 4", "Crate 1"])
+        # connect new_cable1 to new_cable2
+        connect_data = {
+            "cable1": "E31",
+            "port1": "A",
+            "cable2": "D31",
+            "port2": "A",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
 
-    #     # Snapshot from Crate
-    #     snapshot_crate = self.client.post(
-    #         "/cablingSnapshot",
-    #         json={"starting_point_name": "Crate 1", "starting_side": "crateSide"},
-    #     )
-    #     self.assertEqual(snapshot_crate.status_code, 200)
-    #     self.assertEqual(snapshot_crate.json["cablingPath"], ["Crate 1", "Cable 4", "Cable 3", "Module 1"])
-
-    #     # Snapshot from Cable (detSide)
-    #     snapshot_cable_det = self.client.post(
-    #         "/cablingSnapshot",
-    #         json={
-    #             "starting_point_name": "Cable 3",
-    #             "starting_side": "detSide",
-    #             "starting_port": 2,
-    #         },
-    #     )
-    #     self.assertEqual(snapshot_cable_det.status_code, 200)
-    #     self.assertEqual(snapshot_cable_det.json["cablingPath"], ["Cable 3", "Cable 4", "Crate 1"])
+        # get cabling snapshot
+        response = self.client.post(
+            "/snapshot",
+            json={"cable": "Module 1", "side": "crateSide"},
+        )
+        self.assertEqual(response.status_code, 200)
+        # check that in the response for key 1
+        self.assertEqual(response.json["1"]["connections"][-1]["cable"], "D31")
 
     # Snapshot from Cable (crateSide)
     def test_LogBookSearchByText(self):

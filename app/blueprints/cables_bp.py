@@ -41,9 +41,11 @@ def connect_cables():
             if "type" not in cable1:
                 cable1["type"] = "module"
             template1 = templates_collection.find_one({"type": cable1["type"]})
-        # if the cable is a module, it may not have been initialized with a crateSide
+            # if the cable is a module, it may not have been initialized with a crateSide
             if "crateSide" not in cable1:
-                cable1["crateSide"] = {str(i): [] for i in range(1, template1["lines"] + 1)}
+                cable1["crateSide"] = {
+                    str(i): [] for i in range(1, template1["lines"] + 1)
+                }
 
     cable2 = cables_collection.find_one({"name": cable2_name})
     if not cable2:
@@ -127,7 +129,7 @@ def disconnect_cables():
     # check that data includes the necessary fields
     if "cable1" not in data or "cable2" not in data:
         return jsonify({"error": "Both cables must be specified"}), 400
-    
+
     cable1_name = data["cable1"]
     cable2_name = data["cable2"]
 
@@ -142,7 +144,9 @@ def disconnect_cables():
                 cable1["type"] = "module"
             template1 = templates_collection.find_one({"type": cable1["type"]})
             if "crateSide" not in cable1:
-                cable1["crateSide"] = {str(i): [] for i in range(1, template1["lines"] + 1)}
+                cable1["crateSide"] = {
+                    str(i): [] for i in range(1, template1["lines"] + 1)
+                }
 
     cable2 = cables_collection.find_one({"name": cable2_name})
     if not cable2:
@@ -226,3 +230,116 @@ def disconnect_cables():
             ),
             400,
         )
+
+
+@bp.route("/snapshot", methods=["POST"])
+def snapshot():
+    data = request.get_json()
+    cables_collection = get_db()["cables"]
+    modules_collection = get_db()["modules"]
+    templates_collection = get_db()["cable_templates"]
+
+    # check that data includes the necessary fields
+    if "cable" not in data or "side" not in data:
+        return jsonify({"error": "Cable, port and side must be specified"}), 400
+
+    cable1_name = data["cable"]
+    side = data["side"]
+
+    if side not in ["crateSide", "detSide"]:
+        return jsonify({"error": "Invalid side"}), 400
+
+    module_in_detSide = False
+    # Retrieve the cables from the database
+    cable1 = cables_collection.find_one({"name": cable1_name})
+    if not cable1:
+        cable1 = modules_collection.find_one({"moduleName": cable1_name})
+        module_in_detSide = True
+        if cable1:
+            if "type" not in cable1:
+                cable1["type"] = "module"
+            template1 = templates_collection.find_one({"type": cable1["type"]})
+
+    if not cable1:
+        return jsonify({"error": "Cable not found"}), 404
+
+    template1 = templates_collection.find_one({"type": cable1["type"]})
+
+    if not template1:
+        return jsonify({"error": "Invalid cable template"}), 400
+
+    cables_visited = []
+    cables_visited.append(cable1_name)
+
+    # Get the lines for all the ports
+    lines1 = template1["lines"]
+    all_lines = [line for line in range(1, lines1 + 1)]
+
+    # snapshot is a dict
+    snapshot = {}
+    # since we can have multiple lines per port, we can have multiple cables
+    # so we keep track of the current line
+    for line in all_lines:
+        snapshot[line] = {}
+        # snapshot[line]["cable"] = current_cable["name"]
+        # snapshot[line]["side"] = side
+        # snapshot[line]["line"] = line
+        snapshot[line]["connections"] = []
+        current_cable = cable1
+
+        if current_cable[side][str(line)] == []:
+            continue
+
+        # append the next cable and line
+        snapshot[line]["connections"].append(
+            {
+                "cable": current_cable[side][str(line)][0],
+                "line": current_cable[side][str(line)][1],
+            }
+        )
+
+        next_cable = cables_collection.find_one(
+            {"name": current_cable[side][str(line)][0]}
+        )
+
+        # if the next cable search is empty, search in modules
+        if not next_cable:
+            next_cable = modules_collection.find_one(
+                {"moduleName": current_cable[side][str(line)][0]}
+            )
+
+        next_line = current_cable[side][str(line)][1]
+
+        while True:
+            # update the current cable, port, and line
+            current_cable = next_cable
+            current_line = next_line
+
+            if current_cable[side][str(current_line)] == []:
+                break
+            # append the next cable and line
+            snapshot[line]["connections"].append(
+                {
+                    "cable": current_cable[side][str(current_line)][0],
+                    "line": current_cable[side][str(current_line)][1],
+                }
+            )
+
+            next_cable = cables_collection.find_one(
+                {"name": current_cable[side][str(current_line)][0]}
+            )
+
+            # if the next cable search is empty, search in modules
+            if not next_cable:
+                next_cable = modules_collection.find_one(
+                    {"moduleName": current_cable[side][str(current_line)][0]}
+                )
+
+            if not next_cable:
+                break
+
+            # get the lines
+            next_line = current_cable[side][str(current_line)][1]
+
+
+    return jsonify(snapshot), 200
