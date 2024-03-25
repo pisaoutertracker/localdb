@@ -55,10 +55,22 @@ class ModulesResource(Resource):
             If the module is successfully inserted, returns a message indicating success. If the module fails validation, returns an error message.
         """
         modules_collection = get_db()["modules"]
+        templates_collection = get_db()['cable_templates']
+
         try:
             new_module = request.get_json()
             if "type" not in new_module:
                 new_module["type"] = "module"
+            elif new_module["type"] != "module":
+                return (
+                    
+                        {
+                            "message": "Only modules types can be inserted. Please try again.",
+                            "type": new_module["type"],
+                        }
+                    ,
+                    400,
+                )
             validate(instance=new_module, schema=module_schema)
             # if an module with the same Name already exists, return an error
             if modules_collection.count_documents({"moduleName": new_module["moduleName"]}) != 0:
@@ -84,7 +96,17 @@ class ModulesResource(Resource):
                         ,
                         400,
                     )
-            # if module has no type field, add it as "module"
+            # get template from the database
+            template = templates_collection.find_one({"type": new_module["type"]})
+            # intialize the detSide and crateSide based on the template
+            if "detSide" in template:
+                new_module["detSide"] = {
+                    str(i): [] for i in range(1, template["lines"] + 1)
+                }
+            if "crateSide" in template:
+                new_module["crateSide"] = {
+                    str(i): [] for i in range(1, template["lines"] + 1)
+                }
             modules_collection.insert_one(new_module)
             return {"message": "Module inserted"}, 201
         except ValidationError as e:
