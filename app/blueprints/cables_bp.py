@@ -12,6 +12,34 @@ bp = Blueprint("cables_bp", __name__)
 
 @bp.route("/connect", methods=["POST"])
 def connect_cables():
+    """
+    Connects two cables together based on the provided data.
+
+    This route expects a JSON payload with the following fields:
+    - "cable1": The name of the first cable.
+    - "cable2": The name of the second cable.
+    - "port1": The port number of the first cable.
+    - "port2": The port number of the second cable.
+
+    The function performs the following steps:
+    1. Checks if the necessary fields are present in the data.
+    2. Retrieves the cables from the database.
+    3. If a cable is not found in the cables collection, it tries to find it in the modules collection.
+    4. If a cable is a module and does not have a 'type' field, it sets it to 'module'.
+    5. If a cable is a module and does not have a 'crateSide' field, it initializes it with an empty dictionary.
+    6. Retrieves the cable templates from the database.
+    7. Checks if the provided ports are valid.
+    8. Checks if the lines for the specified ports are free.
+    9. Updates the cable connections.
+    10. Updates the cables in the database.
+
+    Returns:
+    - If the cables are successfully connected, returns a JSON response with a "message" field indicating success (status code 200).
+    - If the necessary fields are missing in the data, returns a JSON response with an "error" field indicating the missing fields (status code 400).
+    - If the cables or cable templates are not found, returns a JSON response with an "error" field indicating the missing cables or templates (status code 404).
+    - If the provided ports are invalid or the lines are already connected, returns a JSON response with an "error" field indicating the issue (status code 400).
+    """
+    # Function code goes here
     data = request.get_json()
     cables_collection = get_db()["cables"]
     modules_collection = get_db()["modules"]
@@ -121,6 +149,26 @@ def connect_cables():
 
 @bp.route("/disconnect", methods=["POST"])
 def disconnect_cables():
+    """
+    Disconnects two cables or modules in a database.
+
+    This function takes in a JSON payload containing the names of two cables or modules to be disconnected,
+    along with optional port numbers for each cable. It retrieves the cables or modules from the database,
+    checks if the necessary fields are present in the payload, and verifies the validity of the ports if provided.
+    If the cables or modules are found and the ports are valid, it updates the cable connections in the database
+    and returns a success message. If any errors occur during the disconnection process, appropriate error messages
+    are returned.
+
+    Returns:
+        A JSON response containing a success message if the cables or modules are disconnected successfully,
+        or an error message if any errors occur during the disconnection process.
+    """
+    
+    data = request.get_json()
+    cables_collection = get_db()["cables"]
+    modules_collection = get_db()["modules"]
+    templates_collection = get_db()["cable_templates"]
+
     data = request.get_json()
     cables_collection = get_db()["cables"]
     modules_collection = get_db()["modules"]
@@ -234,6 +282,39 @@ def disconnect_cables():
 
 @bp.route("/snapshot", methods=["POST"])
 def snapshot():
+    """
+    Retrieves a snapshot of cable connections based on the provided data.
+
+    The function takes in a JSON object containing the cable name and side
+    to run the snapshot on. It retrieves the cables from the database, checks
+    and returns a JSON object representing the connections between cables.
+
+    Args:
+        None
+
+    Returns:
+        A JSON object representing the cable connections. The structure of the
+        JSON object is as follows:
+        {
+            line_number: {
+                "connections": [
+                    {
+                        "cable": "cable_name",
+                        "line": line_number
+                    },
+                    ...
+                ]
+            },
+            ...
+        }
+
+    Raises:
+        - 400 Bad Request: If the necessary fields (cable and side) are not specified
+        - 400 Bad Request: If an invalid side is provided
+        - 404 Not Found: If the specified cable is not found
+        - 400 Bad Request: If an invalid cable template is encountered
+    """
+    
     data = request.get_json()
     cables_collection = get_db()["cables"]
     modules_collection = get_db()["modules"]
@@ -281,9 +362,7 @@ def snapshot():
     # so we keep track of the current line
     for line in all_lines:
         snapshot[line] = {}
-        # snapshot[line]["cable"] = current_cable["name"]
-        # snapshot[line]["side"] = side
-        # snapshot[line]["line"] = line
+
         snapshot[line]["connections"] = []
         current_cable = cable1
 
