@@ -54,16 +54,18 @@ class CablesResource(Resource):
             # get lines number from the template
             lines = template['lines']
             # if the template has a detSide, initialize it as 'line_number': []
-            if 'detSide' in template and new_entry["detSide"] == {}:
-                new_entry['detSide'] = {str(i): [] for i in range(1, lines + 1)}
-            else:
-                return {"message": "side should be initialized as empty"}, 400
+            if 'detSide' in template:
+                if new_entry["detSide"] == {}:
+                    new_entry['detSide'] = {str(i): [] for i in range(1, lines + 1)}
+                else:
+                    return {"message": "side should be initialized as empty"}, 400
             
             # if the template has a crateSide, initialize it as 'port': []
-            if 'crateSide' in template and new_entry["crateSide"] == {}:
-                new_entry['crateSide'] = {str(i): [] for i in range(1, lines + 1)}
-            else:
-                return {"message": "side should be initialized as empty"}, 400
+            if 'crateSide' in template:
+                if new_entry["crateSide"] == {}:
+                    new_entry['crateSide'] = {str(i): [] for i in range(1, lines + 1)}
+                else:
+                    return {"message": "side should be initialized as empty"}, 400
             
             cables_collection.insert_one(new_entry)
             return {"message": "Entry inserted"}, 201
