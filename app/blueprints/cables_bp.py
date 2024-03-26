@@ -329,6 +329,8 @@ def snapshot():
 
     if side not in ["crateSide", "detSide"]:
         return jsonify({"error": "Invalid side"}), 400
+    
+    otherSide = "crateSide" if side == "detSide" else "detSide"
 
     module_in_detSide = False
     # Retrieve the cables from the database
@@ -363,6 +365,18 @@ def snapshot():
     for line in all_lines:
         snapshot[line] = {}
 
+        if "crateSide" in template1:
+            for p, tlines in template1["crateSide"].items():
+                if line in tlines:
+                    snapshot[line]["crate_port"] = p
+                    break
+        
+        if "detSide" in template1:
+            for p, tlines in template1["detSide"].items():
+                if line in tlines:
+                    snapshot[line]["det_port"] = p
+                    break
+
         snapshot[line]["connections"] = []
         current_cable = cable1
 
@@ -372,14 +386,6 @@ def snapshot():
             continue
         if current_cable[side][str(line)] == []:
             continue
-
-        # append the next cable and line
-        snapshot[line]["connections"].append(
-            {
-                "cable": current_cable[side][str(line)][0],
-                "line": current_cable[side][str(line)][1],
-            }
-        )
 
         next_cable = cables_collection.find_one(
             {"name": current_cable[side][str(line)][0]}
@@ -392,7 +398,31 @@ def snapshot():
             )
 
         next_line = current_cable[side][str(line)][1]
+        next_template = templates_collection.find_one({"type": next_cable["type"]})
 
+        crate_ports = []
+        det_ports = []
+
+        #
+        if "crateSide" in next_template:
+            for p, lines in next_template["crateSide"].items():
+                if next_line in lines:
+                    crate_ports.append(p)
+                
+        if "detSide" in next_template:
+            for p, lines in next_template["detSide"].items():
+                if next_line in lines:
+                    det_ports.append(p)
+
+        # append the next cable and line
+        snapshot[line]["connections"].append(
+            {
+                "cable": current_cable[side][str(line)][0],
+                "line": next_line,
+                "det_port": det_ports,
+                "crate_port": crate_ports,
+            }
+        )
         while True:
             # update the current cable, port, and line
             current_cable = next_cable
@@ -404,13 +434,7 @@ def snapshot():
                 break
             if current_cable[side][str(current_line)] == []:
                 break
-            # append the next cable and line
-            snapshot[line]["connections"].append(
-                {
-                    "cable": current_cable[side][str(current_line)][0],
-                    "line": current_cable[side][str(current_line)][1],
-                }
-            )
+
 
             next_cable = cables_collection.find_one(
                 {"name": current_cable[side][str(current_line)][0]}
@@ -427,5 +451,32 @@ def snapshot():
 
             # get the lines
             next_line = current_cable[side][str(current_line)][1]
+            next_template = templates_collection.find_one({"type": next_cable["type"]})
+
+
+            # if next_cable["name"] starts with F it means it's an FC7
+            # and we should log which port the line corresponds to
+            crate_ports = []
+            det_ports = []
+
+            if "crateSide" in next_template:
+                for p, lines in next_template["crateSide"].items():
+                    if next_line in lines:
+                        crate_ports.append(p)
+                        
+
+            if "detSide" in next_template:
+                for p, lines in next_template["detSide"].items():
+                    if next_line in lines:
+                        det_ports.append(p)
+
+            snapshot[line]["connections"].append(
+                {
+                    "cable": current_cable[side][str(current_line)][0],
+                    "line": next_line,
+                    "det_port": det_ports,
+                    "crate_port": crate_ports,
+                }
+            )
 
     return (jsonify(snapshot), 200)

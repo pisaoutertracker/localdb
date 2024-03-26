@@ -680,6 +680,9 @@ class TestAPI(TestCase):
         }
         req = self.client.post("/snapshot", json=snapshot_data)
         self.assertEqual(req.json["1"]["connections"][-1]["cable"], "FC7OT2")
+        # print formatted json
+        # formatted = json.dumps(req.json, indent=4)
+        # print(formatted)
 
         # do a snapshot of the module from crateSide
         snapshot_data = {
@@ -688,6 +691,9 @@ class TestAPI(TestCase):
         }
         req = self.client.post("/snapshot", json=snapshot_data)
         self.assertEqual(req.json["1"]["connections"][-1]["cable"], "PS_26_05-IPG_00102")
+        # print formatted json
+        # formatted = json.dumps(req.json, indent=4)
+        # print(formatted)
 
 
     # Snapshot from Cable (crateSide)
