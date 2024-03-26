@@ -36,9 +36,31 @@ class CablesResource(Resource):
 
     def post(self):
         cables_collection = get_db()["cables"]
+        templates_collection = get_db()['cable_templates']
+
         try:
             new_entry = request.get_json()
             validate(instance=new_entry, schema=cables_schema)
+            # if any cable with the same name already exists, return an error
+            if cables_collection.find_one({"name": new_entry["name"]}):
+                return {"message": "Entry already exists"}, 400
+            
+            # Retrieve the cable templates from the database
+            template = new_entry['type']
+            template = templates_collection.find_one({'type': template})
+            if not template:
+                return {"message": "Template not found"}, 400
+            
+            # get lines number from the template
+            lines = template['lines']
+            # if the template has a detSide, initialize it as 'line_number': []
+            if 'detSide' in template:
+                new_entry['detSide'] = {str(i): [] for i in range(1, lines + 1)}
+            
+            # if the template has a crateSide, initialize it as 'port': []
+            if 'crateSide' in template:
+                new_entry['crateSide'] = {str(i): [] for i in range(1, lines + 1)}
+            
             cables_collection.insert_one(new_entry)
             return {"message": "Entry inserted"}, 201
         except ValidationError as e:
@@ -48,6 +70,8 @@ class CablesResource(Resource):
         cables_collection = get_db()["cables"]
         if name:
             updated_data = request.get_json()
+            # update the cable entry with the new data
+            # but leave the 
             cables_collection.update_one({"name": name}, {"$set": updated_data})
             return {"message": "Entry updated"}, 200
         else:
