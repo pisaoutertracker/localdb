@@ -95,9 +95,7 @@
             
         },
         "required": [
-            "type",
-            "detSide",
-            "crateSide"
+            "type"
         ]
     },
     "cable_templates": {

@@ -366,6 +366,10 @@ def snapshot():
         snapshot[line]["connections"] = []
         current_cable = cable1
 
+        if side not in current_cable:
+            continue
+        if current_cable[side] == {}:
+            continue
         if current_cable[side][str(line)] == []:
             continue
 
@@ -394,6 +398,10 @@ def snapshot():
             current_cable = next_cable
             current_line = next_line
 
+            if side not in current_cable:
+                break
+            if current_cable[side] == {}:
+                break
             if current_cable[side][str(current_line)] == []:
                 break
             # append the next cable and line
@@ -420,5 +428,4 @@ def snapshot():
             # get the lines
             next_line = current_cable[side][str(current_line)][1]
 
-
-    return jsonify(snapshot), 200
+    return (jsonify(snapshot), 200)

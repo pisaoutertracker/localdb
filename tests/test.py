@@ -412,79 +412,283 @@ class TestAPI(TestCase):
 
         self.test_insert_cable_templates()
 
-        new_cable = {"name": "E31", "type": "exapus", "detSide": {}, "crateSide": {}}
-        # insert
-        response = self.client.post("/cables", json=new_cable)
+        # 1. Create some cables 
+        hv_cables = [
+        {"type": "HV", "name": "H11", "detSide": {}, "crateSide": {}},
+        {"type": "HV", "name": "H12", "detSide": {}, "crateSide": {}},
+        {"type": "HV", "name": "H13", "detSide": {}, "crateSide": {}},
+    ]
 
-        new_cable1 = {
-            "name": "B31",
-            "type": "burninslot",
+        for cable in hv_cables:
+            res = self.client.post("/cables", json=cable)
+            self.assertEqual(res.status_code, 201)
+
+        patch_panel = {
+            "type": "patchpanel",
+            "name": "P001",
             "detSide": {},
             "crateSide": {},
         }
-        response = self.client.post("/cables", json=new_cable1)
+        
+        res = self.client.post("/cables", json=patch_panel)
+        self.assertEqual(res.status_code, 201)
 
-        new_cable2 = {
-            "name": "S31",
-            "type": "singlefiber",
+        caen_HV = []
+        for i in range(0, 1):
+            caen_HV.append(
+                {
+                    "type": "caenHV",
+                    "name": f"ASLOT{i}",
+                    "detSide": {},
+                    "crateSide": {},
+                }
+            )
+        
+        for cable in caen_HV:
+            res = self.client.post("/cables", json=cable)
+            self.assertEqual(res.status_code, 201)
+
+
+        caen_LV = []
+        for i in range(6, 8):
+            caen_LV.append(
+                {
+                    "type": "caenLV",
+                    "name": f"XSLOT{i}",
+                    "detSide": {},
+                    "crateSide": {},
+                }
+            )
+        
+        for cable in caen_LV:
+            res = self.client.post("/cables", json=cable)
+            self.assertEqual(res.status_code, 201)
+
+        lv_cable = [{
+            "type": "LV",
+            "name": "LRED",
             "detSide": {},
             "crateSide": {},
-        }
-        response = self.client.post("/cables", json=new_cable2)
+        },
+        {
+            "type": "LV",
+            "name": "LBLUE",
+            "detSide": {},
+            "crateSide": {},
+        }]
 
-        new_cable3 = {
-            "name": "D31",
+        for cable in lv_cable:
+            res = self.client.post("/cables", json=cable)
+            self.assertEqual(res.status_code, 201)
+
+        burnin_slots = []
+        for i in range(1, 11):
+            burnin_slots.append(
+                {
+                    "type": "burninslot",
+                    "name": f"B{i}",
+                    "detSide": {},
+                    "crateSide": {},
+                }
+            )
+
+        for cable in burnin_slots:
+            res = self.client.post("/cables", json=cable)
+            self.assertEqual(res.status_code, 201)
+
+        dodecapus = {
             "type": "dodecapus",
+            "name": "D31",
             "detSide": {},
             "crateSide": {},
         }
-        response = self.client.post("/cables", json=new_cable3)
+
+        res = self.client.post("/cables", json=dodecapus)
+        self.assertEqual(res.status_code, 201)
+
+        extension_cords = {
+            "type": "extensioncord",
+            "name": "C21",
+            "detSide": {},
+            "crateSide": {},
+        }
+        res = self.client.post("/cables", json=extension_cords)
+        self.assertEqual(res.status_code, 201)
+
+        exapus = {
+            "type": "exapus",
+            "name": "E51",
+            "detSide": {},
+            "crateSide": {},
+        }
+        res = self.client.post("/cables", json=exapus)
+        self.assertEqual(res.status_code, 201)
+
+        FC7OT2 = {
+        "type": "FC7",
+        "name": "FC7OT2",
+        "detSide": {},
+        }
+
+        res = self.client.post("/cables", json=FC7OT2)
+        self.assertEqual(res.status_code, 201)
 
         module = {
-            "moduleName": "Module 1",
+            "moduleName": "PS_26_05-IPG_00102",
             "position": "cleanroom",
             "status": "readyformount",
         }
-        response = self.client.post("/modules", json=module)
+        res = self.client.post("/modules", json=module)
+        self.assertEqual(res.status_code, 201)
 
-        # connect module to new_cable
+
+        # now connect all
+        module = "PS_26_05-IPG_00102"
+
         connect_data = {
-            "cable1": "Module 1",
-            "port1": "fiber",
-            "cable2": "B31",
-            "port2": "fiber",
+            "cable1": module,
+            "cable2": "B1",
+            "port1": "power",
+            "port2": "power"
         }
-        response = self.client.post("/connect", json=connect_data)
-        self.assertEqual(response.status_code, 200)
 
-        # connect new_cable to new_cable1
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
         connect_data = {
-            "cable1": "B31",
+            "cable1": module,
+            "cable2": "B1",
             "port1": "fiber",
-            "cable2": "E31",
-            "port2": "B",
+            "port2": "fiber"
         }
-        response = self.client.post("/connect", json=connect_data)
-        self.assertEqual(response.status_code, 200)
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
 
-        # connect new_cable1 to new_cable2
+        #connect burnin from 1 to 6 HVLV to patchpanel 1 to 6
+        for i in range(1, 7):
+            connect_data = {
+                "cable1": f"B{i}",
+                "cable2": f"P001",
+                "port1": "HVLV",
+                "port2": f"B{i}"
+            }
+            req = self.client.post("/connect", json=connect_data)
+            self.assertEqual(req.status_code, 200)
+        #patchpanl 1,2, 3 to H11, H12, H13
+        for i in range(1, 4):
+            connect_data = {
+                "cable1": f"P001",
+                "cable2": f"H1{i}",
+                "port1": f"HV{i}",
+                "port2": "A"
+            }
+            req = self.client.post("/connect", json=connect_data)
+            self.assertEqual(req.status_code, 200)
+
+        # connect ASLOT0 ports 1, 2, 3 to H11, H12, H13
+        for i in range(1, 4):
+            connect_data = {
+                "cable1": f"H1{i}",
+                "cable2": f"ASLOT0",
+                "port1": "A",
+                "port2": f"{i}"
+            }
+            req = self.client.post("/connect", json=connect_data)
+            self.assertEqual(req.status_code, 200)
+
+        # connect P001 LV1, LV2 to LRED, LBLUE
         connect_data = {
-            "cable1": "E31",
+            "cable1": "P001",
+            "cable2": "LRED",
+            "port1": "LV1",
+            "port2": "A"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        connect_data = {
+            "cable1": "P001",
+            "cable2": "LBLUE",
+            "port1": "LV2",
+            "port2": "A"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        # connect LRED, LBLUE to XSLOT6 port up and down
+        connect_data = {
+            "cable1": "LRED",
+            "cable2": "XSLOT6",
             "port1": "A",
-            "cable2": "D31",
-            "port2": "A",
+            "port2": "up"
         }
-        response = self.client.post("/connect", json=connect_data)
-        self.assertEqual(response.status_code, 200)
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
 
-        # get cabling snapshot
-        response = self.client.post(
-            "/snapshot",
-            json={"cable": "Module 1", "side": "crateSide"},
-        )
-        self.assertEqual(response.status_code, 200)
-        # check that in the response for key 1
-        self.assertEqual(response.json["1"]["connections"][-1]["cable"], "D31")
+        connect_data = {
+            "cable1": "LBLUE",
+            "cable2": "XSLOT6",
+            "port1": "A",
+            "port2": "down"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        # connect burnin to exapus 
+        connect_data = {
+            "cable1": "B1",
+            "cable2": "E51",
+            "port1": "fiber",
+            "port2": "A"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        # exapus to extensioncord
+        connect_data = {
+            "cable1": "E51",
+            "cable2": "C21",
+            "port1": "A",
+            "port2": "A"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        # extension to dodecapus
+        connect_data = {
+            "cable1": "C21",
+            "cable2": "D31",
+            "port1": "A",
+            "port2": "A"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        connect_data = {
+            "cable1": "D31",
+            "cable2": "FC7OT2",
+            "port1": "P12",
+            "port2": "OG0"
+        }
+        req = self.client.post("/connect", json=connect_data)
+        self.assertEqual(req.status_code, 200)
+
+        # do a snapshot of the module from crateSide
+        snapshot_data = {
+            "cable": "PS_26_05-IPG_00102",
+            "side": "crateSide"
+        }
+        req = self.client.post("/snapshot", json=snapshot_data)
+        self.assertEqual(req.json["1"]["connections"][-1]["cable"], "FC7OT2")
+
+        # do a snapshot of the module from crateSide
+        snapshot_data = {
+            "cable": "FC7OT2",
+            "side": "detSide"
+        }
+        req = self.client.post("/snapshot", json=snapshot_data)
+        self.assertEqual(req.json["1"]["connections"][-1]["cable"], "PS_26_05-IPG_00102")
+
 
     # Snapshot from Cable (crateSide)
     def test_LogBookSearchByText(self):
