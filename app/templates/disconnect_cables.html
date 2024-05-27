@@ -1,0 +1,149 @@
+
+<html>
+<body>
+<form id="disconnectForm">
+    <label for="cableSelectDet">Cable DetSide:</label>
+    <select id="cableSelectDet"></select>
+    <label for="portSelectDet">DetSide cable should disconnect CrateSide port (can be left empty):</label>
+    <select id="portSelectDet"></select>
+    <label for="cableSelectCrate">Cable CrateSide:</label>
+    <select id="cableSelectCrate"></select>
+    <label for="portSelectCrate">CrateSide cable should disconnect DetSide port (can be left empty):</label>
+    <select id="portSelectCrate"></select>
+    <button type="submit">Disconnect</button>
+</form>
+
+<script>
+    // Fetch the list of available cables
+    fetch('http://pccmslab1.pi.infn.it:5000/cables')
+        .then(response => response.json())
+        .then(data => {
+            const cableSelectDet = document.getElementById('cableSelectDet');
+            const portSelectDet = document.getElementById('portSelectDet');
+            const cableSelectCrate = document.getElementById('cableSelectCrate');
+            const portSelectCrate = document.getElementById('portSelectCrate');
+
+
+            // Populate the cable select options
+            for (const cable of data) {
+                const optionDet = document.createElement('option');
+                optionDet.value = cable.name;
+                optionDet.text = cable.name;
+                cableSelectDet.appendChild(optionDet);
+
+                const optionCrate = document.createElement('option');
+                optionCrate.value = cable.name;
+                optionCrate.text = cable.name;
+                cableSelectCrate.appendChild(optionCrate);
+
+
+                
+            }
+            
+        });
+        document.getElementById('cableSelectDet').addEventListener('change', function(event) {
+    const cable = event.target.value;
+    fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
+    .then(response => response.json())
+    .then(data => {
+        const cableTemplate = data.type;
+
+        // Fetch the cable template
+        fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+            .then(response => response.json())
+            .then(templateData => {
+                const portSelectDet = document.getElementById('portSelectDet');
+                portSelectDet.innerHTML = '';
+                for (const port in templateData.crateSide) {
+                    const option = document.createElement('option');
+                    option.value = port;
+                    option.text = port;// templateData.detSide[port].join('_');
+                    portSelectDet.appendChild(option);
+                }
+            });
+        });
+    });
+    // same for crate side
+    document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
+    const cable = event.target.value;
+    fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
+    .then(response => response.json())
+    .then(data => {
+        const cableTemplate = data.type;
+
+        // Fetch the cable template
+        fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+            .then(response => response.json())
+            .then(templateData => {
+                const portSelectCrate = document.getElementById('portSelectCrate');
+                portSelectCrate.innerHTML = '';
+                for (const port in templateData.detSide) {
+                    const option = document.createElement('option');
+                    option.value = port;
+                    option.text = port;// templateData.detSide[port].join('_');
+                    portSelectCrate.appendChild(option);
+                }
+            });
+        });
+    });
+
+    // Handle the form submission
+    document.getElementById('disconnectForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+    let cable1 = document.getElementById('cableSelectDet').value;
+    let port1 = document.getElementById('portSelectDet').value;    
+    let cable2 = document.getElementById('cableSelectCrate').value; // Assuming you have a select element for crate side cable
+    let port2 = document.getElementById('portSelectCrate').value; // Assuming you have a select element for crate side port
+
+    // print the selected values
+    console.log(cable1, port1, cable2, port2);
+
+    if (!cable1 || !cable2) {
+        alert('Please select both cables');
+        return;
+    }
+    if (!port1 && !port2) {
+        fetch('http://pccmslab1.pi.infn.it:5000/disconnect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cable1: cable1,
+                cable2: cable2,
+            }),
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    } else if (port1 && port2) {
+        fetch('http://pccmslab1.pi.infn.it:5000/disconnect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cable1: cable1,
+                port1: port1,
+                cable2: cable2,
+                port2: port2,
+            }),
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    } else {
+        alert('Please select both ports');
+        return;
+    }
+});
+
+</script>
+
+</body>
+</html>
