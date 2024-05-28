@@ -1,15 +1,78 @@
+<!DOCTYPE html>
 <html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .box {
+            border: 2px solid #000;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .detbox {
+            border: 2px solid #000;
+            padding: 10px;
+            width: 200px; /* adjust as needed */
+            height: 200px; /* adjust as needed */
+            background-color:  #666666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .cratebox {
+            border: 2px solid #000;
+            padding: 10px;
+            width: 200px; /* adjust as needed */
+            height: 200px; /* adjust as needed */
+            background-color: #ff0000; /* red */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        select {
+            margin-top: 10px;
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
 <body>
+<h1>Connect Cables</h1>
+
     <form id="connectForm">
-        <label for="cableSelectDet">Cable DetSide:</label>
-        <select id="cableSelectDet"></select>
-        <label for="portSelectDet">DetSide cable should connect CrateSide port:</label>
-        <select id="portSelectDet"></select>
-        <label for="cableSelectCrate">Cable CrateSide:</label>
-        <select id="cableSelectCrate"></select>
-        <label for="portSelectCrate">CrateSide cable should connect DetSide port:</label>
-        <select id="portSelectCrate"></select>
-        <button type="submit">Connect</button>
+        <div class="container">
+            <div class="detbox">
+                <label for="cableSelectDet">Cable DetSide:</label>
+                <select id="cableSelectDet"></select>
+            </div>
+            <div class="box">
+                <label for="portSelectDet">Port:</label>
+                <select id="portSelectDet"></select>
+            </div>
+            <div class="box">
+                <label for="portSelectCrate">Port:</label>
+                <select id="portSelectCrate"></select>
+            </div>
+            <div class="cratebox">
+                <label for="cableSelectCrate">Cable CrateSide:</label>
+                <select id="cableSelectCrate"></select>
+            </div>
+            <button type="submit">Connect</button>
+        </div>
+        <div id="responseOutput"></div>
+
     </form>
 
     <script>
@@ -22,7 +85,6 @@
                 const cableSelectCrate = document.getElementById('cableSelectCrate');
                 const portSelectCrate = document.getElementById('portSelectCrate');
 
-
                 // Populate the cable select options
                 for (const cable of data) {
                     const optionDet = document.createElement('option');
@@ -34,87 +96,94 @@
                     optionCrate.value = cable.name;
                     optionCrate.text = cable.name;
                     cableSelectCrate.appendChild(optionCrate);
-
-
-                    
                 }
-                
             });
-            document.getElementById('cableSelectDet').addEventListener('change', function(event) {
-        const cable = event.target.value;
-        fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
-        .then(response => response.json())
-        .then(data => {
-            const cableTemplate = data.type;
 
-            // Fetch the cable template
-            fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+        document.getElementById('cableSelectDet').addEventListener('change', function(event) {
+            const cable = event.target.value;
+            fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
                 .then(response => response.json())
-                .then(templateData => {
-                    const portSelectDet = document.getElementById('portSelectDet');
-                    portSelectDet.innerHTML = '';
-                    for (const port in templateData.crateSide) {
-                        const option = document.createElement('option');
-                        option.value = port;
-                        option.text = port;// templateData.detSide[port].join('_');
-                        portSelectDet.appendChild(option);
-                    }
+                .then(data => {
+                    const cableTemplate = data.type;
+
+                    // Fetch the cable template
+                    fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+                        .then(response => response.json())
+                        .then(templateData => {
+                            const portSelectDet = document.getElementById('portSelectDet');
+                            portSelectDet.innerHTML = '';
+                            for (const port in templateData.crateSide) {
+                                const option = document.createElement('option');
+                                option.value = port;
+                                option.text = port;
+                                portSelectDet.appendChild(option);
+                            }
+                        });
                 });
-            });
         });
-        // same for crate side
+
         document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
-        const cable = event.target.value;
-        fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
-        .then(response => response.json())
-        .then(data => {
-            const cableTemplate = data.type;
-
-            // Fetch the cable template
-            fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+            const cable = event.target.value;
+            fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
                 .then(response => response.json())
-                .then(templateData => {
-                    const portSelectCrate = document.getElementById('portSelectCrate');
-                    portSelectCrate.innerHTML = '';
-                    for (const port in templateData.detSide) {
-                        const option = document.createElement('option');
-                        option.value = port;
-                        option.text = port;// templateData.detSide[port].join('_');
-                        portSelectCrate.appendChild(option);
-                    }
+                .then(data => {
+                    const cableTemplate = data.type;
+
+                    // Fetch the cable template
+                    fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+                        .then(response => response.json())
+                        .then(templateData => {
+                            const portSelectCrate = document.getElementById('portSelectCrate');
+                            portSelectCrate.innerHTML = '';
+                            for (const port in templateData.detSide) {
+                                const option = document.createElement('option');
+                                option.value = port;
+                                option.text = port;
+                                portSelectCrate.appendChild(option);
+                            }
+                        });
                 });
-            });
         });
+
 
         // Handle the form submission
         document.getElementById('connectForm').addEventListener('submit', function(event) {
             event.preventDefault();
 
-        let cable1 = document.getElementById('cableSelectDet').value;
-        let port1 = document.getElementById('portSelectDet').value;
-        let cable2 = document.getElementById('cableSelectCrate').value; // Assuming you have a select element for crate side cable
-        let port2 = document.getElementById('portSelectCrate').value; // Assuming you have a select element for crate side port
+            let cable1 = document.getElementById('cableSelectDet').value;
+            let port1 = document.getElementById('portSelectDet').value;
+            let cable2 = document.getElementById('cableSelectCrate').value;
+            let port2 = document.getElementById('portSelectCrate').value;
 
-        fetch('http://pccmslab1.pi.infn.it:5000/connect', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                cable1: cable1,
-                port1: port1,
-                cable2: cable2,
-                port2: port2,
-            }),
-        })
-        .then(response => response.json())
-        .then(data => console.log(data))
-        .catch((error) => {
-            console.error('Error:', error);
-        });
+            fetch('http://pccmslab1.pi.infn.it:5000/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cable1: cable1,
+                    port1: port1,
+                    cable2: cable2,
+                    port2: port2,
+                }),
+            })
+                .then(response => response.json())
+                .then(data =>  {
+                    console.log(data)
+                    // Get the current time
+                    let currentTime = new Date().toLocaleString();
+
+                    // Get the responseOutput element
+                    let responseOutput = document.getElementById('responseOutput');
+
+                    // Append the new response to the existing text
+                    responseOutput.innerHTML += `<p>Acting on: detside ${cable1}, port ${port1} and crateside ${cable2}, port ${port2}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+                    })
+                //console.log(data))
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
         });
     </script>
-
-
 </body>
 </html>

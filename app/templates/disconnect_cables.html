@@ -1,16 +1,76 @@
 
+<!DOCTYPE html>
 <html>
 <body>
+<h1>Disconnect Cables</h1>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .box {
+            border: 2px solid #000;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .detbox {
+            border: 2px solid #000;
+            padding: 10px;
+            width: 200px; /* adjust as needed */
+            height: 200px; /* adjust as needed */
+            background-color: /* carbon grey */ #666666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .cratebox {
+            border: 2px solid #000;
+            padding: 10px;
+            width: 200px; /* adjust as needed */
+            height: 200px; /* adjust as needed */
+            background-color: #ff0000; /* red */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        select {
+            margin-top: 10px;
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
 <form id="disconnectForm">
-    <label for="cableSelectDet">Cable DetSide:</label>
-    <select id="cableSelectDet"></select>
-    <label for="portSelectDet">DetSide cable should disconnect CrateSide port (can be left empty):</label>
-    <select id="portSelectDet"></select>
-    <label for="cableSelectCrate">Cable CrateSide:</label>
-    <select id="cableSelectCrate"></select>
-    <label for="portSelectCrate">CrateSide cable should disconnect DetSide port (can be left empty):</label>
-    <select id="portSelectCrate"></select>
-    <button type="submit">Disconnect</button>
+    <div class="container">
+        <div class="detbox">
+            <label for="cableSelectDet">Cable DetSide:</label>
+            <select id="cableSelectDet"></select>
+        </div>
+        <div class="box">
+            <label for="portSelectDet">Port:</label>
+            <select id="portSelectDet"></select>
+        </div>
+        <div class="box">
+            <label for="portSelectCrate">Port:</label>
+            <select id="portSelectCrate"></select>
+        </div>
+        <div class="cratebox">
+            <label for="cableSelectCrate">Cable CrateSide:</label>
+            <select id="cableSelectCrate"></select>
+        </div>
+        <button type="submit">Disconnect</button>
+    </div>
+    <div id="responseOutput"></div>
+
 </form>
 
 <script>
@@ -133,7 +193,16 @@
             }),
         })
         .then(response => response.json())
-        .then(data => console.log(data))
+        .then(data =>  {
+                    console.log(data)
+                    // Get the current time
+                    let currentTime = new Date().toLocaleString();
+                    // Get the responseOutput element
+                    let responseOutput = document.getElementById('responseOutput');
+
+                    // Append the new response to the existing text
+                    responseOutput.innerHTML += `<p>Acting on: detside ${cable1}, port ${port1} and crateside ${cable2}, port ${port2}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+                    })
         .catch((error) => {
             console.error('Error:', error);
         });
