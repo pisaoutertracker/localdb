@@ -6,7 +6,10 @@ bp = Blueprint('main', __name__)
 def homeGUI():
     return render_template('home.html')
 
-@bp.route('/connect.html')
+@bp.route('/connect_cables.html')
 def connectGUI():
-    return render_template('connect.html')
+    return render_template('connect_cables.html')
 
+@bp.route('/disconnect_cables.html')
+def disconnectGUI():
+    return render_template('disconnect_cables.html')
