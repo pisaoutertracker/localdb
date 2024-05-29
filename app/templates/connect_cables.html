@@ -77,7 +77,7 @@
 
     <script>
         // Fetch the list of available cables
-        fetch('http://pccmslab1.pi.infn.it:5000/cables')
+        fetch('/cables')
             .then(response => response.json())
             .then(data => {
                 const cableSelectDet = document.getElementById('cableSelectDet');
@@ -101,13 +101,13 @@
 
         document.getElementById('cableSelectDet').addEventListener('change', function(event) {
             const cable = event.target.value;
-            fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
+            fetch(`/cables/${cable}`)
                 .then(response => response.json())
                 .then(data => {
                     const cableTemplate = data.type;
 
                     // Fetch the cable template
-                    fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+                    fetch(`/cable_templates/${cableTemplate}`)
                         .then(response => response.json())
                         .then(templateData => {
                             const portSelectDet = document.getElementById('portSelectDet');
@@ -124,13 +124,13 @@
 
         document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
             const cable = event.target.value;
-            fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
+            fetch(`/cables/${cable}`)
                 .then(response => response.json())
                 .then(data => {
                     const cableTemplate = data.type;
 
                     // Fetch the cable template
-                    fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+                    fetch(`/cable_templates/${cableTemplate}`)
                         .then(response => response.json())
                         .then(templateData => {
                             const portSelectCrate = document.getElementById('portSelectCrate');
@@ -155,7 +155,7 @@
             let cable2 = document.getElementById('cableSelectCrate').value;
             let port2 = document.getElementById('portSelectCrate').value;
 
-            fetch('http://pccmslab1.pi.infn.it:5000/connect', {
+            fetch('/connect', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -75,7 +75,7 @@
 
 <script>
     // Fetch the list of available cables
-    fetch('http://pccmslab1.pi.infn.it:5000/cables')
+    fetch('/cables')
         .then(response => response.json())
         .then(data => {
             const cableSelectDet = document.getElementById('cableSelectDet');
@@ -103,13 +103,13 @@
         });
         document.getElementById('cableSelectDet').addEventListener('change', function(event) {
     const cable = event.target.value;
-    fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
+    fetch(`/cables/${cable}`)
     .then(response => response.json())
     .then(data => {
         const cableTemplate = data.type;
 
         // Fetch the cable template
-        fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+        fetch(`/cable_templates/${cableTemplate}`)
             .then(response => response.json())
             .then(templateData => {
                 const portSelectDet = document.getElementById('portSelectDet');
@@ -126,13 +126,13 @@
     // same for crate side
     document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
     const cable = event.target.value;
-    fetch(`http://pccmslab1.pi.infn.it:5000/cables/${cable}`)
+    fetch(`/cables/${cable}`)
     .then(response => response.json())
     .then(data => {
         const cableTemplate = data.type;
 
         // Fetch the cable template
-        fetch(`http://pccmslab1.pi.infn.it:5000/cable_templates/${cableTemplate}`)
+        fetch(`/cable_templates/${cableTemplate}`)
             .then(response => response.json())
             .then(templateData => {
                 const portSelectCrate = document.getElementById('portSelectCrate');
@@ -164,7 +164,7 @@
         return;
     }
     if (!port1 && !port2) {
-        fetch('http://pccmslab1.pi.infn.it:5000/disconnect', {
+        fetch('/disconnect', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -180,7 +180,7 @@
             console.error('Error:', error);
         });
     } else if (port1 && port2) {
-        fetch('http://pccmslab1.pi.infn.it:5000/disconnect', {
+        fetch('/disconnect', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
