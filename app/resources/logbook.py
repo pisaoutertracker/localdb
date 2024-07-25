@@ -6,8 +6,8 @@ from flask import request, jsonify, current_app
 from flask_restful import Resource
 from bson import ObjectId
 from utils import get_db, logbook_schema, findModuleIds
-
-
+import base64,json
+import time
 class LogbookResource(Resource):
         """
         A class representing a RESTful resource for logbook entries.
@@ -55,6 +55,10 @@ class LogbookResource(Resource):
             else:
                 logs = list(logbook_collection.find())
                 for log in logs:
+                    ##convert bytes fields to base64
+                    #for key in log:
+                    #    if isinstance(log[key], bytes):
+                    #        log[key] = base64.b64encode(log[key]).decode('utf-8')
                     log["_id"] = str(log["_id"])
                 return jsonify(logs)
 
@@ -73,12 +77,25 @@ class LogbookResource(Resource):
             """
             logbook_collection = get_db()["logbook"]
             try:
-                new_log = request.get_json()
-                
+                #new_log = request.get_json()
+                #multipart input
+                all_data = request.form.to_dict()
+                new_log = json.loads(all_data["jsonData"])
+                new_log["attachments"] = {}
+                #new_log["timestamp"] = ObjectId()
+                #attachments as blobs of data
+                if request.files:
+                    for file in request.files:
+                        #save in "/attachments" folder and add url in new_log
+                        file = request.files[file]
+                        #add current time timestamp to filename
+                        curr_timestamp= str(time.time()).replace(".","_")
+                        file.save(os.path.join("/attachments", curr_timestamp+"_"+file.filename))
+                        new_log["attachments"][file.filename] = os.path.join("/attachments", curr_timestamp+"_"+file.filename)
+
+                      
                 validate(instance=new_log, schema=logbook_schema)
-    #
-    # check involved modules
-    #
+                # check involved modules
                 im = []
                 key = "involved_modules"
                 det = "details"
@@ -88,12 +105,35 @@ class LogbookResource(Resource):
                     im = new_log["involved_modules"]
                 if det in new_log:
                     d = new_log["details"]
-                    modules_in_the_details = findModuleIds(d) 
+                    modules_in_the_details = findModuleIds(d)
                 new_log[key] = im + list(set(modules_in_the_details) - set(im))
                 logbook_collection.insert_one(new_log)
                 return {"_id": str(new_log["_id"])}, 201
             except ValidationError as e:
                 return {"message": str(e)}, 400
+            
+
+
+                
+    #             validate(instance=new_log, schema=logbook_schema)
+    # #
+    # # check involved modules
+    # #
+    #             im = []
+    #             key = "involved_modules"
+    #             det = "details"
+    #             d = ""
+    #             modules_in_the_details = []
+    #             if key in  new_log:
+    #                 im = new_log["involved_modules"]
+    #             if det in new_log:
+    #                 d = new_log["details"]
+    #                 modules_in_the_details = findModuleIds(d) 
+    #             new_log[key] = im + list(set(modules_in_the_details) - set(im))
+    #             logbook_collection.insert_one(new_log)
+    #             return {"_id": str(new_log["_id"])}, 201
+    #         except ValidationError as e:
+    #             return {"message": str(e)}, 400
 
         def put(self, _id):
             """
@@ -110,8 +150,37 @@ class LogbookResource(Resource):
                 A dictionary containing a message indicating that the logbook entry was successfully updated.
             """
             logbook_collection = get_db()["logbook"]
-            updated_data = request.get_json()
+            #updated_data = request.get_json()
+            all_data = request.form.to_dict()
+            updated_data = json.loads(all_data["jsonData"])
+            #get current entry
+            log = logbook_collection.find_one({"_id": ObjectId(_id)})
+            #add attachments
+            if "attachments" in log:
+                updated_data["attachments"] = log["attachments"]
+            #check involved modules
+            if "involved_modules" in updated_data:
+                im = updated_data["involved_modules"]
+                d = updated_data["details"]
+                modules_in_the_details = findModuleIds(d)
+                updated_data["involved_modules"] = im + list(set(modules_in_the_details) - set(im))
+
+            if request.files:
+                for file in request.files:
+                    #save in "/attachments" folder and add url in new_log
+                    file = request.files[file]
+                    curr_timestamp= str(time.time()).replace(".","_")
+                    file.save(os.path.join("/attachments", curr_timestamp+"_"+file.filename))
+                    updated_data["attachments"][file.filename] = os.path.join("/attachments", curr_timestamp+"_"+file.filename)
+            #remove id from updated data
+            if "_id" in updated_data:
+                del updated_data["_id"]
+            #update entry
             logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
+
+            # if "_id" in updated_data:
+            #     del updated_data["_id"]
+            # logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
             return {"message": "Log updated"}, 200
 
         def delete(self, _id):
