@@ -15,6 +15,20 @@ API_URL = "http://192.168.0.45:5005"
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
+PARTS_TABLES = {
+    "PS-s Sensor": "p1160",
+    "PS Baseplate": "p11820",
+    "PS Front-end Hybrid": "p6740",
+    "PS Read-out Hybrid": "p6760",
+    "PS Power Hybrid": "p10200",
+    "VTRx+": "p15800",
+    "VTRx+": "p4260",
+    "MaPSA": "p11480",
+    # and its two children:
+    "PS-p Sensor": "p1200",
+    "MPA Chip": "p11420"
+}
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -40,24 +54,73 @@ def get_module_children(parent_name_label):
     output = run_rhapi_command(command)
     return parse_csv_output(output)
 
+def get_component_details(component_type, serial_number):
+    if component_type not in PARTS_TABLES:
+        logging.warning(f"Unknown component type: {component_type}")
+        return None
+    table = PARTS_TABLES[component_type]
+    command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.{table} p where p.serial_number='{serial_number}'" --all --login -n"""
+    output = run_rhapi_command(command)
+    details = parse_csv_output(output)
+    return details[0] if details else None
+
 def get_module_identifier(module):
     if "SERIAL_NUMBER" in module:
         return module["SERIAL_NUMBER"]
-    # elif "CHILD_SERIAL_NUMBER" in module:
-    #     return module["CHILD_SERIAL_NUMBER"]
+    elif "CHILD_SERIAL_NUMBER" in module and module["CHILD_SERIAL_NUMBER"]:
+        return module["CHILD_SERIAL_NUMBER"]
+    elif "CHILD_NAME_LABEL" in module and module["CHILD_NAME_LABEL"]:
+        return module["CHILD_NAME_LABEL"]
     elif "CHILD_COMPONENT" in module and "CHILD_ID" in module:
         return f"{module['CHILD_COMPONENT']}_{module['CHILD_ID']}"
     else:
         logging.warning(f"Unable to determine identifier for module: {module}")
         return None
 
-def process_module(module, mongo_collection, is_child=False):
+def get_component_details(component_type, identifier):
+    if component_type not in PARTS_TABLES:
+        logging.warning(f"Unknown component type: {component_type}")
+        return None
+    table = PARTS_TABLES[component_type]
+    # Use NAME_LABEL for MaPSA, SERIAL_NUMBER for others
+    id_field = "name_label" if component_type == "MaPSA" else "serial_number"
+    command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.{table} p where p.{id_field}='{identifier}'" --all --login -n"""
+    output = run_rhapi_command(command)
+    details = parse_csv_output(output)
+    return details[0] if details else None
+
+def process_children(parent_name_label):
+    children = get_module_children(parent_name_label)
+    processed_children = []
+    for child in children:
+        child_type = child["CHILD_COMPONENT"]
+        child_identifier = child["CHILD_SERIAL_NUMBER"] if child["CHILD_SERIAL_NUMBER"] else child["CHILD_NAME_LABEL"]
+        logging.debug("Child type: ", child_type)
+        logging.debug("Child identifier: ", child_identifier)
+        if not child_identifier:
+            logging.warning(f"Skipping child due to missing identifier: {child}")
+            continue
+        child_details = get_component_details(child_type, child_identifier)
+        if child_details:
+            child_doc = {
+                "childName": child_identifier,
+                "childType": child_type,
+                "details": child_details,
+                "children": []
+            }
+            if child_type == "MaPSA":
+                print("Processing MaPSA children")
+                child_doc["children"] = process_children(child_identifier)
+            processed_children.append(child_doc)
+    return processed_children
+
+def process_module(module, mongo_collection):
     module_identifier = get_module_identifier(module)
     if not module_identifier:
         logging.error(f"Skipping module due to missing identifier: {module}")
         return None
 
-    logging.info(f"Processing {'child ' if is_child else ''}module {module_identifier}...")
+    logging.info(f"Processing module {module_identifier}...")
 
     module_doc = {
         "moduleName": module_identifier,
@@ -65,24 +128,15 @@ def process_module(module, mongo_collection, is_child=False):
         "children": []
     }
 
-    if not is_child and "NAME_LABEL" in module:
-        # we should be able to get childrens of a child as well, not only of a module
-        children = get_module_children(module["NAME_LABEL"])
-        for child in children:
-            # this is ok, but we should actually get the info from a query on the children table
-            child_doc = process_module(child, mongo_collection, is_child=True)
-            if child_doc:
-                # change from child_doc["moduleName"] to child_doc["childName"]
-                child_doc["childName"] = child_doc.pop("moduleName")
-                module_doc["children"].append(child_doc)
+    if "NAME_LABEL" in module:
+        module_doc["children"] = process_children(module["NAME_LABEL"])
 
-    if not is_child:
-        # Only insert top-level modules into MongoDB
-        mongo_collection.update_one(
-            {"moduleName": module_doc["moduleName"]},
-            {"$set": module_doc},
-            upsert=True
-        )
+    # Insert top-level module into MongoDB
+    mongo_collection.update_one(
+        {"moduleName": module_doc["moduleName"]},
+        {"$set": module_doc},
+        upsert=True
+    )
 
     return module_doc
 
@@ -93,9 +147,9 @@ def main():
     modules_collection = db["modules"]
     logging.info("Connected to MongoDB.")
     
-    # remove all module from local
+    # remove all documents from the collection
     # modules_collection.delete_many({})
-    # print all modules
+    # Print all modules
     for module in modules_collection.find():
         print(module)
 
