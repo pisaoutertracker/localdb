@@ -22,7 +22,7 @@ PARTS_TABLES = {
     "PS Read-out Hybrid": "p6760",
     "PS Power Hybrid": "p10200",
     "VTRx+": "p15800",
-    "VTRx+": "p4260",
+    "VTRx": "p4260",
     "MaPSA": "p11480",
     # and its two children:
     "PS-p Sensor": "p1200",
