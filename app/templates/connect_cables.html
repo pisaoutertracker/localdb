@@ -57,6 +57,8 @@
                 <label for="cableSelectDet">Cable DetSide:</label>
                 <input list="cableSelectDetList" id="cableSelectDet" name="cableSelectDet" placeholder="Select a cable">
                 <datalist id="cableSelectDetList"></datalist>
+                <input list="cableSelectDetList" id="cableSelectDet" name="cableSelectDet" placeholder="Select a cable">
+                <datalist id="cableSelectDetList"></datalist>
             </div>
             <div class="box">
                 <label for="portSelectDet">Port:</label>
@@ -70,6 +72,8 @@
                 <label for="cableSelectCrate">Cable CrateSide:</label>
                 <input list="cableSelectCrateList" id="cableSelectCrate" name="cableSelectCrate" placeholder="Select a cable">
                 <datalist id="cableSelectCrateList"></datalist>
+                <input list="cableSelectCrateList" id="cableSelectCrate" name="cableSelectCrate" placeholder="Select a cable">
+                <datalist id="cableSelectCrateList"></datalist>
             </div>
             <button type="submit">Connect</button>
         </div>
@@ -78,28 +82,24 @@
     </form>
 
     <script>
-        Promise.all([
-            fetch('/cables').then(response => response.json()),
-            fetch('/modules').then(response => response.json())
-        ])
-        .then(([cablesData, modulesData]) => {
-            const detDatalist = document.getElementById('cableSelectDetList');
-            const crateDatalist = document.getElementById('cableSelectCrateList');
+        // Fetch the list of available cables
+        fetch('/cables')
+            .then(response => response.json())
+            .then(data => {
+                const cableSelectDet = document.getElementById('cableSelectDetList');
+                const cableSelectCrate = document.getElementById('cableSelectCrateList');
+                
+                //const cableSelectDet = document.getElementById('cableSelectDet');
+                const portSelectDet = document.getElementById('portSelectDet');
+                // const cableSelectCrate = document.getElementById('cableSelectCrate');
+                const portSelectCrate = document.getElementById('portSelectCrate');
 
-            // Populate DetSide datalist with both cables and modules
-            for (const cable of cablesData) {
-                const option = document.createElement('option');
-                option.value = `cable:${cable.name}`;
-                option.label = `Cable: ${cable.name}`;
-                detDatalist.appendChild(option);
-            }
-
-            for (const module of modulesData) {
-                const option = document.createElement('option');
-                option.value = `module:${module.moduleName}`;
-                option.label = `Module: ${module.moduleName}`;
-                detDatalist.appendChild(option);
-            }
+                // Populate the cable select options
+                for (const cable of data) {
+                    const optionDet = document.createElement('option');
+                    optionDet.value = cable.name;
+                    optionDet.text = cable.name;
+                    cableSelectDet.appendChild(optionDet);
 
             // Populate CrateSide datalist (cables only)
             for (const cable of cablesData) {

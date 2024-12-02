@@ -98,66 +98,85 @@
             detDatalist.appendChild(option);
         }
 
-        // Populate CrateSide datalist (cables only)
-        for (const cable of cablesData) {
-            const option = document.createElement('option');
-            option.value = cable.name;
-            option.label = cable.name;
-            crateDatalist.appendChild(option);
-        }
-    });
+                const optionCrate = document.createElement('option');
+                optionCrate.value = cable.name;
+                optionCrate.text = cable.name;
+                cableSelectCrate.appendChild(optionCrate);
 
-    // Update event listeners to use 'input' instead of 'change'
-    document.getElementById('cableSelectDet').addEventListener('input', function(event) {
-        if (!this.value) return;
-        
-        const [type, name] = this.value.split(':');
-        const endpoint = type === 'module' ? `/modules/${name}` : `/cables/${name}`;
-        
-        fetch(endpoint)
-            .then(response => response.json())
-            .then(data => {
-                const templateType = type === 'module' ? 'module' : data.type;
+
                 
-                // Fetch the appropriate template
-                fetch(`/cable_templates/${templateType}`)
-                    .then(response => response.json())
-                    .then(templateData => {
-                        const portSelectDet = document.getElementById('portSelectDet');
-                        portSelectDet.innerHTML = '';
-                        for (const port in templateData.crateSide) {
-                            const option = document.createElement('option');
-                            option.value = port;
-                            option.text = port;
-                            portSelectDet.appendChild(option);
-                        }
-                    });
+            }
+            
+        });
+        document.getElementById('cableSelectDet').addEventListener('change', function(event) {
+    const cable = event.target.value;
+    fetch(`/cables/${cable}`)
+    .then(response => response.json())
+    .then(data => {
+        var cableTemplate = data.type;
+        //if not found use "module"
+        if (!cableTemplate) {
+              cableTemplate = "module";
+        }
+        // Fetch the cable template
+        fetch(`/cable_templates/${cableTemplate}`)
+            .then(response => response.json())
+            .then(templateData => {
+                const portSelectDet = document.getElementById('portSelectDet');
+                portSelectDet.innerHTML = '';
+                for (const port in templateData.crateSide) {
+                    const option = document.createElement('option');
+                    option.value = port;
+                    option.text = port;// templateData.detSide[port].join('_');
+                    portSelectDet.appendChild(option);
+                }
             });
+        });
     });
-
-    document.getElementById('cableSelectCrate').addEventListener('input', function(event) {
-        if (!this.value) return;
-        
-        const cable = this.value;
-        fetch(`/cables/${cable}`)
+    //add modules as cables on detside list
+    fetch('/modules')
         .then(response => response.json())
         .then(data => {
-            const cableTemplate = data.type;
+            const cableSelectDet = document.getElementById('cableSelectDet');
+            const portSelectDet = document.getElementById('portSelectDet');
+            const cableSelectCrate = document.getElementById('cableSelectCrate');
+            const portSelectCrate = document.getElementById('portSelectCrate');
+            //append options
+            for (const module of data) {
+                const optionDet = document.createElement('option');                
+                optionDet.value = module.moduleName;
+                optionDet.text = module.moduleName;
+                cableSelectDet.appendChild(optionDet);
 
-            // Fetch the cable template
-            fetch(`/cable_templates/${cableTemplate}`)
-                .then(response => response.json())
-                .then(templateData => {
-                    const portSelectCrate = document.getElementById('portSelectCrate');
-                    portSelectCrate.innerHTML = '';
-                    for (const port in templateData.detSide) {
-                        const option = document.createElement('option');
-                        option.value = port;
-                        option.text = port;// templateData.detSide[port].join('_');
-                        portSelectCrate.appendChild(option);
-                    }
-                });
+                // const optionCrate = document.createElement('option');
+                // optionCrate.value = module.name;
+                // optionCrate.text = module.name;
+                // cableSelectCrate.appendChild(optionCrate);
+            }
+        });
+
+    // same for crate side
+    document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
+    const cable = event.target.value;
+    fetch(`/cables/${cable}`)
+    .then(response => response.json())
+    .then(data => {
+        const cableTemplate = data.type;
+     
+        // Fetch the cable template
+        fetch(`/cable_templates/${cableTemplate}`)
+            .then(response => response.json())
+            .then(templateData => {
+                const portSelectCrate = document.getElementById('portSelectCrate');
+                portSelectCrate.innerHTML = '';
+                for (const port in templateData.detSide) {
+                    const option = document.createElement('option');
+                    option.value = port;
+                    option.text = port;// templateData.detSide[port].join('_');
+                    portSelectCrate.appendChild(option);
+                }
             });
+        });
     });
 
     // Handle the form submission
