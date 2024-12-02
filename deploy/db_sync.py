@@ -44,7 +44,7 @@ def parse_csv_output(output):
     return list(csv_reader)
 
 def get_central_modules():
-    command = """python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-Perugia[INFN Perugia]'" --all --login -n"""
+    command = """python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-Pisa[INFN Pisa]'" --all --login -n"""
     output = run_rhapi_command(command)
     return parse_csv_output(output)
 

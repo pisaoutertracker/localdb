@@ -72,7 +72,6 @@
         "required": [
             "moduleName",
             "position",
-            "status",
             "type"
         ]
     },

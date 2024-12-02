@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <body>
@@ -52,8 +53,7 @@
     <div class="container">
         <div class="detbox">
             <label for="cableSelectDet">Cable DetSide:</label>
-            <input list="cableSelectDetList" id="cableSelectDet" name="cableSelectDet" placeholder="Select a cable">
-            <datalist id="cableSelectDetList"></datalist>
+            <select id="cableSelectDet"></select>
         </div>
         <div class="box">
             <label for="portSelectDet">Port:</label>
@@ -65,38 +65,31 @@
         </div>
         <div class="cratebox">
             <label for="cableSelectCrate">Cable CrateSide:</label>
-            <input list="cableSelectCrateList" id="cableSelectCrate" name="cableSelectCrate" placeholder="Select a cable">
-            <datalist id="cableSelectCrateList"></datalist>
+            <select id="cableSelectCrate"></select>
         </div>
         <button type="submit">Disconnect</button>
     </div>
     <div id="responseOutput"></div>
+
 </form>
 
 <script>
-    // Use the same JavaScript code as connect_cables.html with minor adjustments
-    Promise.all([
-        fetch('/cables').then(response => response.json()),
-        fetch('/modules').then(response => response.json())
-    ])
-    .then(([cablesData, modulesData]) => {
-        const detDatalist = document.getElementById('cableSelectDetList');
-        const crateDatalist = document.getElementById('cableSelectCrateList');
+    // Fetch the list of available cables
+    fetch('/cables')
+        .then(response => response.json())
+        .then(data => {
+            const cableSelectDet = document.getElementById('cableSelectDet');
+            const portSelectDet = document.getElementById('portSelectDet');
+            const cableSelectCrate = document.getElementById('cableSelectCrate');
+            const portSelectCrate = document.getElementById('portSelectCrate');
 
-        // Populate DetSide datalist with both cables and modules
-        for (const cable of cablesData) {
-            const option = document.createElement('option');
-            option.value = `cable:${cable.name}`;
-            option.label = `Cable: ${cable.name}`;
-            detDatalist.appendChild(option);
-        }
 
-        for (const module of modulesData) {
-            const option = document.createElement('option');
-            option.value = `module:${module.moduleName}`;
-            option.label = `Module: ${module.moduleName}`;
-            detDatalist.appendChild(option);
-        }
+            // Populate the cable select options
+            for (const cable of data) {
+                const optionDet = document.createElement('option');
+                optionDet.value = cable.name;
+                optionDet.text = cable.name;
+                cableSelectDet.appendChild(optionDet);
 
                 const optionCrate = document.createElement('option');
                 optionCrate.value = cable.name;
@@ -183,64 +176,66 @@
     document.getElementById('disconnectForm').addEventListener('submit', function(event) {
         event.preventDefault();
 
-        let [type, name] = document.getElementById('cableSelectDet').value.split(':');
-        let cable1 = name;  // Use just the name part
-        let port1 = document.getElementById('portSelectDet').value;
-        let cable2 = document.getElementById('cableSelectCrate').value;
-        let port2 = document.getElementById('portSelectCrate').value;
+    let cable1 = document.getElementById('cableSelectDet').value;
+    let port1 = document.getElementById('portSelectDet').value;    
+    let cable2 = document.getElementById('cableSelectCrate').value; // Assuming you have a select element for crate side cable
+    let port2 = document.getElementById('portSelectCrate').value; // Assuming you have a select element for crate side port
 
-        if (!cable1 || !cable2) {
-            alert('Please select both cables');
-            return;
-        }
-        if (!port1 && !port2) {
-            fetch('/disconnect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    cable1: cable1,
-                    cable2: cable2,
-                }),
-            })
-            .then(response => response.json())
-            .then(data => console.log(data))
-            .catch((error) => {
-                console.error('Error:', error);
-            });
-        } else if (port1 && port2) {
-            fetch('/disconnect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    cable1: cable1,
-                    port1: port1,
-                    cable2: cable2,
-                    port2: port2,
-                }),
-            })
-            .then(response => response.json())
-            .then(data =>  {
-                        console.log(data)
-                        // Get the current time
-                        let currentTime = new Date().toLocaleString();
-                        // Get the responseOutput element
-                        let responseOutput = document.getElementById('responseOutput');
+    // print the selected values
+    console.log(cable1, port1, cable2, port2);
 
-                        // Append the new response to the existing text
-                        responseOutput.innerHTML += `<p>Acting on: detside ${cable1}, port ${port1} and crateside ${cable2}, port ${port2}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
-                        })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
-        } else {
-            alert('Please select both ports');
-            return;
-        }
-    });
+    if (!cable1 || !cable2) {
+        alert('Please select both cables');
+        return;
+    }
+    if (!port1 && !port2) {
+        fetch('/disconnect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cable1: cable1,
+                cable2: cable2,
+            }),
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    } else if (port1 && port2) {
+        fetch('/disconnect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cable1: cable1,
+                port1: port1,
+                cable2: cable2,
+                port2: port2,
+            }),
+        })
+        .then(response => response.json())
+        .then(data =>  {
+                    console.log(data)
+                    // Get the current time
+                    let currentTime = new Date().toLocaleString();
+                    // Get the responseOutput element
+                    let responseOutput = document.getElementById('responseOutput');
+
+                    // Append the new response to the existing text
+                    responseOutput.innerHTML += `<p>Acting on: detside ${cable1}, port ${port1} and crateside ${cable2}, port ${port2}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+                    })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    } else {
+        alert('Please select both ports');
+        return;
+    }
+});
 
 </script>
 
