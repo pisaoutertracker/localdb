@@ -1,13 +1,18 @@
 import subprocess
 import csv
 import io
+import sys
 import requests
 from pymongo import MongoClient
 import os
 import logging
+from jsonschema import validate, ValidationError
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from app.utils import module_schema
 
 # Constants
-API_URL = os.environ["API_URL"]
+#API_URL = "http://192.168.0.45:5005"
+API_URL = "http://localhost:5000"
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
@@ -39,7 +44,7 @@ def parse_csv_output(output):
     return list(csv_reader)
 
 def get_central_modules():
-    command = """python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-Pisa[INFN Pisa]'" --all --login -n"""
+    command = """python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-Perugia[INFN Perugia]'" --all --login -n"""
     output = run_rhapi_command(command)
     return parse_csv_output(output)
 
@@ -135,14 +140,21 @@ def process_module(module, children_map, all_component_details, mongo_collection
     module_doc = {
         "moduleName": module_id,
         "details": module,
-        "children": process_children(children, all_component_details)
+        "children": process_children(children, all_component_details),
+        "type": "module",
+        "position": "cleanroom"
     }
-    # print(module_doc)
-    mongo_collection.update_one(
-        {"moduleName": module_id},
-        {"$set": module_doc},
-        upsert=True
-    )
+    try:
+        validate(instance=module_doc, schema=module_schema)
+        # print(module_doc)
+        mongo_collection.update_one(
+            {"moduleName": module_id},
+            {"$set": module_doc},
+            upsert=True
+        )
+    except ValidationError as e:
+        logging.error(f"Validation error for module {module_id}: {e}")
+        raise
 
 def main():
     client = MongoClient(MONGO_URI)
@@ -154,6 +166,7 @@ def main():
     
     central_modules = get_central_modules()
     local_modules = get_local_modules()
+    # print(local_modules)
     
     logging.info(f"Central DB has {len(central_modules)} modules.")
     logging.info(f"Local DB has {len(local_modules)} modules.")
