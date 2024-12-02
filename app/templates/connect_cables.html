@@ -76,38 +76,59 @@
     </form>
 
     <script>
-        // Fetch the list of available cables
-        fetch('/cables')
-            .then(response => response.json())
-            .then(data => {
-                const cableSelectDet = document.getElementById('cableSelectDet');
-                const portSelectDet = document.getElementById('portSelectDet');
-                const cableSelectCrate = document.getElementById('cableSelectCrate');
-                const portSelectCrate = document.getElementById('portSelectCrate');
+        // Fetch both cables and modules
+        Promise.all([
+            fetch('/cables').then(response => response.json()),
+            fetch('/modules').then(response => response.json())
+        ])
+        .then(([cablesData, modulesData]) => {
+            const cableSelectDet = document.getElementById('cableSelectDet');
+            const portSelectDet = document.getElementById('portSelectDet');
+            const cableSelectCrate = document.getElementById('cableSelectCrate');
+            const portSelectCrate = document.getElementById('portSelectCrate');
 
-                // Populate the cable select options
-                for (const cable of data) {
-                    const optionDet = document.createElement('option');
-                    optionDet.value = cable.name;
-                    optionDet.text = cable.name;
-                    cableSelectDet.appendChild(optionDet);
+            // Create optgroup for cables
+            const cablesGroup = document.createElement('optgroup');
+            cablesGroup.label = 'Cables';
+            for (const cable of cablesData) {
+                const optionDet = document.createElement('option');
+                optionDet.value = `cable:${cable.name}`;
+                optionDet.text = cable.name;
+                cablesGroup.appendChild(optionDet);
+            }
+            cableSelectDet.appendChild(cablesGroup);
 
-                    const optionCrate = document.createElement('option');
-                    optionCrate.value = cable.name;
-                    optionCrate.text = cable.name;
-                    cableSelectCrate.appendChild(optionCrate);
-                }
-            });
+            // Create optgroup for modules
+            const modulesGroup = document.createElement('optgroup');
+            modulesGroup.label = 'Modules';
+            for (const module of modulesData) {
+                const optionDet = document.createElement('option');
+                optionDet.value = `module:${module.moduleName}`;
+                optionDet.text = module.moduleName;
+                modulesGroup.appendChild(optionDet);
+            }
+            cableSelectDet.appendChild(modulesGroup);
+
+            // Populate CrateSide (cables only)
+            for (const cable of cablesData) {
+                const optionCrate = document.createElement('option');
+                optionCrate.value = cable.name;
+                optionCrate.text = cable.name;
+                cableSelectCrate.appendChild(optionCrate);
+            }
+        });
 
         document.getElementById('cableSelectDet').addEventListener('change', function(event) {
-            const cable = event.target.value;
-            fetch(`/cables/${cable}`)
+            const [type, name] = event.target.value.split(':');
+            const endpoint = type === 'module' ? `/modules/${name}` : `/cables/${name}`;
+            
+            fetch(endpoint)
                 .then(response => response.json())
                 .then(data => {
-                    const cableTemplate = data.type;
-
-                    // Fetch the cable template
-                    fetch(`/cable_templates/${cableTemplate}`)
+                    const templateType = type === 'module' ? 'module' : data.type;
+                    
+                    // Fetch the appropriate template
+                    fetch(`/cable_templates/${templateType}`)
                         .then(response => response.json())
                         .then(templateData => {
                             const portSelectDet = document.getElementById('portSelectDet');
@@ -145,12 +166,12 @@
                 });
         });
 
-
         // Handle the form submission
         document.getElementById('connectForm').addEventListener('submit', function(event) {
             event.preventDefault();
 
-            let cable1 = document.getElementById('cableSelectDet').value;
+            let [type, name] = document.getElementById('cableSelectDet').value.split(':');
+            let cable1 = name;  // Use just the name part
             let port1 = document.getElementById('portSelectDet').value;
             let cable2 = document.getElementById('cableSelectCrate').value;
             let port2 = document.getElementById('portSelectCrate').value;
