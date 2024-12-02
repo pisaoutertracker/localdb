@@ -7,11 +7,10 @@ from dotenv import load_dotenv
 import os
 import logging
 
-CONFIG_NAME = "test"
-load_dotenv(f"../config/{CONFIG_NAME}.env")
 
 # Constants
-API_URL = "http://192.168.0.45:5005"
+#API_URL = "http://192.168.0.45:5005"
+API_URL = "http://localhost:5000"
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
@@ -132,12 +131,12 @@ def process_module(module, mongo_collection):
         module_doc["children"] = process_children(module["NAME_LABEL"])
 
     # Insert top-level module into MongoDB
-    mongo_collection.update_one(
-        {"moduleName": module_doc["moduleName"]},
-        {"$set": module_doc},
-        upsert=True
-    )
-
+#    mongo_collection.update_one(
+#        {"moduleName": module_doc["moduleName"]},
+#        {"$set": module_doc},
+#        upsert=True
+#    )
+    
     return module_doc
 
 def main():

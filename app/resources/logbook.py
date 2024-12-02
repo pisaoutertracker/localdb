@@ -102,11 +102,12 @@ class LogbookResource(Resource):
                 d = ""
                 modules_in_the_details = []
                 if key in  new_log:
-                    im = new_log["involved_modules"]
+                    #im = new_log["involved_modules"]
+                    im = [x for x in new_log["involved_modules"] if x != ""]
                 if det in new_log:
                     d = new_log["details"]
                     modules_in_the_details = findModuleIds(d)
-                new_log[key] = im + list(set(modules_in_the_details) - set(im))
+                new_log[key] = list(set(modules_in_the_details+im))
                 logbook_collection.insert_one(new_log)
                 return {"_id": str(new_log["_id"])}, 201
             except ValidationError as e:
@@ -160,10 +161,10 @@ class LogbookResource(Resource):
                 updated_data["attachments"] = log["attachments"]
             #check involved modules
             if "involved_modules" in updated_data:
-                im = updated_data["involved_modules"]
+                im = [x for x in updated_data["involved_modules"] if x != ""]
                 d = updated_data["details"]
                 modules_in_the_details = findModuleIds(d)
-                updated_data["involved_modules"] = im + list(set(modules_in_the_details) - set(im))
+                updated_data["involved_modules"] = list(set(im+modules_in_the_details) )
 
             if request.files:
                 for file in request.files:

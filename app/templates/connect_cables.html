@@ -55,7 +55,8 @@
         <div class="container">
             <div class="detbox">
                 <label for="cableSelectDet">Cable DetSide:</label>
-                <select id="cableSelectDet"></select>
+                <input list="cableSelectDetList" id="cableSelectDet" name="cableSelectDet" placeholder="Select a cable">
+                <datalist id="cableSelectDetList"></datalist>
             </div>
             <div class="box">
                 <label for="portSelectDet">Port:</label>
@@ -67,7 +68,8 @@
             </div>
             <div class="cratebox">
                 <label for="cableSelectCrate">Cable CrateSide:</label>
-                <select id="cableSelectCrate"></select>
+                <input list="cableSelectCrateList" id="cableSelectCrate" name="cableSelectCrate" placeholder="Select a cable">
+                <datalist id="cableSelectCrateList"></datalist>
             </div>
             <button type="submit">Connect</button>
         </div>
@@ -80,9 +82,12 @@
         fetch('/cables')
             .then(response => response.json())
             .then(data => {
-                const cableSelectDet = document.getElementById('cableSelectDet');
+                const cableSelectDet = document.getElementById('cableSelectDetList');
+                const cableSelectCrate = document.getElementById('cableSelectCrateList');
+                
+                //const cableSelectDet = document.getElementById('cableSelectDet');
                 const portSelectDet = document.getElementById('portSelectDet');
-                const cableSelectCrate = document.getElementById('cableSelectCrate');
+                // const cableSelectCrate = document.getElementById('cableSelectCrate');
                 const portSelectCrate = document.getElementById('portSelectCrate');
 
                 // Populate the cable select options

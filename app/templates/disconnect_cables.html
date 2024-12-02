@@ -106,8 +106,11 @@
     fetch(`/cables/${cable}`)
     .then(response => response.json())
     .then(data => {
-        const cableTemplate = data.type;
-
+        var cableTemplate = data.type;
+        //if not found use "module"
+        if (!cableTemplate) {
+              cableTemplate = "module";
+        }
         // Fetch the cable template
         fetch(`/cable_templates/${cableTemplate}`)
             .then(response => response.json())
@@ -123,6 +126,28 @@
             });
         });
     });
+    //add modules as cables on detside list
+    fetch('/modules')
+        .then(response => response.json())
+        .then(data => {
+            const cableSelectDet = document.getElementById('cableSelectDet');
+            const portSelectDet = document.getElementById('portSelectDet');
+            const cableSelectCrate = document.getElementById('cableSelectCrate');
+            const portSelectCrate = document.getElementById('portSelectCrate');
+            //append options
+            for (const module of data) {
+                const optionDet = document.createElement('option');                
+                optionDet.value = module.moduleName;
+                optionDet.text = module.moduleName;
+                cableSelectDet.appendChild(optionDet);
+
+                // const optionCrate = document.createElement('option');
+                // optionCrate.value = module.name;
+                // optionCrate.text = module.name;
+                // cableSelectCrate.appendChild(optionCrate);
+            }
+        });
+
     // same for crate side
     document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
     const cable = event.target.value;
@@ -130,7 +155,7 @@
     .then(response => response.json())
     .then(data => {
         const cableTemplate = data.type;
-
+     
         // Fetch the cable template
         fetch(`/cable_templates/${cableTemplate}`)
             .then(response => response.json())
