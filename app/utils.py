@@ -16,7 +16,7 @@ def get_db():
 
 # define regexps to select module ids, crateid, etc
 def regExpPatterns(s):
-    mapRE = {"ModuleID": "PS_\\d+"}
+    mapRE = {"ModuleID": "PS_[0-9A-Z_\\-]+"}
     if s in mapRE.keys():
         return  mapRE[s]
     else:
