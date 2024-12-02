@@ -20,6 +20,9 @@ def disconnectGUI():
 def logbookGUI():
     return render_template('logbook.html')
 
+@bp.route('/connections.html')
+def connectionsGUI():
+    return render_template('connections.html')
 #add route to fetch attachments from /attachments folder
 
 @bp.route('/attachments/<filename>')

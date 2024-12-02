@@ -55,7 +55,8 @@
         <div class="container">
             <div class="detbox">
                 <label for="cableSelectDet">Cable DetSide:</label>
-                <select id="cableSelectDet"></select>
+                <input list="cableSelectDetList" id="cableSelectDet" name="cableSelectDet" placeholder="Select a cable">
+                <datalist id="cableSelectDetList"></datalist>
             </div>
             <div class="box">
                 <label for="portSelectDet">Port:</label>
@@ -67,7 +68,8 @@
             </div>
             <div class="cratebox">
                 <label for="cableSelectCrate">Cable CrateSide:</label>
-                <select id="cableSelectCrate"></select>
+                <input list="cableSelectCrateList" id="cableSelectCrate" name="cableSelectCrate" placeholder="Select a cable">
+                <datalist id="cableSelectCrateList"></datalist>
             </div>
             <button type="submit">Connect</button>
         </div>
@@ -76,50 +78,42 @@
     </form>
 
     <script>
-        // Fetch both cables and modules
         Promise.all([
             fetch('/cables').then(response => response.json()),
             fetch('/modules').then(response => response.json())
         ])
         .then(([cablesData, modulesData]) => {
-            const cableSelectDet = document.getElementById('cableSelectDet');
-            const portSelectDet = document.getElementById('portSelectDet');
-            const cableSelectCrate = document.getElementById('cableSelectCrate');
-            const portSelectCrate = document.getElementById('portSelectCrate');
+            const detDatalist = document.getElementById('cableSelectDetList');
+            const crateDatalist = document.getElementById('cableSelectCrateList');
 
-            // Create optgroup for cables
-            const cablesGroup = document.createElement('optgroup');
-            cablesGroup.label = 'Cables';
+            // Populate DetSide datalist with both cables and modules
             for (const cable of cablesData) {
-                const optionDet = document.createElement('option');
-                optionDet.value = `cable:${cable.name}`;
-                optionDet.text = cable.name;
-                cablesGroup.appendChild(optionDet);
+                const option = document.createElement('option');
+                option.value = `cable:${cable.name}`;
+                option.label = `Cable: ${cable.name}`;
+                detDatalist.appendChild(option);
             }
-            cableSelectDet.appendChild(cablesGroup);
 
-            // Create optgroup for modules
-            const modulesGroup = document.createElement('optgroup');
-            modulesGroup.label = 'Modules';
             for (const module of modulesData) {
-                const optionDet = document.createElement('option');
-                optionDet.value = `module:${module.moduleName}`;
-                optionDet.text = module.moduleName;
-                modulesGroup.appendChild(optionDet);
+                const option = document.createElement('option');
+                option.value = `module:${module.moduleName}`;
+                option.label = `Module: ${module.moduleName}`;
+                detDatalist.appendChild(option);
             }
-            cableSelectDet.appendChild(modulesGroup);
 
-            // Populate CrateSide (cables only)
+            // Populate CrateSide datalist (cables only)
             for (const cable of cablesData) {
-                const optionCrate = document.createElement('option');
-                optionCrate.value = cable.name;
-                optionCrate.text = cable.name;
-                cableSelectCrate.appendChild(optionCrate);
+                const option = document.createElement('option');
+                option.value = cable.name;
+                option.label = cable.name;
+                crateDatalist.appendChild(option);
             }
         });
 
-        document.getElementById('cableSelectDet').addEventListener('change', function(event) {
-            const [type, name] = event.target.value.split(':');
+        document.getElementById('cableSelectDet').addEventListener('input', function(event) {
+            if (!this.value) return;
+            
+            const [type, name] = this.value.split(':');
             const endpoint = type === 'module' ? `/modules/${name}` : `/cables/${name}`;
             
             fetch(endpoint)
@@ -143,8 +137,10 @@
                 });
         });
 
-        document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
-            const cable = event.target.value;
+        document.getElementById('cableSelectCrate').addEventListener('input', function(event) {
+            if (!this.value) return;
+            
+            const cable = this.value;
             fetch(`/cables/${cable}`)
                 .then(response => response.json())
                 .then(data => {
