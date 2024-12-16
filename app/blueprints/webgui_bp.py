@@ -16,6 +16,10 @@ def connectGUI():
 def disconnectGUI():
     return render_template('disconnect_cables.html')
 
+@bp.route('/insert_cables.html')
+def insertGUI():
+    return render_template('insert_cables.html')
+
 @bp.route('/logbook.html')
 def logbookGUI():
     return render_template('logbook.html')
