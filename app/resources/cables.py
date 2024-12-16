@@ -51,6 +51,10 @@ class CablesResource(Resource):
             if not template:
                 return {"message": "Template not found"}, 400
             
+            # if the cable name does not start with the "letter" from the template, return an error
+            if not new_entry["name"].startswith(template["letter"]):
+                return {"message": f"Name should start with the letter from the template, which is {template['letter']}."}, 400
+            
             # get lines number from the template
             lines = template['lines']
             # if the template has a detSide, initialize it as 'line_number': []
