@@ -12,7 +12,7 @@ from app.utils import module_schema
 
 # Constants
 #API_URL = "http://192.168.0.45:5005"
-API_URL = "http://localhost:5000"
+API_URL = "http://localhost:5005"
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
@@ -52,9 +52,12 @@ def get_local_modules():
     req = requests.get(f"{API_URL}/modules")
     return req.json()
 
-def get_children_of_modules(parent_labels):
+def get_children_of_modules(parent_labels, PSROH=False):
     labels = "', '".join(parent_labels)
-    command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.trkr_relationships_v r where r.parent_name_label in ('{labels}')" --all --login -n"""
+    if PSROH:
+        command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.trkr_relationships_v r where r.parent_serial_number in ('{labels}')" --all --login -n"""
+    else:
+        command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.trkr_relationships_v r where r.parent_name_label in ('{labels}')" --all --login -n"""
     output = run_rhapi_command(command)
     return parse_csv_output(output)
 
@@ -66,7 +69,8 @@ def get_component_details_in_bulk(component_type, identifiers):
     table = PARTS_TABLES[component_type]
     id_field = "NAME_LABEL" if component_type == "MaPSA" or component_type == "PS-s Sensor" or component_type == "PS-p Sensor" or component_type == "MPA Chip" else "SERIAL_NUMBER"
     ids = "', '".join(identifiers)
-    # print(ids)
+    # if component_type == "PS Read-out Hybrid":
+    #     print(ids)
     command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.{table} p where p.{id_field} in ('{ids}')" --all --login -n"""
     output = run_rhapi_command(command)
     details = parse_csv_output(output)
@@ -83,7 +87,17 @@ def get_component_details_in_bulk(component_type, identifiers):
         for detail in details:
             cid = detail["NAME_LABEL"]
             detail["children"] = process_children(mapsa_children_map.get(cid, []), children_details)
-        
+            
+    if component_type == "PS Read-out Hybrid":
+        # PS Read-out Hybrid has a child: lpGBT Chip
+        children = get_children_of_modules(identifiers, PSROH=True)
+        for child in children:
+            parent = child["PARENT_SERIAL_NUMBER"]
+            for detail in details:
+                if detail["SERIAL_NUMBER"] == parent:
+                    detail["children"] = [child]
+                    break
+            
     return {detail[id_field]: detail for detail in details}
 
 def get_all_component_details(children):
@@ -144,6 +158,7 @@ def process_module(module, children_map, all_component_details, mongo_collection
         "type": "module",
         "position": "cleanroom"
     }
+
     try:
         validate(instance=module_doc, schema=module_schema)
         # print(module_doc)
