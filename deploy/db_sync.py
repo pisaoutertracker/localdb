@@ -95,7 +95,8 @@ def get_component_details_in_bulk(component_type, identifiers):
             parent = child["PARENT_SERIAL_NUMBER"]
             for detail in details:
                 if detail["SERIAL_NUMBER"] == parent:
-                    detail["children"] = [child]
+                    # Store lpGBT as single child
+                    detail["children"] = {"lpGBT": child}
                     break
             
     return {detail[id_field]: detail for detail in details}
@@ -121,7 +122,7 @@ def get_all_component_details(children):
 
 
 def process_children(children, all_component_details):
-    processed = []
+    processed = {}
 
     for child in children:
         ctype = child["CHILD_COMPONENT"]
@@ -134,14 +135,28 @@ def process_children(children, all_component_details):
             continue
 
         details = all_component_details.get(cid)
+        if "children" in details.keys():
+            # this means that the part has subcomponents, we move them on the same level as the parent to make them full children of the module
+            for subcomponent in details["children"]:
+                processed[subcomponent] = details["children"][subcomponent]
+            del details["children"]
+            
         if details:
             child_doc = {
                 "childName": cid,
                 "childType": ctype,
                 "details": details,
-                # "children": []  # Initially empty, to be filled if it's MaPSA
             }
-            processed.append(child_doc)
+            
+            # Handle multiple components of same type (MPA Chips in MaPSA)
+            if ctype in processed:
+                if isinstance(processed[ctype], list):
+                    processed[ctype].append(child_doc)
+                else:
+                    # Convert to list if second instance found
+                    processed[ctype] = [processed[ctype], child_doc]
+            else:
+                processed[ctype] = child_doc
 
     return processed
 
@@ -181,7 +196,8 @@ def main():
     
     central_modules = get_central_modules()
     local_modules = get_local_modules()
-    # print(local_modules)
+    
+    print(local_modules)
     
     logging.info(f"Central DB has {len(central_modules)} modules.")
     logging.info(f"Local DB has {len(local_modules)} modules.")
