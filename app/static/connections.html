@@ -1,0 +1,316 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Snapshot Interface</title>
+   <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+</head>
+<body>
+    List of cables, modulus, crate objects to map (comma separated)
+    <input type="text" id="slot"  placeholder="e.g. B1,B2" >
+    <button id="submit" >Submit</button>
+    <br> Single line details <input type="checkbox" id="singleLines" >
+    <br>You can click to navigate
+    <br><a href="/connect_cables.html">Connect</a> page
+    <div id="graph"></div>
+
+    <script>
+        var dot = "graph {\n      rankdir=LR; \n";
+        var singleLines = false;
+        $('#slot').on('keypress', function(e) {
+            if (e.which == 13) {
+                $('#submit').click();
+            }
+        });
+        $('#singleLines').change(function() {
+            singleLines = this.checked;
+            dot = "graph {\n      rankdir=LR; \n";
+
+            //trigger rendering again
+            $('#submit').click();
+        });
+        function getFiberLink(slot, direction = "crate") {
+            var ip = "192.168.0.45";
+            var port = 5000;
+            var verbose = 1000;
+            var toport, fromport, side;
+
+            if (direction == "crate") {
+                toport = "det_port";
+                fromport = "crate_port";
+                side = "crateSide";
+            } else {
+                toport = "crate_port";
+                fromport = "det_port";
+                side = "detSide";
+            }
+
+            var snapshotData = {
+                cable: slot,
+                side: side
+            };
+
+            return $.ajax({
+                url: `/snapshot`,
+                type: 'POST',
+                data: JSON.stringify(snapshotData),
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function(out) {
+                    var allcables = [slot];
+                    var printedConnections = {};
+                    for (var ln in out) {
+                        var l = out[ln];
+                        for (var i = 0; i < l.connections.length; i++) {
+                            var c = l.connections[i];
+                            allcables.push(c.cable);
+                            var label = "";
+                            if (i > 0) {
+                                var prev = l.connections[i - 1];
+                                if(singleLines){
+                                    label = `${prev.line} ${prev[fromport].join("_")}`;
+                                    label += `:${c[toport].join("_")} ${c.line}`;
+                                    conn= `"${l.cable}" -- "${c.cable}" "${label}"`;
+                                    if(conn in printedConnections){
+                                        continue;
+                                    }
+                                    printedConnections[conn] = 1;
+                                } else {
+
+                                    label = `${prev[fromport].join("_")}`;
+                                    label += `:${c[toport].join("_")}`;
+                                    conn= `"${prev.cable}" -- "${c.cable}" "${label}"`;
+                                    if(conn in printedConnections){
+                                        continue;
+                                    }
+                                    printedConnections[conn] = 1;
+                                }
+                                if (direction == "crate") {
+                                    dot += `"${prev.cable}" -- "${c.cable}" [label="${label}" fontsize=9]\n`;
+                                } else {
+                                    dot += `"${c.cable}" -- "${prev.cable}" [label="${label}" fontsize=9]\n`;
+                                }
+                            } else {
+                                if(singleLines){
+                                    label = `${ln} ${l[fromport]}`;
+                                    label += `:${c[toport].join("_")} ${c.line}`;
+                                    conn= `"${l.cable}" -- "${c.cable}" "${label}"`;
+                                    if(conn in printedConnections){
+                                        continue;
+                                    }
+                                    printedConnections[conn] = 1;
+
+                                } else {
+                                    label = `${l[fromport]}`;
+                                    label += `:${c[toport].join("_")}`;
+                                    conn= `"${l.cable}" -- "${c.cable}" "${label}"`;
+                                    if(conn in printedConnections){
+                                        continue;
+                                    }
+                                    printedConnections[conn] = 1;
+                                }
+                                if (direction == "crate") {
+                                    dot += `"${slot}" -- "${c.cable}" [label="${label}" fontsize=9]\n`;
+                                } else {
+                                    dot += `"${c.cable}" -- "${slot}" [label="${label}" fontsize=9]\n`;
+                                }
+                            }
+                        }
+                    }
+
+                    allcables = [...new Set(allcables)];
+                    for (var i = 0; i < allcables.length; i++) {
+                        var c = allcables[i];
+                        var style = "";
+                        switch (c[0]) {
+                            case 'B':
+                                style = '[shape = polygon,height=0.5,sides = 4,color = gray,style = filled,]\n';
+                                break;
+                            case 'E':
+                                style = '[shape = polygon,width=2,sides = 4,color = cyan,style = filled,]\n';
+                                break;
+                            case 'C':
+                                style = '[shape = polygon,width=2,height=0.3,sides = 4,color = cyan,style = filled,]\n';
+                                break;
+                            case 'D':
+                                style = '[shape = polygon,width=2,height=2,sides = 4,color = cyan,style = filled,]\n';
+                                break;
+                            case 'F':
+                                style = '[shape = polygon,width=2,height=4,sides = 4,color = green,style = filled,]\n';
+                                break;
+                            case 'A':
+                                style = '[shape = polygon,width=2,height=2,sides = 4,color = red,style = filled,]\n';
+                                break;
+                            case 'X':
+                                style = '[shape = polygon,width=2,height=2,sides = 4,color = red,style = filled,]\n';
+                                break;
+                            case 'H':
+                                style = '[shape = polygon,width=2,height=0.2,sides = 4,color = red,style = filled,]\n';
+                                break;
+                            case 'L':
+                                style = '[shape = polygon,width=2,height=0.5,sides = 4,color = gray,style = filled,]\n';
+                                break;
+                            case 'P':
+								if(c[1]!='S') {
+                                  style = '[shape = polygon,width=2,height=3,sides = 4,color = blue,style = filled,]\n';
+                                }else{
+                                  style = '[shape = polygon,width=2,height=0.5,sides = 4,color = yellow,style = filled,]\n';
+								}
+								break;
+                        }
+                        dot += `"${c}" ${style}`;
+                    }
+
+                    //dot += "}";
+                    //renderGraph(dot);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to update the module. Status code:", jqXHR.status);
+                }
+            });
+        }
+
+        function renderGraph(dot) {
+            var viz = new Viz();
+            viz.renderSVGElement(dot)
+                .then(function(element) {
+                    document.getElementById('graph').innerHTML = '';
+                    document.getElementById('graph').appendChild(element);
+                })
+                .catch(error => {
+                    viz = new Viz();
+                    console.error(error);
+                    console.error(dot);
+                });
+        }
+
+        $('#submit').click(function() {
+           dot = "graph {\n      rankdir=LR; \n";
+            var slot = $('#slot').val();
+            //take comma separated list of slots
+            var slots = slot.split(",");
+                var promises = []; // Array to hold promises
+
+            for (var i = 0; i < slots.length; i++) {
+                promises.push(getFiberLink(slots[i],"crate")); // Push the promises into the array
+            }
+            for (var i = 0; i < slots.length; i++) {
+                promises.push(getFiberLink(slots[i],"det")); // Push the promises into the array
+            }
+            //render now
+             Promise.all(promises).then(function() {
+                     renderGraph(dot+"}");
+            });
+    /*
+            <g id="edge6" class="edge">
+<title>E51--C21</title>
+<path fill="none" stroke="#000000" d="M477.0339,-234C493.6754,-234 511.3776,-234 528.0203,-234"></path>
+<text text-anchor="middle" x="502.5417" y="-236.7" font-family="Times,serif" font-size="9.00" fill="#000000">A:A</text>
+</g>*/
+
+            //For each edge, add a click event that creates a context menu to discconect the edge
+            //it should parse the title so that E51 is cable1, C21 is cable2, A is port1 , A is port2
+            setTimeout(function() {
+                var edges = document.getElementsByClassName("edge");
+                for (var i = 0; i < edges.length; i++) {
+                    edges[i].addEventListener("click", function() {
+                        var title = this.getElementsByTagName("title")[0].innerHTML;
+                        var parts = title.split("--");
+                        var cable1 = parts[0];
+                        var cable2 = parts[1];
+                        //ports is the innerHTML of the text element
+
+                        var ports = this.getElementsByTagName("text")[0].innerHTML.split(":");
+                        var port1 = ports[0];
+                        var port2 = ports[1];
+                        // open a context menu with acctions "info" and "disconnect"
+                        var contextMenu = document.createElement("div");
+                        contextMenu.style.position = "absolute";
+                        contextMenu.style.left = event.clientX + "px";
+                        contextMenu.style.top = event.clientY + "px";
+                        contextMenu.style.backgroundColor = "white";
+                        contextMenu.style.border = "1px solid black";
+                        contextMenu.style.padding = "5px";
+                        contextMenu.style.zIndex = 1000;
+                        contextMenu.innerHTML = `<div id=disconnectDIV><button id=disconnect>Disconnect ${cable1} ${port1} - ${cable2} ${port2}</button></div>`;
+                        contextMenu.innerHTML += `<div id=info>Info ${cable1} ${port1} - ${cable2} ${port2}</div>`;
+                        document.body.appendChild(contextMenu);
+                        // document.body.addEventListener("click", function() {
+                        //         document.body.removeChild(contextMenu);
+                        //     });
+                        contextMenu.addEventListener("click", function() {
+                            var action = event.target.id;
+                            if (action == "disconnect") {
+                                //disconnect the cables
+                                console.log("Disconnecting", cable1, port1, cable2, port2);
+                                //fetch disconnect
+                                fetch('/disconnect', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        cable1: cable1,
+                                        port1: port1,
+                                        cable2: cable2,
+                                        port2: port2,
+                                    }),
+                                })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        console.log(data)
+                                        // Get the current time
+                                        let currentTime = new Date().toLocaleString();
+                                        //refresh
+                                        $('#submit').click();
+                                        // Get the responseOutput element
+                                        let responseOutput = document.getElementById('responseOutput');
+
+                                        // Append the new response to the existing text
+                                        responseOutput.innerHTML += `<p>Acting on: detside ${cable1}, port ${port1} and crateside ${cable2}, port ${port2}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+                                    })
+                                    .catch((error) => {
+                                        console.error('Error:', error);
+                                    });
+                                    
+                                
+                            } else if (action == "info") {
+                                //do nothing for now
+                            }
+                            document.body.removeChild(contextMenu);
+                            //close the context menu when clicking outside
+                            
+                        });
+                        
+
+
+                       
+                    });
+                }
+            }, 1000);
+
+
+
+
+         setTimeout(function() {
+                var nodes = document.getElementsByClassName("node");
+                for (var i = 0; i < nodes.length; i++) {
+                    nodes[i].addEventListener("click", function() {
+                        var slot = this.getElementsByTagName("title")[0].innerHTML;
+                        $('#slot').val(slot);
+                        $('#submit').click();
+                    });
+                }
+            }, 1000);
+
+
+
+        });
+    </script>
+    <div id="responseOutput"></div>
+</body>
+</html>
+
