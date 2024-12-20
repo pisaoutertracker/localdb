@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 500px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, select {
+            padding: 5px;
+            margin-top: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            width: fit-content;
+        }
+        #responseOutput {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Insert New Cable</h1>
+
+    <form id="insertForm">
+        <div class="container">
+            <div class="input-group">
+                <label for="cableName">Cable Name:</label>
+                <input type="text" id="cableName" required>
+            </div>
+            <div class="input-group">
+                <label for="cableType">Cable Type:</label>
+                <select id="cableType" required></select>
+            </div>
+            <button type="submit">Insert Cable</button>
+        </div>
+        <div id="responseOutput"></div>
+    </form>
+
+    <script>
+        // Fetch the list of available cable templates
+        fetch('/cable_templates')
+            .then(response => response.json())
+            .then(data => {
+                const cableTypeSelect = document.getElementById('cableType');
+                
+                // Populate the cable type select options
+                data.forEach(template => {
+                    const option = document.createElement('option');
+                    option.value = template.type;
+                    option.text = template.type;
+                    cableTypeSelect.appendChild(option);
+                });
+            });
+
+        // Handle the form submission
+        document.getElementById('insertForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const cableName = document.getElementById('cableName').value;
+            const cableType = document.getElementById('cableType').value;
+
+            const newCable = {
+                name: cableName,
+                type: cableType,
+                detSide: {},
+                crateSide: {}
+            };
+
+            fetch('/cables', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newCable),
+            })
+            .then(response => response.json())
+            .then(data => {
+                const currentTime = new Date().toLocaleString();
+                const responseOutput = document.getElementById('responseOutput');
+                responseOutput.innerHTML += `<p>Inserting cable: ${cableName} of type ${cableType}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+
+            // Clear the form
+            document.getElementById('cableName').value = '';
+        });
+    </script>
+</body>
+</html>
