@@ -139,10 +139,11 @@ class LogbookResource(Resource):
         def put(self, _id):
             """
             Updates an existing logbook entry with the specified _id (as a string).
+            Handles both updating entry data and removing attachments.
 
             Parameters:
             -----------
-            timestamp : str
+            _id : str
                 The _id of the logbook entry to update.
 
             Returns:
@@ -151,37 +152,56 @@ class LogbookResource(Resource):
                 A dictionary containing a message indicating that the logbook entry was successfully updated.
             """
             logbook_collection = get_db()["logbook"]
-            #updated_data = request.get_json()
             all_data = request.form.to_dict()
             updated_data = json.loads(all_data["jsonData"])
-            #get current entry
+            
+            # Get current entry
             log = logbook_collection.find_one({"_id": ObjectId(_id)})
-            #add attachments
+            
+            # Handle attachment removal if requested
+            if "remove_attachment" in updated_data:
+                filename_to_remove = updated_data["remove_attachment"]
+                if "attachments" in log and filename_to_remove in log["attachments"]:
+                    # Get the file path
+                    file_path = log["attachments"][filename_to_remove]
+                    # Remove the file from filesystem if it exists
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    # Remove from attachments dictionary
+                    del log["attachments"][filename_to_remove]
+                # Remove remove_attachment from updated_data as we don't want to store it
+                del updated_data["remove_attachment"]
+            
+            # Copy existing attachments to updated data
             if "attachments" in log:
                 updated_data["attachments"] = log["attachments"]
-            #check involved modules
+            else:
+                updated_data["attachments"] = {}
+
+            # Handle involved modules
             if "involved_modules" in updated_data:
                 im = [x for x in updated_data["involved_modules"] if x != ""]
                 d = updated_data["details"]
                 modules_in_the_details = findModuleIds(d)
-                updated_data["involved_modules"] = list(set(im+modules_in_the_details) )
+                updated_data["involved_modules"] = list(set(im + modules_in_the_details))
 
+            # Handle new file attachments
             if request.files:
                 for file in request.files:
-                    #save in "/attachments" folder and add url in new_log
                     file = request.files[file]
-                    curr_timestamp= str(time.time()).replace(".","_")
-                    file.save(os.path.join("/attachments", curr_timestamp+"_"+file.filename))
-                    updated_data["attachments"][file.filename] = os.path.join("/attachments", curr_timestamp+"_"+file.filename)
-            #remove id from updated data
+                    curr_timestamp = str(time.time()).replace(".", "_")
+                    filename = curr_timestamp + "_" + file.filename
+                    file_path = os.path.join("/attachments", filename)
+                    file.save(file_path)
+                    updated_data["attachments"][file.filename] = file_path
+
+            # Remove _id from updated data if present
             if "_id" in updated_data:
                 del updated_data["_id"]
-            #update entry
-            logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
 
-            # if "_id" in updated_data:
-            #     del updated_data["_id"]
-            # logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
+            # Update entry in database
+            logbook_collection.update_one({"_id": ObjectId(_id)}, {"$set": updated_data})
+            
             return {"message": "Log updated"}, 200
 
         def delete(self, _id):
