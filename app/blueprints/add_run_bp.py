@@ -54,9 +54,8 @@ def add_run():
     }
     # get the ObjectId of the session
     session = sessions_collection.find_one({"sessionName": data["runSession"]})
-    session_id = session["_id"]
     # return error if session does not exist
-    if not session_id:
+    if not session:
         return (
             jsonify(
                 {
@@ -66,6 +65,7 @@ def add_run():
             ),
             400,
         )
+    session_id = session["_id"]
     # add the session ObjectId as str to the run entryrunSession_id
     run_entry["_runSession_id"] = str(session_id)
     run_id = testRuns_collection.insert_one(run_entry).inserted_id
