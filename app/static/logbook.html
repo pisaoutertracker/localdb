@@ -149,12 +149,19 @@
                         for (var key in item.attachments) {
                             attachmentList += '<a href="' + item.attachments[key] + '" target="_blank">' + key + '</a><br>';
                         }
+
+                        // Create module links
+                        var moduleLinks = item.involved_modules.map(function(module) {
+                            return '<a href="https://cmstkita.web.cern.ch/Pisa/TBPS/module_tests.html?module=' + 
+                                   module.trim() + '" target="_blank">' + module.trim() + '</a>';
+                        }).join(', ');
+
                         //update the DataTable content
                         table.row.add([
                             timestamp,
                             item.event,
                             item.details,
-                            item.involved_modules.join(', '),
+                            moduleLinks,
                             item.operator,
                             attachmentList,
                             '<button class="btn btn-success btn-edit btn-sm" data-id="' + item._id + '">Edit</button>' +
