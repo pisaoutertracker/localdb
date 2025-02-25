@@ -257,7 +257,7 @@ def disconnect_cables():
         if cable1 and cable2:
             # Disconnect the cables
             for line, connection in cable1["crateSide"].items():
-                if connection[0] == cable2_name:
+                if len(connection)> 0 and connection[0] == cable2_name:
                     cable1["crateSide"][str(line)] = []
                     cable2["detSide"][str(connection[1])] = []
 
