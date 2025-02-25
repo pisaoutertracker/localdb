@@ -7,16 +7,18 @@ from pymongo import MongoClient
 import os
 import logging
 from jsonschema import validate, ValidationError
+import argparse
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.utils import module_schema
 
 # Constants
 #API_URL = "http://192.168.0.45:5005"
-API_URL = "http://localhost:5005"
+API_URL = "http://localhost:5000"
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
 PARTS_TABLES = {
+    "PS Module": "p9020",
     "PS-s Sensor": "p1160",
     "PS Baseplate": "p11820",
     "PS Front-end Hybrid": "p6740",
@@ -43,8 +45,11 @@ def parse_csv_output(output):
     csv_reader = csv.DictReader(io.StringIO(output))
     return list(csv_reader)
 
-def get_central_modules():
-    command = """python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-Pisa[INFN Pisa]'" --all --login -n"""
+def get_central_modules(by_name=False, location="Pisa"):
+    if by_name:
+        command = """python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.name_label LIKE '%IBA%' OR p.name_label LIKE '%IPG%'" --all --login -n"""
+    else:
+        command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-{location}[INFN {location}]'" --all --login -n"""
     output = run_rhapi_command(command)
     return parse_csv_output(output)
 
@@ -176,7 +181,6 @@ def process_module(module, children_map, all_component_details, mongo_collection
 
     try:
         validate(instance=module_doc, schema=module_schema)
-        # print(module_doc)
         mongo_collection.update_one(
             {"moduleName": module_id},
             {"$set": module_doc},
@@ -187,17 +191,23 @@ def process_module(module, children_map, all_component_details, mongo_collection
         raise
 
 def main():
+    # Add argument parsing
+    parser = argparse.ArgumentParser(description='Sync module data from central to local DB')
+    parser.add_argument('--by-name', action='store_true', help='Query modules by name pattern (IBA/IPG) instead of location')
+    parser.add_argument('--location', default='Pisa', help='Location to filter modules (default: Pisa)')
+    args = parser.parse_args()
+
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
     modules_collection = db["modules"]
-    logging.info("Connected to MongoDB.")
+    logging.info(f"Connected to MongoDB at {MONGO_URI} on database {DB_NAME}.")
     
     # modules_collection.delete_many({})
     
-    central_modules = get_central_modules()
+    central_modules = get_central_modules(by_name=args.by_name, location=args.location)
     local_modules = get_local_modules()
     
-    print(local_modules)
+    # print(local_modules)
     
     logging.info(f"Central DB has {len(central_modules)} modules.")
     logging.info(f"Local DB has {len(local_modules)} modules.")
@@ -205,6 +215,10 @@ def main():
     local_names = set(m["moduleName"] for m in local_modules)
     missing = [m for m in central_modules if m["SERIAL_NUMBER"] not in local_names]
     logging.info(f"Missing modules: {len(missing)}")
+    logging.info([m["SERIAL_NUMBER"] for m in missing])
+    # restrict to a single module
+    # missing = [m for m in central_modules if m["SERIAL_NUMBER"] == "PS_16_10_IPG-00005"]
+    # logging.info([m["SERIAL_NUMBER"] for m in missing])
     
     parent_labels = [m["NAME_LABEL"] for m in missing]
     children = get_children_of_modules(parent_labels)

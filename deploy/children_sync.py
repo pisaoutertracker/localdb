@@ -42,11 +42,10 @@ def update_module_children(module, children_map, all_component_details, mongo_co
         logging.info(f"Children for module {module_id} are already up to date.")
         return
     
-    # if children is empty, then set it to None
+    # if children is empty skip the update
     if not update_doc["children"]:
-        update_doc["children"] = None
-        
-        logging.info(f"Children for module {module_id} are empty, set to None. Maybe the module is not in the central DB? Check the module name.")
+        logging.info(f"No children found for module {module_id}.")
+        return
         
 
     # try:
@@ -85,6 +84,7 @@ def main():
 
     # Get NAME_LABELs from local modules
     parent_labels = [m["moduleName"] for m in local_modules]
+    # 
     
     # print the updated document
     # print(modules_collection.find_one({"moduleName": "PSU_26_05_IPG-00001"}))
