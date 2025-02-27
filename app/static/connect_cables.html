@@ -85,21 +85,35 @@
                 const cableSelectDet = document.getElementById('cableSelectDetList');
                 const cableSelectCrate = document.getElementById('cableSelectCrateList');
                 
-                //const cableSelectDet = document.getElementById('cableSelectDet');
                 const portSelectDet = document.getElementById('portSelectDet');
-                // const cableSelectCrate = document.getElementById('cableSelectCrate');
                 const portSelectCrate = document.getElementById('portSelectCrate');
 
-                // Populate the cable select options
-                for (const cable of data) {
-                    const optionDet = document.createElement('option');
-                    optionDet.value = cable.name;
-                    optionDet.text = cable.name;
-                    cableSelectDet.appendChild(optionDet);
+                // Create arrays for sorting
+                let detCables = [];
+                let crateCables = [];
 
+                // Collect all cable names
+                for (const cable of data) {
+                    detCables.push(cable.name);
+                    crateCables.push(cable.name);
+                }
+
+                // Sort the arrays alphabetically
+                detCables.sort();
+                crateCables.sort();
+
+                // Populate the cable select options with sorted arrays
+                for (const cableName of detCables) {
+                    const optionDet = document.createElement('option');
+                    optionDet.value = cableName;
+                    optionDet.text = cableName;
+                    cableSelectDet.appendChild(optionDet);
+                }
+
+                for (const cableName of crateCables) {
                     const optionCrate = document.createElement('option');
-                    optionCrate.value = cable.name;
-                    optionCrate.text = cable.name;
+                    optionCrate.value = cableName;
+                    optionCrate.text = cableName;
                     cableSelectCrate.appendChild(optionCrate);
                 }
             });
@@ -109,10 +123,23 @@
             .then(response => response.json())
             .then(data => {
                 const cableSelectDet = document.getElementById('cableSelectDetList');
+                
+                // Create array for sorting
+                let moduleNames = [];
+                
+                // Collect all module names
                 for (const module of data) {
+                    moduleNames.push(module.moduleName);
+                }
+                
+                // Sort module names alphabetically
+                moduleNames.sort();
+                
+                // Add sorted module names to the list
+                for (const moduleName of moduleNames) {
                     const optionDet = document.createElement('option');                
-                    optionDet.value = module.moduleName;
-                    optionDet.text = module.moduleName;
+                    optionDet.value = moduleName;
+                    optionDet.text = moduleName;
                     cableSelectDet.appendChild(optionDet);
                 }
             });
