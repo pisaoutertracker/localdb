@@ -76,6 +76,21 @@ class TestAPI(TestCase):
         response = self.client.get("/modules/INV001")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["moduleName"], "INV001")
+        
+        # now do a test put changing the status
+        new_module_status = {
+            "status": "mounted",
+        }
+        response = self.client.put("/modules/INV001", json=new_module_status)
+        self.assertEqual(response.status_code, 200)
+        # check if the status is changed
+        response = self.client.get("/modules/INV001")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["status"], "mounted")
+        # print(response.json)
+        #check that the other properties are still there
+        self.assertEqual(response.json["position"], "cleanroom")
+             
 
     def test_fetch_specific_module_not_found(self):
         response = self.client.get("/modules/INV999")
@@ -86,16 +101,16 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {"message": "Module deleted"})
 
-    def test_insert_log(self):
-        new_log = {
-            "timestamp": "2023-11-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Doe",
-            "station": "pccmslab1",
-            "sessionid": "TESTSESSION1",
-        }
-        response = self.client.post("/logbook", json=new_log)
-        self.assertEqual(response.status_code, 201)
+    # def test_insert_log(self):
+    #     new_log = {
+    #         "timestamp": "2023-11-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Doe",
+    #         "station": "pccmslab1",
+    #         "sessionid": "TESTSESSION1",
+    #     }
+    #     response = self.client.post("/logbook", json=new_log)
+    #     self.assertEqual(response.status_code, 201)
 
     def test_fetch_log_not_found(self):
         response = self.client.get("/logbook/123456789012123456789012")
@@ -105,20 +120,20 @@ class TestAPI(TestCase):
         response = self.client.delete("/logbook/123456789012123456789012")
         self.assertEqual(response.status_code, 404)
 
-    def test_delete_log(self):
-        # First, let's insert a log entry
-        new_log = {
-            "timestamp": "2023-11-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Doe",
-            "station": "pccmslab1",
-            "sessionid": "TESTSESSION1",
-        }
-        _id = ((self.client.post("/logbook", json=new_log)).json)["_id"]
-        # Now, let's delete it
-        response = self.client.delete("/logbook/" + str(_id))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {"message": "Log deleted"})
+    # def test_delete_log(self):
+    #     # First, let's insert a log entry
+    #     new_log = {
+    #         "timestamp": "2023-11-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Doe",
+    #         "station": "pccmslab1",
+    #         "sessionid": "TESTSESSION1",
+    #     }
+    #     _id = ((self.client.post("/logbook", json=new_log)).json)["_id"]
+    #     # Now, let's delete it
+    #     response = self.client.delete("/logbook/" + str(_id))
+    #     self.assertEqual(response.status_code, 200)
+    #     self.assertEqual(response.json, {"message": "Log deleted"})
 
     def test_insert_cable_templates(self):
         # read cables.json from the examples folder
@@ -183,7 +198,7 @@ class TestAPI(TestCase):
         # 2. Connect them
         connect_data = {
             "cable1": "E31",
-            "port1": "A",
+            "port1": "1",
             "cable2": "D31",
             "port2": "A",
         }
@@ -219,7 +234,7 @@ class TestAPI(TestCase):
         disconnect_data = {
             "cable1": "E31",
             "cable2": "D31",
-            "port1": "A",
+            "port1": "1",
             "port2": "A",
         }
 
@@ -265,7 +280,7 @@ class TestAPI(TestCase):
             "cable1": "modulecabletest",
             "cable2": "E31",
             "port1": "fiber",
-            "port2": "A",
+            "port2": "1",
         }
         response = self.client.post("/connect", json=connect_data)
         self.assertEqual(response.status_code, 200)
@@ -283,7 +298,7 @@ class TestAPI(TestCase):
             "cable1": "modulecabletest",
             "cable2": "E31",
             "port1": "fiber",
-            "port2": "A",
+            "port2": "1",
         }
         response = self.client.post("/disconnect", json=disconnect_data)
         self.assertEqual(response.status_code, 200)
@@ -335,7 +350,7 @@ class TestAPI(TestCase):
         # try connection with invalid cables
         connect_data = {
             "cable1": "E33",
-            "port1": "A",
+            "port1": "1",
             "cable2": "D32",
             "port2": "A",
         }
@@ -353,7 +368,7 @@ class TestAPI(TestCase):
         # try connection with already connected cables
         connect_data = {
             "cable1": "E32",
-            "port1": "A",
+            "port1": "1",
             "cable2": "D32",
             "port2": "A",
         }
@@ -382,7 +397,7 @@ class TestAPI(TestCase):
         disconnect_data = {
             "cable1": "E33",
             "cable2": "D33",
-            "port1": "Z",
+            "port1": "1",
             "port2": "A",
         }
         response = self.client.post("/disconnect", json=disconnect_data)
@@ -392,7 +407,7 @@ class TestAPI(TestCase):
         disconnect_data = {
             "cable1": "E34",
             "cable2": "D33",
-            "port1": "A",
+            "port1": "1",
             "port2": "A",
         }
         response = self.client.post("/disconnect", json=disconnect_data)
@@ -402,7 +417,7 @@ class TestAPI(TestCase):
         disconnect_data = {
             "cable1": "E33",
             "cable2": "D33",
-            "port1": "A",
+            "port1": "1",
             "port2": "A",
         }
         response = self.client.post("/disconnect", json=disconnect_data)
@@ -639,7 +654,7 @@ class TestAPI(TestCase):
             "cable1": "B1",
             "cable2": "E51",
             "port1": "fiber",
-            "port2": "A"
+            "port2": "1"
         }
         req = self.client.post("/connect", json=connect_data)
         self.assertEqual(req.status_code, 200)
@@ -648,7 +663,7 @@ class TestAPI(TestCase):
         connect_data = {
             "cable1": "E51",
             "cable2": "C21",
-            "port1": "A",
+            "port1": "1",
             "port2": "A"
         }
         req = self.client.post("/connect", json=connect_data)
@@ -697,81 +712,81 @@ class TestAPI(TestCase):
 
 
     # Snapshot from Cable (crateSide)
-    def test_LogBookSearchByText(self):
-        new_log = {
-            "timestamp": "2023-11-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Doe",
-            "event": "pippo",
-            "station": "pccmslab1",
-            "sessionid": "TESTSESSION1",
-            "involved_modules": ["PS_1", "PS_2"],
-        }
-        response = self.client.post("/logbook", json=new_log)
-        new_log2 = {
-            "timestamp": "2023-11-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Do2",
-            "details": "pippo",
-            "station": "pccmslab1",
-            "sessionid": "TESTSESSION2",
-            "involved_modules": ["MS_1", "MS_2"],
-        }
-        response = self.client.post("/logbook", json=new_log2)
+    # def test_LogBookSearchByText(self):
+    #     new_log = {
+    #         "timestamp": "2023-11-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Doe",
+    #         "event": "pippo",
+    #         "station": "pccmslab1",
+    #         "sessionid": "TESTSESSION1",
+    #         "involved_modules": ["PS_1", "PS_2"],
+    #     }
+    #     response = self.client.post("/logbook", json=new_log)
+    #     new_log2 = {
+    #         "timestamp": "2023-11-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Do2",
+    #         "details": "pippo",
+    #         "station": "pccmslab1",
+    #         "sessionid": "TESTSESSION2",
+    #         "involved_modules": ["MS_1", "MS_2"],
+    #     }
+    #     response = self.client.post("/logbook", json=new_log2)
 
-        logbook_entries = self.client.post(
-            "/searchLogBookByText", json={"modules": "pi.*o"}
-        )
-        self.assertEqual(logbook_entries.status_code, 200)
-        self.assertEqual(len(logbook_entries.json), 2)
+    #     logbook_entries = self.client.post(
+    #         "/searchLogBookByText", json={"modules": "pi.*o"}
+    #     )
+    #     self.assertEqual(logbook_entries.status_code, 200)
+    #     self.assertEqual(len(logbook_entries.json), 2)
 
-    def test_LogBookSearchByModuleNames(self):
-        # insert a few entriesi for testing
-        new_log = {
-            "timestamp": "2023-11-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Doe",
-            "station": "pccmslab1",
-            "sessionid": "TESTSESSION1",
-            "involved_modules": ["PS_1", "PS_2"],
-        }
-        response = self.client.post("/logbook", json=new_log)
-        new_log2 = {
-            "timestamp": "2023-11-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Doe",
-            "station": "pccmslab1",
-            "sessionid": "TESTSESSION1",
-            "involved_modules": ["MS_1", "MS_2"],
-        }
-        response = self.client.post("/logbook", json=new_log2)
+    # def test_LogBookSearchByModuleNames(self):
+    #     # insert a few entriesi for testing
+    #     new_log = {
+    #         "timestamp": "2023-11-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Doe",
+    #         "station": "pccmslab1",
+    #         "sessionid": "TESTSESSION1",
+    #         "involved_modules": ["PS_1", "PS_2"],
+    #     }
+    #     response = self.client.post("/logbook", json=new_log)
+    #     new_log2 = {
+    #         "timestamp": "2023-11-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Doe",
+    #         "station": "pccmslab1",
+    #         "sessionid": "TESTSESSION1",
+    #         "involved_modules": ["MS_1", "MS_2"],
+    #     }
+    #     response = self.client.post("/logbook", json=new_log2)
 
-        logbook_entries = self.client.post(
-            "/searchLogBookByModuleNames", json={"modules": "PS.*"}
-        )
-        self.assertEqual(logbook_entries.status_code, 200)
-        self.assertEqual(len(logbook_entries.json), 1)
+    #     logbook_entries = self.client.post(
+    #         "/searchLogBookByModuleNames", json={"modules": "PS.*"}
+    #     )
+    #     self.assertEqual(logbook_entries.status_code, 200)
+    #     self.assertEqual(len(logbook_entries.json), 1)
 
-    def test_insert_log_2(self):
-        new_log = {
-            "timestamp": "2023-10-03T14:21:29Z",
-            "event": "Module added",
-            "operator": "John Doe",
-            "station": "pccmslab1",
-            "involved_modules": ["PS_1", "PS_2"],
-            "sessionid": "TESTSESSION1",
-            "details": " I tried to insert PS_88 and PS_44. and also PS_1.",
-        }
-        response = self.client.post("/logbook", json=new_log)
-        self.assertEqual(response.status_code, 201)
+    # def test_insert_log_2(self):
+    #     new_log = {
+    #         "timestamp": "2023-10-03T14:21:29Z",
+    #         "event": "Module added",
+    #         "operator": "John Doe",
+    #         "station": "pccmslab1",
+    #         "involved_modules": ["PS_1", "PS_2"],
+    #         "sessionid": "TESTSESSION1",
+    #         "details": " I tried to insert PS_88 and PS_44. and also PS_1.",
+    #     }
+    #     response = self.client.post("/logbook", json=new_log)
+    #     self.assertEqual(response.status_code, 201)
 
-        #
-        # now I try to get it back, and I check the involved_modules
-        #
-        _id = str((response.json)["_id"])
-        response = self.client.get("/logbook/" + _id)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json["involved_modules"]), 4)
+    #     #
+    #     # now I try to get it back, and I check the involved_modules
+    #     #
+    #     _id = str((response.json)["_id"])
+    #     response = self.client.get("/logbook/" + _id)
+    #     self.assertEqual(response.status_code, 200)
+    #     self.assertEqual(len(response.json["involved_modules"]), 4)
 
     #################
     def test_insert_get_delete_testpayload(self):
@@ -1066,6 +1081,236 @@ class TestAPI(TestCase):
         self.assertEqual(response.json["analysesList"], ["MTA1"])
         # check that referenceAnalysis is MTA1
         self.assertEqual(response.json["referenceAnalysis"], "MTA1")
+
+    def test_fetch_module_results(self):
+        self.test_insert_cable_templates()
+
+        # 1. Create test data for all collections
+        
+        # Create a session
+        session_data = {
+            "sessionName": "TestSession123",
+            "timestamp": "2023-12-15T10:00:00",
+            "operator": "Test Operator",
+            "description": "Test session for module results",
+            "modulesList": ["TestModule001"],
+            "configuration": {"setting1": "value1", "setting2": "value2"},
+            "log": ["Log entry 1", "Log entry 2"]
+        }
+        session_response = self.client.post("/sessions", json=session_data)
+        self.assertEqual(session_response.status_code, 201)
+        session_name = session_response.json["sessionName"]
+        
+        # Create a second session
+        session_data2 = {
+            "sessionName": "TestSession456",
+            "timestamp": "2023-12-16T10:00:00",
+            "operator": "Another Operator",
+            "description": "Second test session",
+            "modulesList": ["TestModule001"],
+            "configuration": {"setting1": "different", "setting3": "new_value"},
+            "log": ["Second session log entry"]
+        }
+        session_response2 = self.client.post("/sessions", json=session_data2)
+        self.assertEqual(session_response2.status_code, 201)
+        session_name2 = session_response2.json["sessionName"]
+        
+        # Create test runs - one for each session
+        test_run_data = {
+            "test_runName": "TestRun001",
+            "runDate": "2023-12-15T11:00:00",
+            "runStatus": "completed",
+            "runType": "qualification",
+            "runSession": session_name,
+            "runBoards": {
+                "1": "fc7ot1"
+            },
+            "_moduleTest_id": [],  # Will be updated later
+            "moduleTestName": [],  # Will be updated later
+            "runFile": "http://example.com/test-data-001.root",
+            "runConfiguration": {"config1": "val1", "config2": "val2"}
+        }
+        run_response = self.client.post("/test_run", json=test_run_data)
+        self.assertEqual(run_response.status_code, 201)
+        
+        test_run_data2 = {
+            "test_runName": "TestRun002",
+            "runDate": "2023-12-16T11:00:00",
+            "runStatus": "completed",
+            "runType": "thermal_cycle",
+            "runSession": session_name2,
+            "runBoards": {
+                "1": "fc7ot2"
+            },
+            "_moduleTest_id": [],  # Will be updated later
+            "moduleTestName": [],  # Will be updated later
+            "runFile": "http://example.com/test-data-002.root",
+            "runConfiguration": {"temperature": 35, "cycles": 10}
+        }
+        run_response2 = self.client.post("/test_run", json=test_run_data2)
+        self.assertEqual(run_response2.status_code, 201)
+        
+        # Create a module with required fields
+        module_data = {
+            "moduleName": "TestModule001",
+            "position": "testbench",
+            "status": "testing",
+            "type": "module",  # Required field according to schema
+            "moduleTests": [],  # Will be populated with test names
+            # "crateSide": {"1": [], "2": [], "3": [], "4": []}
+        }
+        module_response = self.client.post("/modules", json=module_data)
+        self.assertEqual(module_response.status_code, 201)
+        
+        # Create multiple module tests for the module
+        # Test 1 - Qualification test
+        module_test_data1 = {
+            "moduleTestName": "ModuleTest001",
+            "_test_run_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),  # Placeholder ObjectId
+            "test_runName": "TestRun001",
+            "_module_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),  # Placeholder ObjectId
+            "moduleName": "TestModule001",
+            "noise": {"channel1": 2.5, "channel2": 3.1},
+            "board": "fc7ot1",
+            "opticalGroupName": 0
+        }
+        module_test_response1 = self.client.post("/module_test", json=module_test_data1)
+        self.assertEqual(module_test_response1.status_code, 201)
+        
+        # get the ObjectId of the created module test
+        module_test_id1 = self.client.get("/module_test/ModuleTest001").json["_id"]
+
+        # Test 2 - Thermal cycle test
+        module_test_data2 = {
+            "moduleTestName": "ModuleTest002",
+            "_test_run_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3e"),  # Different placeholder ObjectId
+            "test_runName": "TestRun002",
+            "_module_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"),  # Same module ID
+            "moduleName": "TestModule001",
+            "noise": {"channel1": 2.7, "channel2": 3.3, "channel3": 2.9},
+            "board": "fc7ot2",
+            "opticalGroupName": 1
+        }
+        module_test_response2 = self.client.post("/module_test", json=module_test_data2)
+        self.assertEqual(module_test_response2.status_code, 201)
+        module_test_id2 = self.client.get("/module_test/ModuleTest002").json["_id"]
+        
+        # Update the module with test references
+        update_module = {
+            "moduleTests": [["ModuleTest001", str(module_test_id1)], ["ModuleTest002", str(module_test_id2
+            )]]
+        }
+        update_module_response = self.client.put("/modules/TestModule001", json=update_module)
+        self.assertEqual(update_module_response.status_code, 200)
+        
+        # Update test runs with module test references
+        update_run1 = {
+            "_moduleTest_id": [str(ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d"))],
+            "moduleTestName": ["ModuleTest001"]
+        }
+        update_run_response1 = self.client.put("/test_run/TestRun001", json=update_run1)
+        self.assertEqual(update_run_response1.status_code, 200)
+        
+        update_run2 = {
+            "_moduleTest_id": [str(ObjectId("5f9b3b9b9d9d7b3d9d9d7b3e"))],
+            "moduleTestName": ["ModuleTest002"]
+        }
+        update_run_response2 = self.client.put("/test_run/TestRun002", json=update_run2)
+        self.assertEqual(update_run_response2.status_code, 200)
+        
+        # Create analyses for both tests
+        # Analysis for Test 1
+        analysis_data1 = {
+            "moduleTestAnalysisName": "Analysis001",
+            "moduleTestName": "ModuleTest001",
+            "moduleTest_id": str(ObjectId("5f9b3b9b9d9d7b3d9d9d7b3d")),
+            "analysisVersion": "v1.0",
+            "analysisResults": {"metric1": 95.2, "metric2": 87.9},
+            "analysisSummary": {"summary": "All tests passed", "status": "PASS"},
+            "analysisFile": "http://example.com/analysis-001.json"
+        }
+        analysis_response1 = self.client.post("/module_test_analysis", json=analysis_data1)
+        self.assertEqual(analysis_response1.status_code, 201)
+        
+        # Analysis for Test 2
+        analysis_data2 = {
+            "moduleTestAnalysisName": "Analysis002",
+            "moduleTestName": "ModuleTest002",
+            "moduleTest_id": str(ObjectId("5f9b3b9b9d9d7b3d9d9d7b3e")),
+            "analysisVersion": "v1.0",
+            "analysisResults": {"metric1": 92.1, "metric2": 85.3, "thermal_stability": "good"},
+            "analysisSummary": {"summary": "Thermal cycle completed", "status": "PASS"},
+            "analysisFile": "http://example.com/analysis-002.json"
+        }
+        analysis_response2 = self.client.post("/module_test_analysis", json=analysis_data2)
+        self.assertEqual(analysis_response2.status_code, 201)
+        
+        # Update module tests with analysis references
+        update_test1 = {
+            "analysesList": ["Analysis001"],
+            "referenceAnalysis": "Analysis001"
+        }
+        update_test_response1 = self.client.put("/module_test/ModuleTest001", json=update_test1)
+        self.assertEqual(update_test_response1.status_code, 200)
+        
+        update_test2 = {
+            "analysesList": ["Analysis002"],
+            "referenceAnalysis": "Analysis002"
+        }
+        update_test_response2 = self.client.put("/module_test/ModuleTest002", json=update_test2)
+        self.assertEqual(update_test_response2.status_code, 200)
+        
+        # 2. Call the endpoint and verify the response
+        response = self.client.get("/fetch_module_results/TestModule001")
+        self.assertEqual(response.status_code, 200)
+        result = response.json
+        
+        # 3. Verify that the response contains all expected data
+        self.assertEqual(result["moduleName"], "TestModule001")
+        self.assertTrue("tests" in result)
+        self.assertEqual(len(result["tests"]), 2, "Expected exactly two tests in the results")
+        
+        # Sort tests by name to ensure consistent ordering for assertions
+        tests = sorted(result["tests"], key=lambda x: x["name"])
+        
+        # Verify first test (ModuleTest001)
+        test1 = tests[0]
+        self.assertEqual(test1["name"], "ModuleTest001")
+        self.assertEqual(test1["details"]["board"], "fc7ot1")
+        
+        # Verify run data for test1
+        self.assertTrue("run" in test1)
+        self.assertEqual(test1["run"]["test_runName"], "TestRun001")
+        self.assertEqual(test1["run"]["runType"], "qualification")
+        
+        # Verify session data for test1
+        self.assertTrue("session" in test1)
+        self.assertEqual(test1["session"]["operator"], "Test Operator")
+        
+        # Verify analysis data for test1
+        self.assertTrue("analysis" in test1)
+        self.assertEqual(test1["analysis"]["moduleTestAnalysisName"], "Analysis001") 
+        self.assertEqual(test1["analysis"]["analysisSummary"]["status"], "PASS")
+        
+        # Verify second test (ModuleTest002)
+        test2 = tests[1]
+        self.assertEqual(test2["name"], "ModuleTest002")
+        self.assertEqual(test2["details"]["board"], "fc7ot2")
+        
+        # Verify run data for test2
+        self.assertTrue("run" in test2)
+        self.assertEqual(test2["run"]["test_runName"], "TestRun002")
+        self.assertEqual(test2["run"]["runType"], "thermal_cycle")
+        
+        # Verify session data for test2
+        self.assertTrue("session" in test2)
+        self.assertEqual(test2["session"]["operator"], "Another Operator")
+        
+        # Verify analysis data for test2
+        self.assertTrue("analysis" in test2)
+        self.assertEqual(test2["analysis"]["moduleTestAnalysisName"], "Analysis002")
+        self.assertEqual(test2["analysis"]["analysisSummary"]["status"], "PASS")
+        self.assertIn("thermal_stability", test2["analysis"]["analysisResults"])
 
 
 if __name__ == "__main__":

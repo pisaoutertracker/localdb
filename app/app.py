@@ -35,7 +35,7 @@ from .resources import (
     session,
     module_test_analysis,
 )
-from .blueprints import add_run_bp, logbook_bp, cables_bp, add_analysis_bp, webgui_bp
+from .blueprints import add_run_bp, logbook_bp, cables_bp, add_analysis_bp, webgui_bp, TBPS_blueprints
 
 
 def create_app(config_name):
@@ -88,6 +88,7 @@ def create_app(config_name):
     app.register_blueprint(add_run_bp.bp)
     app.register_blueprint(add_analysis_bp.bp)
     app.register_blueprint(webgui_bp.bp)
+    app.register_blueprint(TBPS_blueprints.bp)
 
     return app
 
