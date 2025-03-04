@@ -23,18 +23,18 @@ def get_module_with_related_data(modules_collection, module_name):
                 "moduleName": module_name
             }
         },
-        # Stage 2: Unwind the moduleTests array
+        # Stage 2: Unwind the _moduleTest_id array
         {
             "$unwind": {
-                "path": "$moduleTests",
+                "path": "$_moduleTest_id",
                 "preserveNullAndEmptyArrays": True
             }
+            
         },
-        # Stage 3: Extract test ID from the moduleTests array
+        # Stage 3: Define the testId field as the single entries in the _moduleTests_id array
         {
             "$addFields": {
-                "testId": { "$arrayElemAt": ["$moduleTests", 1] },
-                "testName": { "$arrayElemAt": ["$moduleTests", 0] }
+                "testId": "$_moduleTest_id"
             }
         },
         # convert the testId to an ObjectId
@@ -115,7 +115,7 @@ def get_module_with_related_data(modules_collection, module_name):
         {
             "$addFields": {
                 "combinedTest": {
-                    "name": "$testName",
+                    "name": "$testDetail.moduleTestName",
                     "id": "$testId",
                     "details": "$testDetail",
                     "run": "$run",
@@ -150,7 +150,7 @@ def get_module_with_related_data(modules_collection, module_name):
 
 @bp.route("/fetch_module_results/<module_name>", methods=["GET"])
 def fetch_module_results(module_name):
-    if not module_name:
+    if not module_name: 
         return jsonify({"error": "Module name is required"}), 400
 
     db = get_db()

@@ -1158,6 +1158,7 @@ class TestAPI(TestCase):
             "type": "module",  # Required field according to schema
             "moduleTests": [],  # Will be populated with test names
             # "crateSide": {"1": [], "2": [], "3": [], "4": []}
+            "_moduleTest_id": []  # Will be updated later
         }
         module_response = self.client.post("/modules", json=module_data)
         self.assertEqual(module_response.status_code, 201)
@@ -1198,7 +1199,8 @@ class TestAPI(TestCase):
         # Update the module with test references
         update_module = {
             "moduleTests": [["ModuleTest001", str(module_test_id1)], ["ModuleTest002", str(module_test_id2
-            )]]
+            )]],
+            "_moduleTest_id": [str(module_test_id1), str(module_test_id2)]
         }
         update_module_response = self.client.put("/modules/TestModule001", json=update_module)
         self.assertEqual(update_module_response.status_code, 200)
