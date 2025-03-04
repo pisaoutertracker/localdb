@@ -148,6 +148,176 @@ def get_module_with_related_data(modules_collection, module_name):
     return list(result)[0] if result else None
 
 
+def get_session_with_related_data(sessions_collection, session_name):
+    pipeline = [
+        # Stage 1: Match the specific session by name
+        {
+            "$match": {
+                "sessionName": session_name
+            }
+        },
+        # Stage 2: Unwind the _test_run_id array
+        {
+            "$unwind": {
+                "path": "$_test_run_id",
+                "preserveNullAndEmptyArrays": True
+            }
+        },
+        # Stage 3: Define the runId field as the single entries in the _test_run_id array
+        {
+            "$addFields": {
+                "runId": "$_test_run_id"
+            }
+        },
+        # Convert the runId to an ObjectId
+        {
+            "$addFields": {
+                "runId": { "$toObjectId": "$runId" }
+            }
+        },
+        # Stage 4: Lookup the test_runs documents using the extracted ID
+        {
+            "$lookup": {
+                "from": "test_runs",
+                "localField": "runId",
+                "foreignField": "_id",
+                "as": "runDetails"
+            }
+        },
+        # Stage 5: Add first run detail to the document
+        {
+            "$addFields": {
+                "runDetail": { "$arrayElemAt": ["$runDetails", 0] }
+            }
+        },
+        # Stage 6: Unwind the _moduleTest_id array from the run
+        {
+            "$unwind": {
+                "path": "$runDetail._moduleTest_id",
+                "preserveNullAndEmptyArrays": True
+            }
+        },
+        # Stage 7: Define the moduleTestId field
+        {
+            "$addFields": {
+                "moduleTestId": "$runDetail._moduleTest_id"
+            }
+        },
+        # Convert the moduleTestId to an ObjectId
+        {
+            "$addFields": {
+                "moduleTestId": { "$toObjectId": "$moduleTestId" }
+            }
+        },
+        # Stage 8: Lookup the moduleTests documents
+        {
+            "$lookup": {
+                "from": "module_tests",
+                "localField": "moduleTestId",
+                "foreignField": "_id",
+                "as": "moduleTestDetails"
+            }
+        },
+        # Stage 9: Add module test to document
+        {
+            "$addFields": {
+                "moduleTest": { "$arrayElemAt": ["$moduleTestDetails", 0] }
+            }
+        },
+        # Stage 10: Lookup the module document
+        {
+            "$lookup": {
+                "from": "modules",
+                "localField": "moduleTest.moduleName",
+                "foreignField": "moduleName",
+                "as": "moduleData"
+            }
+        },
+        # Stage 11: Add module to document
+        {
+            "$addFields": {
+                "module": { "$arrayElemAt": ["$moduleData", 0] }
+            }
+        },
+        # Stage 12: Get the last analysis ID
+        {
+            "$addFields": {
+                "lastAnalysisId": { 
+                    "$arrayElemAt": ["$moduleTest.analysesList", -1] 
+                }
+            }
+        },
+        # Stage 13: Lookup the analysis
+        {
+            "$lookup": {
+                "from": "module_test_analysis",
+                "localField": "lastAnalysisId",
+                "foreignField": "moduleTestAnalysisName",
+                "as": "analysisData"
+            }
+        },
+        # Stage 14: Add analysis to document
+        {
+            "$addFields": {
+                "analysis": { "$arrayElemAt": ["$analysisData", 0] }
+            }
+        },
+        # Stage 15: Create a combined test document
+        {
+            "$addFields": {
+                "combinedTest": {
+                    "run_name": "$runDetail.test_runName",
+                    "run_info": "$runDetail",
+                    "module_test": "$moduleTest",
+                    "module": "$module",
+                    "analysis": "$analysis"
+                }
+            }
+        },
+        # Stage 16: Group by run first to consolidate module tests per run
+        {
+            "$group": {
+                "_id": {
+                    "session_id": "$_id",
+                    "run_id": "$runDetail._id"
+                },
+                "sessionName": { "$first": "$sessionName" },
+                "operator": { "$first": "$operator" },
+                "timestamp": { "$first": "$timestamp" },
+                "description": { "$first": "$description" },
+                "configuration": { "$first": "$configuration" },
+                "modulesList": { "$first": "$modulesList" },
+                "log": { "$first": "$log" },
+                "run_name": { "$first": "$runDetail.test_runName" },
+                "run_details": { "$first": "$runDetail" },
+                "module_tests": { "$push": "$combinedTest" }
+            }
+        },
+        # Stage 17: Group again to consolidate runs per session
+        {
+            "$group": {
+                "_id": "$_id.session_id",
+                "sessionName": { "$first": "$sessionName" },
+                "operator": { "$first": "$operator" },
+                "timestamp": { "$first": "$timestamp" },
+                "description": { "$first": "$description" },
+                "configuration": { "$first": "$configuration" },
+                "modulesList": { "$first": "$modulesList" },
+                "log": { "$first": "$log" },
+                "runs": {
+                    "$push": {
+                        "run_name": "$run_name",
+                        "run_details": "$run_details",
+                        "module_tests": "$module_tests"
+                    }
+                }
+            }
+        }
+    ]
+    
+    result = sessions_collection.aggregate(pipeline)
+    return list(result)[0] if result else None
+
 @bp.route("/fetch_module_results/<module_name>", methods=["GET"])
 def fetch_module_results(module_name):
     if not module_name: 
@@ -157,3 +327,13 @@ def fetch_module_results(module_name):
     modules_collection = db["modules"]
     module = get_module_with_related_data(modules_collection, module_name)
     return module, 200 if module else 404
+
+@bp.route("/fetch_session_results/<session_name>", methods=["GET"])
+def fetch_session_results(session_name):
+    if not session_name:
+        return jsonify({"error": "Session name is required"}), 400
+
+    db = get_db()
+    sessions_collection = db["sessions"]
+    session = get_session_with_related_data(sessions_collection, session_name)
+    return session, 200 if session else 404

@@ -1314,6 +1314,201 @@ class TestAPI(TestCase):
         self.assertEqual(test2["analysis"]["analysisSummary"]["status"], "PASS")
         self.assertIn("thermal_stability", test2["analysis"]["analysisResults"])
 
+    def test_fetch_session_results(self):
+        self.test_insert_cable_templates()
+
+        # 1. Create test data for all collections
+        
+        # Create a session
+        session_data = {
+            "sessionName": "TestSessionResults",
+            "timestamp": "2023-12-18T10:00:00",
+            "operator": "Session Test Operator",
+            "description": "Test session for session results endpoint",
+            "modulesList": ["TestModuleSession1", "TestModuleSession2"],
+            "configuration": {"setting1": "value1", "setting2": "value2"},
+            "log": ["Session log entry 1", "Session log entry 2"]
+        }
+        session_response = self.client.post("/sessions", json=session_data)
+        self.assertEqual(session_response.status_code, 201)
+        session_name = session_response.json["sessionName"]
+        
+        # Create modules
+        module_data1 = {
+            "moduleName": "TestModuleSession1",
+            "position": "testbench",
+            "status": "testing",
+            "type": "module"
+        }
+        self.client.post("/modules", json=module_data1)
+        
+        module_data2 = {
+            "moduleName": "TestModuleSession2",
+            "position": "cleanroom",
+            "status": "mounted",
+            "type": "module"
+        }
+        self.client.post("/modules", json=module_data2)
+        
+        # Create test runs
+        test_run_data1 = {
+            "test_runName": "TestRunSession1",
+            "runDate": "2023-12-18T11:00:00",
+            "runStatus": "completed",
+            "runType": "qualification",
+            "runSession": session_name,
+            "runBoards": {"1": "fc7ot1"},
+            "_moduleTest_id": [],
+            "moduleTestName": [],
+            "runFile": "http://example.com/session-test-data-001.root",
+            "runConfiguration": {"config1": "val1"}
+        }
+        run_response1 = self.client.post("/test_run", json=test_run_data1)
+        self.assertEqual(run_response1.status_code, 201)
+        run_objectid1 = self.client.get("/test_run/TestRunSession1").json["_id"]
+        
+        test_run_data2 = {
+            "test_runName": "TestRunSession2",
+            "runDate": "2023-12-18T12:00:00",
+            "runStatus": "completed",
+            "runType": "thermal_cycle",
+            "runSession": session_name,
+            "runBoards": {"1": "fc7ot2"},
+            "_moduleTest_id": [],
+            "moduleTestName": [],
+            "runFile": "http://example.com/session-test-data-002.root",
+            "runConfiguration": {"temperature": 40}
+        }
+        run_response2 = self.client.post("/test_run", json=test_run_data2)
+        self.assertEqual(run_response2.status_code, 201)
+        run_objectid2 = self.client.get("/test_run/TestRunSession2").json["_id"]
+        
+        # Create module tests for both modules
+        module_test_data1 = {
+            "moduleTestName": "ModuleTestSession1",
+            # ObjectID of the test run created above
+            "_test_run_id": [ObjectId(run_objectid1)],
+            "test_runName": "TestRunSession1",
+            "_module_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7c2d"),
+            "moduleName": "TestModuleSession1",
+            "noise": {"channel1": 2.2, "channel2": 3.3},
+            "board": "fc7ot1",
+            "opticalGroupName": 0
+        }
+        module_test_response1 = self.client.post("/module_test", json=module_test_data1)
+        self.assertEqual(module_test_response1.status_code, 201)
+        module_test_id1 = self.client.get("/module_test/ModuleTestSession1").json["_id"]
+        
+        module_test_data2 = {
+            "moduleTestName": "ModuleTestSession2",
+            "_test_run_id": [ObjectId(run_objectid2)],
+            "test_runName": "TestRunSession2",
+            "_module_id": ObjectId("5f9b3b9b9d9d7b3d9d9d7c4d"),
+            "moduleName": "TestModuleSession2",
+            "noise": {"channel1": 2.4, "channel2": 3.5},
+            "board": "fc7ot2",
+            "opticalGroupName": 1
+        }
+        module_test_response2 = self.client.post("/module_test", json=module_test_data2)
+        self.assertEqual(module_test_response2.status_code, 201)
+        module_test_id2 = self.client.get("/module_test/ModuleTestSession2").json["_id"]
+        
+        # Create analyses
+        analysis_data1 = {
+            "moduleTestAnalysisName": "AnalysisSession1",
+            "moduleTestName": "ModuleTestSession1",
+            "moduleTest_id": str(ObjectId("5f9b3b9b9d9d7b3d9d9d7c1d")),
+            "analysisVersion": "v1.0",
+            "analysisResults": {"metric1": 96.2, "metric2": 88.9},
+            "analysisSummary": {"summary": "All tests passed", "status": "PASS"},
+            "analysisFile": "http://example.com/session-analysis-001.json"
+        }
+        self.client.post("/module_test_analysis", json=analysis_data1)
+        
+        analysis_data2 = {
+            "moduleTestAnalysisName": "AnalysisSession2",
+            "moduleTestName": "ModuleTestSession2",
+            "moduleTest_id": str(ObjectId("5f9b3b9b9d9d7b3d9d9d7c3d")),
+            "analysisVersion": "v1.0",
+            "analysisResults": {"metric1": 93.1, "metric2": 86.3},
+            "analysisSummary": {"summary": "Thermal cycle completed", "status": "PASS"},
+            "analysisFile": "http://example.com/session-analysis-002.json"
+        }
+        self.client.post("/module_test_analysis", json=analysis_data2)
+        
+        # Update module tests with analysis references
+        update_test1 = {
+            "analysesList": ["AnalysisSession1"],
+            "referenceAnalysis": "AnalysisSession1"
+        }
+        self.client.put("/module_test/ModuleTestSession1", json=update_test1)
+        
+        update_test2 = {
+            "analysesList": ["AnalysisSession2"],
+            "referenceAnalysis": "AnalysisSession2"
+        }
+        self.client.put("/module_test/ModuleTestSession2", json=update_test2)
+        
+        # Update test runs with module test references
+        update_run1 = {
+            "_moduleTest_id": [str(module_test_id1)],
+            "moduleTestName": ["ModuleTestSession1"]
+        }
+        self.client.put("/test_run/TestRunSession1", json=update_run1)
+        
+        update_run2 = {
+            "_moduleTest_id": [str(module_test_id2)],
+            "moduleTestName": ["ModuleTestSession2"]
+        }
+        self.client.put("/test_run/TestRunSession2", json=update_run2)
+        
+        # Update session with test run references
+        update_session = {
+            "_test_run_id": [str(ObjectId(run_objectid1)), str(ObjectId(run_objectid2))],
+            "test_runName": ["TestRunSession1", "TestRunSession2"]
+        }
+        self.client.put(f"/sessions/{session_name}", json=update_session)
+        
+        # 2. Call the endpoint and verify the response
+        response = self.client.get(f"/fetch_session_results/{session_name}")
+        self.assertEqual(response.status_code, 200)
+        result = response.json        
+        # 3. Verify the response contains all expected data
+        self.assertEqual(result["sessionName"], session_name)
+        self.assertEqual(result["operator"], "Session Test Operator")
+        self.assertTrue("runs" in result)
+        self.assertEqual(len(result["runs"]), 2, "Expected exactly two runs in the results")
+        
+        # Find the runs by name
+        run1 = next((run for run in result["runs"] if run["run_name"] == "TestRunSession1"), None)
+        run2 = next((run for run in result["runs"] if run["run_name"] == "TestRunSession2"), None)
+        
+        # Verify run1 data
+        self.assertIsNotNone(run1)
+        self.assertEqual(run1["run_details"]["runType"], "qualification")
+        self.assertTrue("module_tests" in run1)
+        self.assertTrue(len(run1["module_tests"]) > 0)
+        
+        # Verify module test data in run1
+        module_test1 = run1["module_tests"][0]
+        self.assertEqual(module_test1["module_test"]["moduleTestName"], "ModuleTestSession1")
+        self.assertEqual(module_test1["module"]["moduleName"], "TestModuleSession1")
+        self.assertEqual(module_test1["analysis"]["moduleTestAnalysisName"], "AnalysisSession1")
+        self.assertEqual(module_test1["analysis"]["analysisSummary"]["status"], "PASS")
+        
+        # Verify run2 data
+        self.assertIsNotNone(run2)
+        self.assertEqual(run2["run_details"]["runType"], "thermal_cycle")
+        self.assertTrue("module_tests" in run2)
+        self.assertTrue(len(run2["module_tests"]) > 0)
+        
+        # Verify module test data in run2
+        module_test2 = run2["module_tests"][0]
+        self.assertEqual(module_test2["module_test"]["moduleTestName"], "ModuleTestSession2")
+        self.assertEqual(module_test2["module"]["moduleName"], "TestModuleSession2")
+        self.assertEqual(module_test2["analysis"]["moduleTestAnalysisName"], "AnalysisSession2")
+        self.assertEqual(module_test2["analysis"]["analysisSummary"]["status"], "PASS")
+
 
 if __name__ == "__main__":
     unittest.main()
