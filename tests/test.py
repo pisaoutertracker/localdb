@@ -1472,43 +1472,50 @@ class TestAPI(TestCase):
         # 2. Call the endpoint and verify the response
         response = self.client.get(f"/fetch_session_results/{session_name}")
         self.assertEqual(response.status_code, 200)
-        result = response.json        
+        result = response.json
+        
         # 3. Verify the response contains all expected data
         self.assertEqual(result["sessionName"], session_name)
         self.assertEqual(result["operator"], "Session Test Operator")
+        
+        # Verify runs data - should be a separate list with basic run info
         self.assertTrue("runs" in result)
         self.assertEqual(len(result["runs"]), 2, "Expected exactly two runs in the results")
+        run_names = [run["run_name"] for run in result["runs"]]
+        self.assertIn("TestRunSession1", run_names)
+        self.assertIn("TestRunSession2", run_names)
         
-        # Find the runs by name
-        run1 = next((run for run in result["runs"] if run["run_name"] == "TestRunSession1"), None)
-        run2 = next((run for run in result["runs"] if run["run_name"] == "TestRunSession2"), None)
+        # Verify module_tests data - should now be a flat list at the session level
+        self.assertTrue("module_tests" in result)
+        self.assertEqual(len(result["module_tests"]), 2, "Expected exactly two module tests in the results")
         
-        # Verify run1 data
-        self.assertIsNotNone(run1)
-        self.assertEqual(run1["run_details"]["runType"], "qualification")
-        self.assertTrue("module_tests" in run1)
-        self.assertTrue(len(run1["module_tests"]) > 0)
+        # Find the module tests by their names
+        module_test1 = next((mt for mt in result["module_tests"] if mt["module_test_name"] == "ModuleTestSession1"), None)
+        module_test2 = next((mt for mt in result["module_tests"] if mt["module_test_name"] == "ModuleTestSession2"), None)
         
-        # Verify module test data in run1
-        module_test1 = run1["module_tests"][0]
-        self.assertEqual(module_test1["module_test"]["moduleTestName"], "ModuleTestSession1")
+        # Verify first module test
+        self.assertIsNotNone(module_test1)
+        self.assertEqual(module_test1["module_test_data"]["board"], "fc7ot1")
         self.assertEqual(module_test1["module"]["moduleName"], "TestModuleSession1")
+        self.assertEqual(module_test1["module"]["position"], "testbench")
         self.assertEqual(module_test1["analysis"]["moduleTestAnalysisName"], "AnalysisSession1")
         self.assertEqual(module_test1["analysis"]["analysisSummary"]["status"], "PASS")
         
-        # Verify run2 data
-        self.assertIsNotNone(run2)
-        self.assertEqual(run2["run_details"]["runType"], "thermal_cycle")
-        self.assertTrue("module_tests" in run2)
-        self.assertTrue(len(run2["module_tests"]) > 0)
+        # Verify run reference in module test
+        self.assertEqual(module_test1["run"]["name"], "TestRunSession1")
+        self.assertEqual(module_test1["run"]["data"]["runType"], "qualification")
         
-        # Verify module test data in run2
-        module_test2 = run2["module_tests"][0]
-        self.assertEqual(module_test2["module_test"]["moduleTestName"], "ModuleTestSession2")
+        # Verify second module test
+        self.assertIsNotNone(module_test2)
+        self.assertEqual(module_test2["module_test_data"]["board"], "fc7ot2")
         self.assertEqual(module_test2["module"]["moduleName"], "TestModuleSession2")
+        self.assertEqual(module_test2["module"]["position"], "cleanroom")
         self.assertEqual(module_test2["analysis"]["moduleTestAnalysisName"], "AnalysisSession2")
         self.assertEqual(module_test2["analysis"]["analysisSummary"]["status"], "PASS")
-
+        
+        # Verify run reference in module test
+        self.assertEqual(module_test2["run"]["name"], "TestRunSession2") 
+        self.assertEqual(module_test2["run"]["data"]["runType"], "thermal_cycle")
 
 if __name__ == "__main__":
     unittest.main()

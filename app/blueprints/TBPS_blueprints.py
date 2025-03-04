@@ -262,25 +262,27 @@ def get_session_with_related_data(sessions_collection, session_name):
                 "analysis": { "$arrayElemAt": ["$analysisData", 0] }
             }
         },
-        # Stage 15: Create a combined test document
+        # Stage 15: Create a combined module test document with run info
         {
             "$addFields": {
-                "combinedTest": {
-                    "run_name": "$runDetail.test_runName",
-                    "run_info": "$runDetail",
-                    "module_test": "$moduleTest",
+                "combined_module_test": {
+                    "module_test_name": "$moduleTest.moduleTestName",
+                    "module_test_id": "$moduleTest._id",
+                    "module_test_data": "$moduleTest",
                     "module": "$module",
+                    "run": {
+                        "name": "$runDetail.test_runName",
+                        "id": "$runDetail._id",
+                        "data": "$runDetail"
+                    },
                     "analysis": "$analysis"
                 }
             }
         },
-        # Stage 16: Group by run first to consolidate module tests per run
+        # Stage 16: Group directly to final session structure with a single module_tests array
         {
             "$group": {
-                "_id": {
-                    "session_id": "$_id",
-                    "run_id": "$runDetail._id"
-                },
+                "_id": "$_id",
                 "sessionName": { "$first": "$sessionName" },
                 "operator": { "$first": "$operator" },
                 "timestamp": { "$first": "$timestamp" },
@@ -288,29 +290,32 @@ def get_session_with_related_data(sessions_collection, session_name):
                 "configuration": { "$first": "$configuration" },
                 "modulesList": { "$first": "$modulesList" },
                 "log": { "$first": "$log" },
-                "run_name": { "$first": "$runDetail.test_runName" },
-                "run_details": { "$first": "$runDetail" },
-                "module_tests": { "$push": "$combinedTest" }
+                # Include both runs and module_tests as separate arrays
+                "runs": {
+                    "$addToSet": {
+                        "run_id": "$runDetail._id",
+                        "run_name": "$runDetail.test_runName",
+                        "run_date": "$runDetail.runDate",
+                        "run_type": "$runDetail.runType",
+                        "run_status": "$runDetail.runStatus"
+                    }
+                },
+                "module_tests": { "$push": "$combined_module_test" }
             }
         },
-        # Stage 17: Group again to consolidate runs per session
+        # Stage 17: Final projection to clean up the output
         {
-            "$group": {
-                "_id": "$_id.session_id",
-                "sessionName": { "$first": "$sessionName" },
-                "operator": { "$first": "$operator" },
-                "timestamp": { "$first": "$timestamp" },
-                "description": { "$first": "$description" },
-                "configuration": { "$first": "$configuration" },
-                "modulesList": { "$first": "$modulesList" },
-                "log": { "$first": "$log" },
-                "runs": {
-                    "$push": {
-                        "run_name": "$run_name",
-                        "run_details": "$run_details",
-                        "module_tests": "$module_tests"
-                    }
-                }
+            "$project": {
+                "_id": 0,
+                "sessionName": 1,
+                "operator": 1,
+                "timestamp": 1,
+                "description": 1,
+                "configuration": 1,
+                "modulesList": 1,
+                "log": 1,
+                "runs": 1,
+                "module_tests": 1
             }
         }
     ]
