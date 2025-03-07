@@ -229,7 +229,69 @@ class TestAPI(TestCase):
                 }
             ).json,
         )
-
+        
+        # now check connection between B1 and P001
+        burnin = {
+            "name": "B1",
+            "type": "burninslot",
+            "detSide": {},
+            "crateSide": {},
+        }
+        patch_panel = {
+            "name": "P001",
+            "type": "patchpanel",
+            "detSide": {},
+            "crateSide": {},
+        }
+        caen_HV = {
+            "name": "ASLOT0",
+            "type": "caenHV",
+            "detSide": {},
+            "crateSide": {},
+        }
+        caen_LV = {
+            "name": "XSLOT6",
+            "type": "caenLV",
+            "detSide": {},
+            "crateSide": {},
+        }
+        response = self.client.post("/cables", json=burnin)
+        self.assertEqual(response.status_code, 201)
+        response = self.client.post("/cables", json=patch_panel)
+        self.assertEqual(response.status_code, 201)
+        response = self.client.post("/cables", json=caen_HV)
+        self.assertEqual(response.status_code, 201)
+        response = self.client.post("/cables", json=caen_LV)
+        self.assertEqual(response.status_code, 201)
+        
+        connect_data = {
+            "cable1": "B1",
+            "port1": "HVLV",
+            "cable2": "P001",
+            "port2": "B12",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables connected successfully"})
+        connect_data = {
+            "cable1": "P001",
+            "port1": "HV12",
+            "cable2": "ASLOT0",
+            "port2": "1",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables connected successfully"})
+        connect_data = {
+            "cable1": "P001",
+            "port1": "LV3",
+            "cable2": "XSLOT6",
+            "port2": "up",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables connected successfully"})
+        
         # 3. Disconnect them
         disconnect_data = {
             "cable1": "E31",
@@ -691,7 +753,8 @@ class TestAPI(TestCase):
         # do a snapshot of the module from crateSide
         snapshot_data = {
             "cable": "PS_26_05-IPG_00102",
-            "side": "crateSide"
+            "side": "crateSide",
+            # "port": "HV1"
         }
         req = self.client.post("/snapshot", json=snapshot_data)
         self.assertEqual(req.json["1"]["connections"][-1]["cable"], "FC7OT2")
@@ -709,7 +772,19 @@ class TestAPI(TestCase):
         # print formatted json
         # formatted = json.dumps(req.json, indent=4)
         # print(formatted)
-
+        # now do a snapshot of the module from crateSide specifying the port
+        snapshot_data = {
+            "cable": "PS_26_05-IPG_00102",
+            "side": "crateSide",
+            "port": "fiber"
+        }
+        req = self.client.post("/snapshot", json=snapshot_data)
+        self.assertEqual(req.json["1"]["connections"][0]["cable"], "B1")
+        # check that now the keys in the dictionary are just the 2 involved ports, 1 and 2
+        self.assertEqual(len(req.json.keys()), 2)
+        # print formatted json
+        # formatted = json.dumps(req.json, indent=4)
+        # print(formatted)
 
     # Snapshot from Cable (crateSide)
     # def test_LogBookSearchByText(self):

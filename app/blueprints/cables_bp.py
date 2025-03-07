@@ -326,6 +326,7 @@ def snapshot():
 
     cable1_name = data["cable"]
     side = data["side"]
+    port = data.get("port")  # Port is optional
 
     if side not in ["crateSide", "detSide"]:
         return jsonify({"error": "Invalid side"}), 400
@@ -358,6 +359,19 @@ def snapshot():
     lines1 = template1["lines"]
     all_lines = [line for line in range(1, lines1 + 1)]
 
+    # If port is specified, filter lines to only include those from the specified port
+    if port:
+        if side == "crateSide" and "crateSide" in template1:
+            if port in template1["crateSide"]:
+                all_lines = [line for line in template1["crateSide"][port] if line != -1]
+            else:
+                return jsonify({"error": f"Port {port} not found in crateSide"}), 400
+        elif side == "detSide" and "detSide" in template1:
+            if port in template1["detSide"]:
+                all_lines = [line for line in template1["detSide"][port] if line != -1]
+            else:
+                return jsonify({"error": f"Port {port} not found in detSide"}), 400
+
     # snapshot is a dict
     snapshot = {}
     # since we can have multiple lines per port, we can have multiple cables
@@ -365,17 +379,25 @@ def snapshot():
     for line in all_lines:
         snapshot[line] = {}
 
-        if "crateSide" in template1:
-            for p, tlines in template1["crateSide"].items():
-                if line in tlines:
-                    snapshot[line]["crate_port"] = p
-                    break
-        
-        if "detSide" in template1:
-            for p, tlines in template1["detSide"].items():
-                if line in tlines:
-                    snapshot[line]["det_port"] = p
-                    break
+        # When port is specified, use it directly instead of searching
+        if port:
+            if side == "crateSide":
+                snapshot[line]["crate_port"] = port
+            elif side == "detSide":
+                snapshot[line]["det_port"] = port
+        else:
+            # Original behavior when no port is specified
+            if "crateSide" in template1:
+                for p, tlines in template1["crateSide"].items():
+                    if line in tlines:
+                        snapshot[line]["crate_port"] = p
+                        break
+            
+            if "detSide" in template1:
+                for p, tlines in template1["detSide"].items():
+                    if line in tlines:
+                        snapshot[line]["det_port"] = p
+                        break
 
         snapshot[line]["connections"] = []
         current_cable = cable1
