@@ -361,65 +361,43 @@ def get_module_test_with_session_data(module_tests_collection, module_test_id):
                 "session": { "$arrayElemAt": ["$session", 0] }
             }
         },
-        # Stage 6: Unwind the analysesList to process each analysis
+        # Stage 6: Get the last analysis ID
         {
-            "$unwind": {
-                "path": "$analysesList",
-                "preserveNullAndEmptyArrays": True
+            "$addFields": {
+                "lastAnalysisId": { 
+                    "$arrayElemAt": ["$analysesList", -1] 
+                }
             }
         },
-        # Stage 7: Lookup each analysis
+        # Stage 7: Lookup the analysis
         {
             "$lookup": {
                 "from": "module_test_analysis",
-                "localField": "analysesList",
+                "localField": "lastAnalysisId",
                 "foreignField": "moduleTestAnalysisName",
-                "as": "analysisDetail"
+                "as": "analysis"
             }
         },
-        # Stage 8: Add analysis detail
+        # Stage 8: Add analysis to document
         {
             "$addFields": {
-                "analysisDetail": { "$arrayElemAt": ["$analysisDetail", 0] }
+                "analysis": { "$arrayElemAt": ["$analysis", 0] },
+                "analysisFile": "$analysis.analysisFile",
+                "sessionName": "$session.sessionName"
             }
         },
-        # Stage 9: Group to collect all analyses for each module test
+        # Stage 10: Group back to rebuild the module test with all related data
         {
             "$group": {
                 "_id": "$_id",
-                "moduleTestName": { "$first": "$moduleTestName" },
-                "moduleName": { "$first": "$moduleName" },
-                "test_runName": { "$first": "$test_runName" },
-                "run": { "$first": "$run" },
-                "session": { "$first": "$session" },
-                "analysisNames": { "$push": "$analysesList" },
-                "analysisDetails": { 
-                    "$push": {
-                        "k": "$analysesList", 
-                        "v": "$analysisDetail"
-                    }
-                },
-                "originalDoc": { "$first": "$$ROOT" }
+                "moduleTest": { "$first": "$$ROOT" }
             }
         },
-        # Stage 10: Convert the analysisDetails array to an object
-        {
-            "$addFields": {
-                "analysisMap": { "$arrayToObject": "$analysisDetails" }
-            }
-        },
-        # Stage 11: Final projection for cleaner output
+        # Stage 11: Clean up by removing unnecessary fields
         {
             "$project": {
-                "_id": 1,
-                "moduleTestName": 1,
-                "moduleName": 1,
-                "test_runName": 1,
-                "run": 1,
-                "session": 1,
-                "analysisNames": 1,
-                "analyses": "$analysisMap",
-                "testData": "$originalDoc"
+                "_id": 0,
+                "moduleTest.analysesList": 0
             }
         }
     ]
