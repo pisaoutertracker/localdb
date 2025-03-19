@@ -381,20 +381,9 @@ def get_module_test_with_session_data(module_tests_collection, module_test_id):
         # Stage 8: Add analysis to document
         {
             "$addFields": {
-                "analysis": { "$arrayElemAt": ["$analysis", 0] }
-            }
-        },
-        # Stage 9: Create a combined test document
-        {
-            "$addFields": {
-                "combinedTest": {
-                    "name": "$moduleTestName",
-                    "id": "$_id",
-                    "details": "$$ROOT",
-                    "run": "$run",
-                    "session": "$session",
-                    "analysis": "$analysis"
-                }
+                "analysis": { "$arrayElemAt": ["$analysis", 0] },
+                "analysisFile": "$analysis.analysisFile",
+                "sessionName": "$session.sessionName"
             }
         },
         # Stage 10: Group back to rebuild the module test with all related data
