@@ -323,6 +323,100 @@ def get_session_with_related_data(sessions_collection, session_name):
     result = sessions_collection.aggregate(pipeline)
     return list(result)[0] if result else None
 
+def get_module_test_with_session_data(module_tests_collection, module_test_id):
+    pipeline = [
+        # Stage 1: Match the specific module test by ID
+        {
+            "$match": {
+                "_id": ObjectId(module_test_id)
+            }
+        },
+        # Stage 2: Lookup the test run
+        {
+            "$lookup": {
+                "from": "test_runs",
+                "localField": "test_runName",
+                "foreignField": "test_runName",
+                "as": "run"
+            }
+        },
+        # Stage 3: Add run to document
+        {
+            "$addFields": {
+                "run": { "$arrayElemAt": ["$run", 0] }
+            }
+        },
+        # Stage 4: Lookup the session
+        {
+            "$lookup": {
+                "from": "sessions",
+                "localField": "run.runSession",
+                "foreignField": "sessionName",
+                "as": "session"
+            }
+        },
+        # Stage 5: Add session to document
+        {
+            "$addFields": {
+                "session": { "$arrayElemAt": ["$session", 0] }
+            }
+        },
+        # Stage 6: Get the last analysis ID
+        {
+            "$addFields": {
+                "lastAnalysisId": { 
+                    "$arrayElemAt": ["$analysesList", -1] 
+                }
+            }
+        },
+        # Stage 7: Lookup the analysis
+        {
+            "$lookup": {
+                "from": "module_test_analysis",
+                "localField": "lastAnalysisId",
+                "foreignField": "moduleTestAnalysisName",
+                "as": "analysis"
+            }
+        },
+        # Stage 8: Add analysis to document
+        {
+            "$addFields": {
+                "analysis": { "$arrayElemAt": ["$analysis", 0] }
+            }
+        },
+        # Stage 9: Create a combined test document
+        {
+            "$addFields": {
+                "combinedTest": {
+                    "name": "$moduleTestName",
+                    "id": "$_id",
+                    "details": "$$ROOT",
+                    "run": "$run",
+                    "session": "$session",
+                    "analysis": "$analysis"
+                }
+            }
+        },
+        # Stage 10: Group back to rebuild the module test with all related data
+        {
+            "$group": {
+                "_id": "$_id",
+                "moduleTest": { "$first": "$$ROOT" }
+            }
+        },
+        # Stage 11: Clean up by removing unnecessary fields
+        {
+            "$project": {
+                "_id": 0,
+                "moduleTest.analysesList": 0
+            }
+        }
+    ]
+    
+    result = module_tests_collection.aggregate(pipeline)
+    return list(result)[0] if result else None
+
+
 @bp.route("/fetch_module_results/<module_name>", methods=["GET"])
 def fetch_module_results(module_name):
     if not module_name: 
@@ -342,3 +436,13 @@ def fetch_session_results(session_name):
     sessions_collection = db["sessions"]
     session = get_session_with_related_data(sessions_collection, session_name)
     return session, 200 if session else 404
+
+@bp.route("/fetch_module_test_results/<module_test_id>", methods=["GET"])
+def fetch_module_test_results(module_test_id):
+    if not module_test_id:
+        return jsonify({"error": "Module test ID is required"}), 400
+
+    db = get_db()
+    module_tests_collection = db["module_tests"]
+    module_test = get_module_test_with_session_data(module_tests_collection, module_test_id)
+    return module_test, 200 if module_test else 404
