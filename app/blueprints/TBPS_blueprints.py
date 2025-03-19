@@ -328,7 +328,7 @@ def get_module_test_with_session_data(module_tests_collection, module_test_id):
         # Stage 1: Match the specific module test by ID
         {
             "$match": {
-                "moduleTestName": ObjectId(module_test_id)
+                "moduleTestName": module_test_id
             }
         },
         # Stage 2: Lookup the test run
