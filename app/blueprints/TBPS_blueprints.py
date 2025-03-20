@@ -569,7 +569,7 @@ def fetch_all_module_test_results():
     # Create a paginated response
     response = {
         "module_tests": {
-            "as_list": paginated_list,
+            # "as_list": paginated_list,
             "as_dict": {item["moduleTestName"]: item for item in paginated_list}
         },
         "pagination": {
