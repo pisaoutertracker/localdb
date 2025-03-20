@@ -405,6 +405,113 @@ def get_module_test_with_session_data(module_tests_collection, module_test_id):
     result = module_tests_collection.aggregate(pipeline)
     return list(result)[0] if result else None
 
+def get_all_module_test_with_session_data(module_tests_collection):
+    pipeline = [
+        # Stage 1: Lookup the test run
+        {
+            "$lookup": {
+                "from": "test_runs",
+                "localField": "test_runName",
+                "foreignField": "test_runName",
+                "as": "run"
+            }
+        },
+        # Stage 2: Add run to document
+        {
+            "$addFields": {
+                "run": { "$arrayElemAt": ["$run", 0] }
+            }
+        },
+        # Stage 3: Lookup the session
+        {
+            "$lookup": {
+                "from": "sessions",
+                "localField": "run.runSession",
+                "foreignField": "sessionName",
+                "as": "session"
+            }
+        },
+        # Stage 4: Add session to document
+        {
+            "$addFields": {
+                "session": { "$arrayElemAt": ["$session", 0] }
+            }
+        },
+        # Stage 5: Get the last analysis ID
+        {
+            "$addFields": {
+                "lastAnalysisId": { 
+                    "$arrayElemAt": ["$analysesList", -1] 
+                }
+            }
+        },
+        # Stage 6: Lookup the analysis
+        {
+            "$lookup": {
+                "from": "module_test_analysis",
+                "localField": "lastAnalysisId",
+                "foreignField": "moduleTestAnalysisName",
+                "as": "analysis"
+            }
+        },
+        # Stage 7: Add analysis to document and extract run number
+        {
+            "$addFields": {
+                "analysis": { "$arrayElemAt": ["$analysis", 0] },
+                "analysisFile": "$analysis.analysisFile",
+                "sessionName": "$session.sessionName",
+                "runNumber": {
+                    "$toInt": {
+                        "$replaceAll": {
+                            "input": {
+                                "$replaceAll": {
+                                    "input": "$test_runName",
+                                    "find": "run",
+                                    "replacement": ""
+                                }
+                            },
+                            "find": " ",
+                            "replacement": ""
+                        }
+                    }
+                }
+            }
+        },
+        # Stage 8: Sort by run number
+        {
+            "$sort": {
+                "runNumber": 1
+            }
+        },
+        # Stage 9: Final projection to clean up the output
+        {
+            "$project": {
+                "_id": 1,
+                "moduleTestName": 1,
+                "test_runName": 1,
+                "runNumber": 1,
+                "moduleName": 1,
+                "run": 1,
+                "session": 1,
+                "analysis": 1,
+                "analysisFile": 1,
+                "sessionName": 1,
+                "dataPath": 1,
+                "moduleTestLog": 1
+            }
+        }
+    ]
+    
+    result = list(module_tests_collection.aggregate(pipeline))
+    
+    # Convert to dictionary with moduleTestName as keys
+    module_tests_dict = {item["moduleTestName"]: item for item in result}
+    
+    return {
+        "module_tests_list": result,
+        "module_tests_dict": module_tests_dict
+    }
+
 
 @bp.route("/fetch_module_results/<module_name>", methods=["GET"])
 def fetch_module_results(module_name):
@@ -435,3 +542,39 @@ def fetch_module_test_results(module_test_id):
     module_tests_collection = db["module_tests"]
     module_test = get_module_test_with_session_data(module_tests_collection, module_test_id)
     return module_test, 200 if module_test else 404
+
+@bp.route("/fetch_all_module_test_results", methods=["GET"])
+def fetch_all_module_test_results():
+    db = get_db()
+    module_tests_collection = db["module_tests"]
+    
+    # Optional pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 100, type=int)
+    
+    # Get all module tests with related data
+    result = get_all_module_test_with_session_data(module_tests_collection)
+    
+    # Basic pagination implementation
+    module_tests_list = result["module_tests_list"]
+    total_items = len(module_tests_list)
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    paginated_list = module_tests_list[start_idx:end_idx]
+    
+    # Create a paginated response
+    response = {
+        "module_tests": {
+            "as_list": paginated_list,
+            "as_dict": {item["moduleTestName"]: item for item in paginated_list}
+        },
+        "pagination": {
+            "total_items": total_items,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_items + per_page - 1) // per_page
+        }
+    }
+    
+    return response, 200 if module_tests_list else 404
