@@ -558,6 +558,9 @@ def fetch_all_module_test_results():
     # Basic pagination implementation
     module_tests_list = result["module_tests_list"]
     total_items = len(module_tests_list)
+    # Sort module_tests_list with latest first (highest run number first)
+    module_tests_list = sorted(module_tests_list, key=lambda x: x.get("runNumber", 0), reverse=True)
+    
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
     
