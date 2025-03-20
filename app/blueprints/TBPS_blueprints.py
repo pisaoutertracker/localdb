@@ -570,6 +570,8 @@ def fetch_all_module_test_results():
     response = {
         "module_tests": {
             # "as_list": paginated_list,
+            "all_names": [item["moduleTestName"] for item in module_tests_list],
+            "current_names": [item["moduleTestName"] for item in paginated_list],
             "as_dict": {item["moduleTestName"]: item for item in paginated_list}
         },
         "pagination": {
