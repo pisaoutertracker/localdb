@@ -155,6 +155,7 @@ def add_run():
                 "test_runName": run_key,
                 "run_id": str(run_id),
                 "skipped_modules_count": skipped_modules_count,
+                "info": "you are using the latest version of the add_run endpoint",
             }
         ),
         201,
