@@ -24,7 +24,16 @@ def add_run():
     # this will be used to generate the test_runName
     test_run_count = testRuns_collection.count_documents({})
     # generate the test_runName
-    run_key = "run" + str(test_run_count + 1)
+    # check if the runNumber is in the data
+    if "runNumber" not in data:
+        return jsonify({"message": "runNumber is missing"}), 400
+    # check that the "runNumber" follows the format "run" + number
+    if not data["runNumber"].startswith("run"):
+        return jsonify({"message": "runNumber should start with 'run'"}), 400
+    # check that the "runNumber" follows the format "run" + number
+    if not data["runNumber"][3:].isdigit():
+        return jsonify({"message": "runNumber should be 'run' followed by a number"}), 400
+    run_key = data["runNumber"]
     # check if the test_runName already exists
     # if it does, return an error
     if testRuns_collection.count_documents({"test_runName": run_key}) != 0:

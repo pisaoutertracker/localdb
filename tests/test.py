@@ -903,6 +903,7 @@ class TestAPI(TestCase):
         sessionName = response.json["sessionName"]
 
         test_run_data = {
+            "runNumber": "run1",
             "runDate": "1996-11-21T10:00:56",
             "runStatus": "failed",
             "runType": "Type1",
@@ -947,6 +948,7 @@ class TestAPI(TestCase):
 
         # now test again a test_run_data with moduleName = -1
         test_run_data = {
+            "runNumber": "run2",
             "runDate": "1996-11-21T11:00:56",
             "runStatus": "failed",
             "runType": "Type1",
@@ -989,6 +991,15 @@ class TestAPI(TestCase):
         self.assertIn("run_id", response.json)
         skipped = response.json["skipped_modules_count"]
         self.assertEqual(skipped, 3)
+        
+        # try to insert a run with the same runNumber
+        response = self.client.post("/addRun", json=test_run_data)
+        self.assertEqual(response.status_code, 400)
+        
+        # try to insert a run with invalid runName, i.e. not starting with "run"
+        test_run_data["runNumber"] = "another_run1"
+        response = self.client.post("/addRun", json=test_run_data)
+        self.assertEqual(response.status_code, 400)
 
     def test_run_get(self):
         session_entry = {
@@ -1007,6 +1018,7 @@ class TestAPI(TestCase):
         sessionName = response.json["sessionName"]
 
         run_entry = {
+            "runNumber": "run5",
             "runDate": "1996-11-21",
             "test_runName": "T53",
             "runSession": sessionName,
