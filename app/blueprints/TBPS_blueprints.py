@@ -454,33 +454,19 @@ def get_all_module_test_with_session_data(module_tests_collection):
                 "as": "analysis"
             }
         },
-        # Stage 7: Add analysis to document and extract run number
+        # Stage 7: Add analysis to document and extract run date
         {
             "$addFields": {
                 "analysis": { "$arrayElemAt": ["$analysis", 0] },
                 "analysisFile": "$analysis.analysisFile",
                 "sessionName": "$session.sessionName",
-                "runNumber": {
-                    "$toInt": {
-                        "$replaceAll": {
-                            "input": {
-                                "$replaceAll": {
-                                    "input": "$test_runName",
-                                    "find": "run",
-                                    "replacement": ""
-                                }
-                            },
-                            "find": " ",
-                            "replacement": ""
-                        }
-                    }
-                }
+                "runDate": "$run.runDate"
             }
         },
-        # Stage 8: Sort by run number
+        # Stage 8: Sort by runDate (latest first)
         {
             "$sort": {
-                "runNumber": 1
+                "runDate": -1
             }
         },
         # Stage 9: Final projection to clean up the output
@@ -489,8 +475,9 @@ def get_all_module_test_with_session_data(module_tests_collection):
                 "_id": 1,
                 "moduleTestName": 1,
                 "test_runName": 1,
-                "runNumber": 1,
+                "runDate": 1,
                 "moduleName": 1,
+                "noise": 1,
                 "run": 1,
                 "session": 1,
                 "analysis": 1,
@@ -558,8 +545,7 @@ def fetch_all_module_test_results():
     # Basic pagination implementation
     module_tests_list = result["module_tests_list"]
     total_items = len(module_tests_list)
-    # Sort module_tests_list with latest first (highest run number first)
-    module_tests_list = sorted(module_tests_list, key=lambda x: x.get("runNumber", 0), reverse=True)
+    # The list is already sorted by runDate in descending order by the pipeline
     
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
