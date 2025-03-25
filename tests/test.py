@@ -9,7 +9,7 @@ import json
 sys.path.append("..")
 from app.app import (
     create_app,
-    get_db,
+    get_unittest_db,
 )
 from examples.cables_templates import cables_templates
 from bson import ObjectId
@@ -25,7 +25,7 @@ class TestAPI(TestCase):
         self.app = self.create_app()
         self.client = self.app.test_client()
         with self.app.app_context():
-            db = get_db()
+            db = get_unittest_db()
             db.modules.drop()
             db.logbook.drop()
             db.current_cabling_map.drop()
@@ -41,7 +41,7 @@ class TestAPI(TestCase):
 
     def tearDown(self):
         with self.app.app_context():
-            db = get_db()
+            db = get_unittest_db()
             db.modules.drop()
             db.logbook.drop()
             db.current_cabling_map.drop()
@@ -948,7 +948,7 @@ class TestAPI(TestCase):
 
         # now test again a test_run_data with moduleName = -1
         test_run_data = {
-            "runNumber": "run2",
+            "runNumber": "run500006",
             "runDate": "1996-11-21T11:00:56",
             "runStatus": "failed",
             "runType": "Type1",

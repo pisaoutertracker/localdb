@@ -18,7 +18,7 @@ from flask_cors import CORS
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "utils")))
 # make it so that utils can be imported from anywhere
-from .utils import get_db, CustomJSONProvider
+from .utils import get_db, CustomJSONProvider, get_unittest_db
 
 # import configs as config_module
  
@@ -42,6 +42,8 @@ def create_app(config_name):
     app = Flask(__name__)
     CORS(app)
 
+    if (config_name == "unittest") & (os.environ["MONGO_DB_NAME"] != "unittest"):
+        raise ValueError("MONGO_DB_NAME must be set to 'unittest' for unittests")
     load_dotenv(f"../config/{config_name}.env")
     app.config["MONGO_URI"] = os.environ["MONGO_URI"]
     app.config["MONGO_DB_NAME"] = os.environ["MONGO_DB_NAME"]

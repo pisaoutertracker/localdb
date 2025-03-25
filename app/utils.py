@@ -14,6 +14,11 @@ def get_db():
         g.db = MongoClient(current_app.config["MONGO_URI"])[current_app.config["MONGO_DB_NAME"]]
     return g.db
 
+def get_unittest_db():
+    if 'unittest_db' not in g:
+        g.unittest_db = MongoClient(current_app.config["MONGO_URI"])["unittest"]
+    return g.unittest_db
+
 # define regexps to select module ids, crateid, etc
 def regExpPatterns(s):
     mapRE = {"ModuleID": "PS_[0-9A-Z_\\-]+"}
