@@ -16,7 +16,7 @@ def get_db():
 
 def get_unittest_db():
     if 'unittest_db' not in g:
-        g.unittest_db = MongoClient(current_app.config["MONGO_URI"])["unittest"]
+        g.unittest_db = MongoClient(current_app.config["MONGO_URI"])["unittest_db"]
     return g.unittest_db
 
 # define regexps to select module ids, crateid, etc

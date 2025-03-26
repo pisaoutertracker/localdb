@@ -42,9 +42,11 @@ def create_app(config_name):
     app = Flask(__name__)
     CORS(app)
 
-    if (config_name == "unittest") & (os.environ["MONGO_DB_NAME"] != "unittest"):
-        raise ValueError("MONGO_DB_NAME must be set to 'unittest' for unittests")
+
     load_dotenv(f"../config/{config_name}.env")
+
+    if (config_name == "unittest") & (os.environ["MONGO_DB_NAME"] != "unittest_db"):
+        raise ValueError("MONGO_DB_NAME must be set to 'unittest' for unittests")
     app.config["MONGO_URI"] = os.environ["MONGO_URI"]
     app.config["MONGO_DB_NAME"] = os.environ["MONGO_DB_NAME"]
     app.config["TESTING"] = os.environ["TESTING"]
