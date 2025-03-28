@@ -886,10 +886,22 @@ class TestAPI(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_add_run(self):
+        # insert cables connection
+        self.test_insert_cable_templates()
+
         # Sample data
         session_entry = {
             "timestamp": "2023-11-03T14:21:29",
             "operator": "John Doe",
+            "description": "I tried to insert PS_88 and PS_44. and also PS_1.",
+            "modulesList": ["PS_1", "PS_2"],
+            "configuration": {"a": "b"},
+            "log": ["uuhuh", "pippo"],
+        }
+        # Sample data
+        session_entry1 = {
+            "timestamp": "2023-11-03T14:21:29",
+            "operator": "John Deo",
             "description": "I tried to insert PS_88 and PS_44. and also PS_1.",
             "modulesList": ["PS_1", "PS_2"],
             "configuration": {"a": "b"},
@@ -901,6 +913,40 @@ class TestAPI(TestCase):
         self.assertIn("message", response.json)
         # get the sessionName from the response
         sessionName = response.json["sessionName"]
+        
+        # insert it
+        response = self.client.post("/sessions", json=session_entry1)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("message", response.json)
+        # get the sessionName from the response
+        sessionName1 = response.json["sessionName"]
+        
+        # insert modules M123, M124, M125
+        new_module = {
+            "moduleName": "M123",
+            "position": "cleanroom",
+            "status": "readyformount",
+            # ... (other properties)
+        }
+        response = self.client.post("/modules", json=new_module)
+        print(response.json)
+        self.assertEqual(response.status_code, 201)
+        
+        new_module = {
+            "moduleName": "M124",
+            "position": "cleanroom",
+            "status": "readyformount",
+            # ... (other properties)
+        }
+        response = self.client.post("/modules", json=new_module)
+        
+        new_module = {
+            "moduleName": "M125",
+            "position": "cleanroom",
+            "status": "readyformount",
+            # ... (other properties)
+        }
+        response = self.client.post("/modules", json=new_module)
 
         test_run_data = {
             "runNumber": "run1",
@@ -1000,7 +1046,91 @@ class TestAPI(TestCase):
         test_run_data["runNumber"] = "another_run1"
         response = self.client.post("/addRun", json=test_run_data)
         self.assertEqual(response.status_code, 400)
+        
+        # now add run0, our test run
+        test_run_data = {
+            "runNumber": "run0",
+            "runDate": "1996-11-21T10:00:56",
+            "runStatus": "failed",
+            "runType": "Type1",
+            "runSession": sessionName1,
+            "runBoards": {
+                3: "fc7ot2",
+                4: "fc7ot3",
+            },
+            "runModules": {  ## (board, optical group) : (moduleName, hwNamemodule)
+                "fc7ot2_optical0": ("M123", 67),
+                "fc7ot2_optical1": ("M124", 68),
+                "fc7ot3_optical2": ("M125", 69),
+            },
+            "runResults": {
+                67: "pass",
+                68: "failed",
+                69: "failed",
+            },
+            "runNoise": {
+                67: {
+                    "SSA0": 4.348,
+                    "SSA4": 3.348,
+                    "MPA9": 2.348,
+                },
+                68: {
+                    "SSA0": 3.348,
+                    "SSA1": 3.648,
+                },
+                69: {
+                    "SSA0": 3.548,
+                    "SSA4": 3.248,
+                },
+            },
+            "runConfiguration": {"a": "b"},
+            "runFile": "link",
+        }
+        
+        run0_response = self.client.post("/addRun", json=test_run_data)
+        self.assertEqual(run0_response.status_code, 201)
+        # get the full run0 doc
+        full_run0_response = self.client.get("/test_run/run0")
+        self.assertEqual(full_run0_response.status_code, 200)
+        # get the session and check that the run is there
+        response = self.client.get("/sessions/" + sessionName1)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["test_runName"][0], "run0")
+        self.assertEqual(response.json["_test_run_id"][0], run0_response.json["run_id"])
+        # check that the module test exists
+        run0_module_test_response = self.client.get("/module_test/M123__run0")
+        self.assertEqual(run0_module_test_response.status_code, 200)
+        # check test_run_id of module test
+        self.assertEqual(run0_module_test_response.json["_test_run_id"], run0_response.json["run_id"])
+        # check the _moduleTest_id of one of the modules
+        response = self.client.get("/modules/M123")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(set(response.json["_moduleTest_id"]).intersection(set(full_run0_response.json["_moduleTest_id"])))
 
+        
+        # now insert a new run with the same runNumber
+        new_run0_response = self.client.post("/addRun", json=test_run_data)
+        self.assertEqual(new_run0_response.status_code, 201)
+        full_new_run0_response = self.client.get("/test_run/run0")
+        self.assertEqual(full_run0_response.status_code, 200)
+        # get the session and check that the run is there
+        response = self.client.get("/sessions/" + sessionName1)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["test_runName"][0], "run0")
+        self.assertEqual(response.json["_test_run_id"][0], new_run0_response.json["run_id"])
+        # check that the module test exists
+        new_run0_module_test_response = self.client.get("/module_test/M123__run0")
+        self.assertEqual(new_run0_module_test_response.status_code, 200)
+        # check test_run_id of module test
+        self.assertEqual(new_run0_module_test_response.json["_test_run_id"], new_run0_response.json["run_id"])
+        # check the _moduleTest_id of one of the modules
+        response = self.client.get("/modules/M123")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(set(response.json["_moduleTest_id"]).intersection(set(full_new_run0_response.json["_moduleTest_id"])))
+        self.assertFalse(set(response.json["_moduleTest_id"]).intersection(set(full_run0_response.json["_moduleTest_id"])))
+        
+        
+        
     def test_run_get(self):
         session_entry = {
             "timestamp": "2023-11-03T14:21:29",
