@@ -421,5 +421,48 @@
             "Last",
             "Chain"
         ]
+    },
+    "BurninCycles": {
+        "type": "object",
+        "properties": {
+            "BurninCycleName": {
+                "type": "string"
+            },
+            "BurninCycleDate": {
+                "type": "string"
+            },
+            "BurninCycleOperator": {
+                "type": "string"
+            },
+            "BurninCycleStatus": {
+                "type": "string"
+            },
+            "BurninCycleResults": {
+                "type": "object"
+            },
+            "BurninCycleModules": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "BurninCycleTemperature": {
+                "type": "string"
+            },
+            "BurninCycleHumidity": {
+                "type": "string"
+            },
+            "BurninCycleMaxTemperature": {
+                "type": "string"
+            },
+            "BurninCycleMinTemperature": {
+                "type": "string"
+            }
+        },
+        "required": [
+            "BurninCycleName",
+            "BurninCycleDate",
+            "BurninCycleModules"
+        ]
     }
 }

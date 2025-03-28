@@ -36,14 +36,16 @@ from .resources import (
     module_test_analysis,
 )
 from .blueprints import add_run_bp, logbook_bp, cables_bp, add_analysis_bp, webgui_bp, TBPS_blueprints
+from resources.burnin_cycles import BurninCyclesResource
 
 
 def create_app(config_name):
     app = Flask(__name__)
     CORS(app)
 
-
-    load_dotenv(f"../config/{config_name}.env")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    schema_path = os.path.join(base_dir, "config", f"{config_name}.env")
+    load_dotenv(schema_path)
 
     if (config_name == "unittest") & (os.environ["MONGO_DB_NAME"] != "unittest_db"):
         raise ValueError("MONGO_DB_NAME must be set to 'unittest' for unittests")
@@ -85,6 +87,7 @@ def create_app(config_name):
         "/module_test_analysis",
         "/module_test_analysis/<string:moduleTestAnalysisName>",
     )
+    api.add_resource(BurninCyclesResource, '/burnin_cycles', '/burnin_cycles/<string:burninCycleName>')
 
     # Load blueprints
     app.register_blueprint(logbook_bp.bp)

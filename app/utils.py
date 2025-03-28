@@ -3,6 +3,7 @@ from json import JSONEncoder
 from pymongo import MongoClient
 from bson import ObjectId
 import json
+import os
 from flask.json.provider import JSONProvider
 import re
 from bson import json_util
@@ -60,7 +61,9 @@ class CustomJSONProvider(JSONProvider):
     
 
 # load schemas
-with open("../schemas/all_schemas.json", "r") as f:
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+schema_path = os.path.join(base_dir, "schemas", "all_schemas.json")
+with open(schema_path, "r") as f:
     all_schemas = json.load(f)
 
 module_schema = all_schemas["module"]
@@ -75,3 +78,4 @@ test_run_schema = all_schemas["testRun"]
 module_test_schema = all_schemas["moduleTest"]
 session_schema = all_schemas["session"]
 module_test_analysis_schema = all_schemas["moduleTestAnalysis"]
+burnin_cycles_schema = all_schemas["BurninCycles"]
