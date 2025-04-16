@@ -68,7 +68,7 @@ def get_children_of_modules(parent_labels, PSROH=False):
 
 def get_component_details_in_bulk(component_type, identifiers):
     if component_type not in PARTS_TABLES:
-        logging.warning(f"Unknown component type: {component_type}")
+        logging.warning(f"Unknown component type: {component_type}. No details will be fetched.")
         return {}
     # print(component_type, identifiers)
     table = PARTS_TABLES[component_type]
@@ -140,28 +140,34 @@ def process_children(children, all_component_details):
             continue
 
         details = all_component_details.get(cid)
-        if "children" in details.keys():
+        # Check if details were found before proceeding
+        if details is None:
+            logging.warning(f"Details not found for component {cid} of type {ctype}. Skipping this child.")
+            continue
+
+        # Check for subcomponents only if details exist and have 'children' key
+        if "children" in details: # Use direct check instead of .keys()
             # this means that the part has subcomponents, we move them on the same level as the parent to make them full children of the module
             for subcomponent in details["children"]:
                 processed[subcomponent] = details["children"][subcomponent]
             del details["children"]
             
-        if details:
-            child_doc = {
-                "childName": cid,
-                "childType": ctype,
-                "details": details,
-            }
+        # Create child_doc only if details were found (which is guaranteed by the check above)
+        child_doc = {
+            "childName": cid,
+            "childType": ctype,
+            "details": details,
+        }
             
-            # Handle multiple components of same type (MPA Chips in MaPSA)
-            if ctype in processed:
-                if isinstance(processed[ctype], list):
-                    processed[ctype].append(child_doc)
-                else:
-                    # Convert to list if second instance found
-                    processed[ctype] = [processed[ctype], child_doc]
+        # Handle multiple components of same type (MPA Chips in MaPSA)
+        if ctype in processed:
+            if isinstance(processed[ctype], list):
+                processed[ctype].append(child_doc)
             else:
-                processed[ctype] = child_doc
+                # Convert to list if second instance found
+                processed[ctype] = [processed[ctype], child_doc]
+        else:
+            processed[ctype] = child_doc
 
     return processed
 
