@@ -460,7 +460,8 @@ def get_all_module_test_with_session_data(module_tests_collection):
                 "analysis": { "$arrayElemAt": ["$analysis", 0] },
                 "analysisFile": "$analysis.analysisFile",
                 "sessionName": "$session.sessionName",
-                "runDate": "$run.runDate"
+                "runDate": "$run.runDate",
+                "runType": "$run.runType",
             }
         },
         # Stage 8: Sort by runDate (latest first)
@@ -476,6 +477,7 @@ def get_all_module_test_with_session_data(module_tests_collection):
                 "moduleTestName": 1,
                 "test_runName": 1,
                 "runDate": 1,
+                "runType": 1,
                 "moduleName": 1,
                 "noise": 1,
                 "run": 1,
@@ -557,6 +559,7 @@ def fetch_all_module_test_results():
         "module_tests": {
             # "as_list": paginated_list,
             "all_names": [item["moduleTestName"] for item in module_tests_list],
+            "all_types": [item["runType"] for item in module_tests_list],
             "is_from_session1": [item["sessionName"] == "session1" for item in module_tests_list],
             "current_names": [item["moduleTestName"] for item in paginated_list],
             "as_dict": {item["moduleTestName"]: item for item in paginated_list}
