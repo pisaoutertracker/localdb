@@ -464,5 +464,92 @@
             "BurninCycleDate",
             "BurninCycleModules"
         ]
+    },
+    "IVScans": {
+        "type": "object",
+        "properties": {
+            "nameLabel": {
+                "type": "string",
+                "description": "Name label of the module in the scan"
+            },
+            "date": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Date and time of the IV scan"
+            },
+            "comment": {
+                "type": "string",
+                "description": "Additional comments about the scan"
+            },
+            "location": {
+                "type": "string",
+                "description": "Location where the scan was performed"
+            },
+            "inserter": {
+                "type": "string",
+                "description": "Type of inserter used"
+            },
+            "runType": {
+                "type": "string",
+                "description": "Type of run performed"
+            },
+            "station": {
+                "type": "string",
+                "description": "Station where the scan was performed"
+            },
+            "averageTemperature": {
+                "type": "number",
+                "description": "Average temperature in degrees Celsius"
+            },
+            "averageHumidity": {
+                "type": "number",
+                "description": "Average relative humidity percentage"
+            },
+            "IVScanId": {
+                "type": "string",
+                "description": "ID of the scan"
+            },
+            "sessionName": {
+                "type": "string",
+                "description": "Name of the session in which the scan was performed"
+            },
+            "data": {
+                "type": "object",
+                "properties": {
+                    "VOLTS": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Array of voltage values"
+                    },
+                    "CURRNT_NAMP": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Array of current values in nanoamps"
+                    },
+                    "TEMP_DEGC": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Array of temperature values in degrees Celsius"
+                    },
+                    "RH_PRCNT": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Array of relative humidity percentage values"
+                    },
+                    "TIME": {
+                        "type": "array",
+                        "items": { "type": "string", "format": "date-time" },
+                        "description": "Array of timestamps for each measurement"
+                    }
+                }
+            }
+        },
+        "required": [
+            "nameLabel",
+            "date",
+            "data",
+            "sessionName",
+            "IVScanId"
+        ]
     }
 }
