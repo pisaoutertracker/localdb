@@ -34,6 +34,7 @@ from .resources import (
     module_test,
     session,
     module_test_analysis,
+    IV_scans,
 )
 from .blueprints import add_run_bp, logbook_bp, cables_bp, add_analysis_bp, webgui_bp, TBPS_blueprints
 from resources.burnin_cycles import BurninCyclesResource
@@ -88,6 +89,8 @@ def create_app(config_name):
         "/module_test_analysis/<string:moduleTestAnalysisName>",
     )
     api.add_resource(BurninCyclesResource, '/burnin_cycles', '/burnin_cycles/<string:burninCycleName>')
+    api.add_resource(IV_scans.IVScansResource, "/iv_scans", "/iv_scans/<string:IVScanId>")
+    
 
     # Load blueprints
     app.register_blueprint(logbook_bp.bp)

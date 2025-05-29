@@ -36,6 +36,10 @@ class ModulesResource(Resource):
                     module = modules_collection.find_one({"_id": moduleName_id})
                 except bson.errors.InvalidId:
                     module = None
+            if not module:
+                # try on hwId
+                module = modules_collection.find_one({"hwId": moduleName})
+                    
             if module:
                 return jsonify(module)
                 # return json.dumps(module, default=json_util.default)
@@ -98,6 +102,16 @@ class ModulesResource(Resource):
                     )
             # get template from the database
             template = templates_collection.find_one({"type": new_module["type"]})
+            if template is None:
+                return (
+                    
+                        {
+                            "message": "A \"cable_templates\" collaction should be added in the database, and a \"module\" template should be added. This is needed in order to initialize the model for handiling the detSide and crateSide in the cabling map.",
+                            "type": new_module["type"],
+                        }
+                    ,
+                    400,
+                )
             # intialize the detSide and crateSide based on the template
             if "detSide" in template:
                 new_module["detSide"] = {
