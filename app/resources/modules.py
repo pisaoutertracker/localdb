@@ -124,6 +124,13 @@ class ModulesResource(Resource):
         """
         modules_collection = get_db()["modules"]
         updated_data = request.get_json()
+#        for key in updated_data:
+#              if updated_data[key] == "":
+#                 updated_data[key] = None  # Convert empty strings to None
+#              elif updated_data[key] == 'None':
+#                 updated_data[key] = None  # Convert 'None' string back to None
+
+
         modules_collection.update_one({"moduleName": moduleName}, {"$set": updated_data})
         return {"message": "Module updated"}, 200
 
