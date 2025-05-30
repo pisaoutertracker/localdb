@@ -87,6 +87,7 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                 }
                 # check if the module testName already exists
                 # if it does, return an error
+                skip_module_update = False
                 if (moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0) & (not moduleTestName.endswith("run0")):
                     return (
                         jsonify(
@@ -115,18 +116,20 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                         )
                     # get the ObjectId of the module test
                     test_id = moduleTests_collection.find_one({"moduleTestName": moduleTestName})["_id"]
+                    skip_module_update = True
                 else:
                     test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
                     
                 run_entry["moduleTestName"].append(moduleTestName)
-                run_entry["_moduleTest_id"].append((test_id))
+                run_entry["_moduleTest_id"].append(str(test_id))
 
                 # update the module entry by appending to the moduleTestName list
                 # module test Name and to _moduleTest_id the ObjectId of the module test
-                modules_collection.update_one(
-                    {"moduleName": module_key},
-                    {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
-                )
+                if not skip_module_update:
+                    modules_collection.update_one(
+                        {"moduleName": module_key},
+                        {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
+                    )
 
         # Update the test run with module test mongo ObjectIds and names
         testRuns_collection.update_one(
