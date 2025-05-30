@@ -99,9 +99,20 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                     )
                 elif (moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0) & (moduleTestName.endswith("run0")):
                     # replace the entry with the new one
-                    moduleTests_collection.update_one(
-                        {"moduleTestName": moduleTestName}, {"$set": module_test_entry}
-                    )
+                    print(f"Module test {moduleTestName} already exists, updating the entry")
+                    try:
+                        moduleTests_collection.update_one(
+                            {"moduleTestName": moduleTestName}, {"$set": module_test_entry}
+                        )
+                    except Exception as e:
+                        return (
+                            jsonify(
+                                {
+                                    "message": f"Error updating module test {moduleTestName}: {str(e)}",
+                                }
+                            ),
+                            500,
+                        )
                     # get the ObjectId of the module test
                     test_id = moduleTests_collection.find_one({"moduleTestName": moduleTestName})["_id"]
                 else:
