@@ -125,6 +125,7 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
 
                 # update the module entry by appending to the moduleTestName list
                 # module test Name and to _moduleTest_id the ObjectId of the module test
+                # if we are rewriting a run0 module test, we do not update the module entry as the module test is already there
                 if not skip_module_update:
                     modules_collection.update_one(
                         {"moduleName": module_key},
@@ -198,20 +199,22 @@ def add_run():
                 {"$pull": {"test_runName": "run0", "_test_run_id": str(old_run0["_id"])}},
             )
             
-            # remove the old run0 from the module_test documents
-            for module_test_id in old_run0["_moduleTest_id"]:
-                moduleTests_collection.delete_one({"_id": module_test_id})
+            # NOTE: the following code is not needed anymore
+            # as we are simply updating the moduleTests entries in process_run
+            # # remove the old run0 from the module_test documents
+            # for module_test_id in old_run0["_moduleTest_id"]:
+            #     moduleTests_collection.delete_one({"_id": module_test_id})
                 
-            # remove the reference to the modules test from the modules collection
-            # extract the module_id from moduleTestName = module_key + "__" + run_key
+            # # remove the reference to the modules test from the modules collection
+            # # extract the module_id from moduleTestName = module_key + "__" + run_key
 
-            for module_id in old_run0["moduleTestName"]:
-                module_name = module_id.split("__")[0]
-                for moduleTest, moduleTestId in zip(old_run0["moduleTestName"], old_run0["_moduleTest_id"]):
-                    if moduleTest.startswith(module_name):
-                        modules_collection.update_one(
-                            {"moduleName": module_name},
-                            {"$pull": {"moduleTestName": moduleTest, "_moduleTest_id": str(moduleTestId)}},
-                            )
+            # for module_id in old_run0["moduleTestName"]:
+            #     module_name = module_id.split("__")[0]
+            #     for moduleTest, moduleTestId in zip(old_run0["moduleTestName"], old_run0["_moduleTest_id"]):
+            #         if moduleTest.startswith(module_name):
+            #             modules_collection.update_one(
+            #                 {"moduleName": module_name},
+            #                 {"$pull": {"moduleTestName": moduleTest, "_moduleTest_id": str(moduleTestId)}},
+            #                 )
        
         return process_run(run_key, data, testRuns_collection, modules_collection, moduleTests_collection, sessions_collection)
