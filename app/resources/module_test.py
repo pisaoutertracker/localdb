@@ -49,7 +49,7 @@ class ModuleTestsResource(Resource):
                 new_entry = request.get_json()
                 validate(instance=new_entry, schema=module_test_schema)
                 # if an entry with the same Name already exists, return an error
-                if module_tests_collection.count_documents({"moduleTestName": new_entry["moduleTestName"]}) != 0:
+                if (module_tests_collection.count_documents({"moduleTestName": new_entry["moduleTestName"]}) != 0) & (not new_entry["moduleTestName"].endswith("run0")):
                     return (
                         
                             {
@@ -59,8 +59,16 @@ class ModuleTestsResource(Resource):
                         ,
                         400,
                     )
-                module_tests_collection.insert_one(new_entry)
-                return {"message": "Entry inserted"}, 201
+                elif (module_tests_collection.count_documents({"moduleTestName": new_entry["moduleTestName"]}) != 0) & (new_entry["moduleTestName"].endswith("run0")):
+                    # replace the entry with the new one
+                    module_tests_collection.update_one(
+                        {"moduleTestName": new_entry["moduleTestName"]}, {"$set": new_entry}
+                    )
+                    return {"message": "Module test key already exists, but end with run0: Entry updated"}, 200
+                else:
+                    module_tests_collection.insert_one(new_entry)
+                    return {"message": "Entry inserted"}, 201
+                
             except ValidationError as e:
                 return {"message": str(e)}, 400
 
