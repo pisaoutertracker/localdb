@@ -74,18 +74,6 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                 # create the module testName as
                 # (module_name)__(test_runName)
                 moduleTestName = module_key + "__" + run_key
-                # check if the module testName already exists
-                # if it does, return an error
-                if moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0:
-                    return (
-                        jsonify(
-                            {
-                                "message": "Module test Name already exists. Please try again.",
-                                "moduleTestName": moduleTestName,
-                            }
-                        ),
-                        400,
-                    )
                 # create the module test entry
                 module_test_entry = {
                     "moduleTestName": moduleTestName,
@@ -97,7 +85,28 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                     "board": board,
                     "opticalGroupName": optical_group,
                 }
-                test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
+                # check if the module testName already exists
+                # if it does, return an error
+                if (moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0) & (not moduleTestName.endswith("run0")):
+                    return (
+                        jsonify(
+                            {
+                                "message": "Module test Name already exists. Please try again.",
+                                "moduleTestName": moduleTestName,
+                            }
+                        ),
+                        400,
+                    )
+                elif (moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0) & (moduleTestName.endswith("run0")):
+                    # replace the entry with the new one
+                    moduleTests_collection.update_one(
+                        {"moduleTestName": moduleTestName}, {"$set": module_test_entry}
+                    )
+                    # get the ObjectId of the module test
+                    test_id = moduleTests_collection.find_one({"moduleTestName": moduleTestName})["_id"]
+                else:
+                    test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
+                    
                 run_entry["moduleTestName"].append(moduleTestName)
                 run_entry["_moduleTest_id"].append((test_id))
 
