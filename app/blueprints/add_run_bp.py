@@ -104,7 +104,6 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                 }
                 # check if the module testName already exists
                 # if it does, return an error
-                skip_module_update = False
                 if (moduleTests_collection.count_documents({"moduleTestName": moduleTestName}) != 0) & (not moduleTestName.endswith("run0")):
                     return (
                         jsonify(
@@ -133,7 +132,6 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                         )
                     # get the ObjectId of the module test
                     test_id = moduleTests_collection.find_one({"moduleTestName": moduleTestName})["_id"]
-                    skip_module_update = True
                 else:
                     test_id = moduleTests_collection.insert_one(module_test_entry).inserted_id
                     
@@ -142,12 +140,11 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
 
                 # update the module entry by appending to the moduleTestName list
                 # module test Name and to _moduleTest_id the ObjectId of the module test
-                # if we are rewriting a run0 module test, we do not update the module entry as the module test is already there
-                if not skip_module_update:
-                    modules_collection.update_one(
-                        {"moduleName": module_key},
-                        {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
-                    )
+
+                modules_collection.update_one(
+                    {"moduleName": module_key},
+                    {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
+                )
 
         # Update the test run with module test mongo ObjectIds and names
         testRuns_collection.update_one(
@@ -230,9 +227,13 @@ def add_run():
                 module_name = module_id.split("__")[0]
                 for moduleTest, moduleTestId in zip(old_run0["moduleTestName"], old_run0["_moduleTest_id"]):
                     if moduleTest.startswith(module_name):
-                        modules_collection.update_one(
-                            {"moduleName": module_name},
-                            {"$pull": {"moduleTestName": moduleTest, "_moduleTest_id": str(moduleTestId)}},
-                            )
+                        # first check if the moduleTest is in the moduleTestName list field of the module
+                        if moduleTest in modules_collection.find_one({"moduleName": module_name})["moduleTestName"]:
+                            # remove the moduleTest from the module
+                            # print(f"Removing moduleTest {moduleTest} from module {module_name}")
+                            modules_collection.update_one(
+                                {"moduleName": module_name},
+                                {"$pull": {"moduleTestName": moduleTest, "_moduleTest_id": str(moduleTestId)}},
+                                )
        
         return process_run(run_key, data, testRuns_collection, modules_collection, moduleTests_collection, sessions_collection)
