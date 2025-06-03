@@ -88,6 +88,8 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                     upsert=True,
                     return_document=True,
                 )
+                module_tests_names_list = module_doc.get("moduleTestName", [])
+                module_tests_ids_list = module_doc.get("_moduleTest_id", [])
                 # create the module testName as
                 # (module_name)__(test_runName)
                 moduleTestName = module_key + "__" + run_key
@@ -140,10 +142,13 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
 
                 # update the module entry by appending to the moduleTestName list
                 # module test Name and to _moduleTest_id the ObjectId of the module test
-
+                # if moduleTestName not in module_tests_names_list:
+                #     module_tests_names_list.append(moduleTestName)
+                # if str(test_id) not in module_tests_ids_list:
+                #     module_tests_ids_list.append(str(test_id))
                 modules_collection.update_one(
                     {"moduleName": module_key},
-                    {"$push": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
+                    {"$addToSet": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
                 )
 
         # Update the test run with module test mongo ObjectIds and names
