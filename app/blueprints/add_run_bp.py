@@ -89,7 +89,9 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                     return_document=True,
                 )
                 module_tests_names_list = module_doc.get("moduleTestName", [])
+                print(f"module_tests_names_list: {module_tests_names_list}")
                 module_tests_ids_list = module_doc.get("_moduleTest_id", [])
+                print(f"module_tests_ids_list: {module_tests_ids_list}")
                 # create the module testName as
                 # (module_name)__(test_runName)
                 moduleTestName = module_key + "__" + run_key
