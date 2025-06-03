@@ -49,12 +49,16 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
         else:
             # we are adding a run0, so we do not delete it
             # we simply update the run0 entry if it exists
-            run_id = testRuns_collection.find_one_and_update(
-                {"test_runName": "run0"},
-                {"$set": run_entry},
-                upsert=True,
-                return_document=True,
-            )["_id"]
+            if testRuns_collection.count_documents({"test_runName": "run0"}) != 0:
+                run_id = testRuns_collection.find_one_and_update(
+                    {"test_runName": "run0"},
+                    {"$set": run_entry},
+                    upsert=True,
+                    return_document=True,
+                )["_id"]
+            else:
+                # if it does not exist, we create it
+                run_id = testRuns_collection.insert_one(run_entry).inserted_id
 
         # update the session entry by appending to the test_runName list
         # and to _test_run_id the ObjectId of the test run
