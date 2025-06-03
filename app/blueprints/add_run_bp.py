@@ -41,7 +41,20 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
         session_id = session["_id"]
         # add the session ObjectId as str to the run entryrunSession_id
         run_entry["_runSession_id"] = str(session_id)
-        run_id = testRuns_collection.insert_one(run_entry).inserted_id
+        if run_key != "run0":
+            # delete the old run0 if it exists
+            if testRuns_collection.count_documents({"test_runName": "run0"}) != 0:
+                testRuns_collection.delete_one({"test_runName": "run0"})
+            run_id = testRuns_collection.insert_one(run_entry).inserted_id
+        else:
+            # we are adding a run0, so we do not delete it
+            # we simply update the run0 entry if it exists
+            run_id = testRuns_collection.find_one_and_update(
+                {"test_runName": "run0"},
+                {"$set": run_entry},
+                upsert=True,
+                return_document=True,
+            )["_id"]
 
         # update the session entry by appending to the test_runName list
         # and to _test_run_id the ObjectId of the test run
@@ -190,8 +203,8 @@ def add_run():
         if testRuns_collection.count_documents({"test_runName": "run0"}) != 0:
             # get the old run0 doc
             old_run0 = testRuns_collection.find_one({"test_runName": "run0"})
-            testRuns_collection.delete_one({"test_runName": "run0"})
-        
+            # testRuns_collection.delete_one({"test_runName": "run0"})
+
             # before running the process_run, we need to remove the references to the old run0 in the modules, sessions and module_tests collections
             # remove the old run0 from the session document
             sessions_collection.update_one(
@@ -202,19 +215,20 @@ def add_run():
             # NOTE: the following code is not needed anymore
             # as we are simply updating the moduleTests entries in process_run
             # # remove the old run0 from the module_test documents
-            # for module_test_id in old_run0["_moduleTest_id"]:
-            #     moduleTests_collection.delete_one({"_id": module_test_id})
+            for module_test_id, module_test_name in zip(old_run0["_moduleTest_id"], old_run0["moduleTestName"]):
+                moduleTests_collection.delete_one({"_id": ObjectId(module_test_id)})
+                # print(f"Deleted module test with id {module_test_id} from module_tests collection (name was {module_test_name})")
                 
-            # # remove the reference to the modules test from the modules collection
-            # # extract the module_id from moduleTestName = module_key + "__" + run_key
+            # remove the reference to the modules test from the modules collection
+            # extract the module_id from moduleTestName = module_key + "__" + run_key
 
-            # for module_id in old_run0["moduleTestName"]:
-            #     module_name = module_id.split("__")[0]
-            #     for moduleTest, moduleTestId in zip(old_run0["moduleTestName"], old_run0["_moduleTest_id"]):
-            #         if moduleTest.startswith(module_name):
-            #             modules_collection.update_one(
-            #                 {"moduleName": module_name},
-            #                 {"$pull": {"moduleTestName": moduleTest, "_moduleTest_id": str(moduleTestId)}},
-            #                 )
+            for module_id in old_run0["moduleTestName"]:
+                module_name = module_id.split("__")[0]
+                for moduleTest, moduleTestId in zip(old_run0["moduleTestName"], old_run0["_moduleTest_id"]):
+                    if moduleTest.startswith(module_name):
+                        modules_collection.update_one(
+                            {"moduleName": module_name},
+                            {"$pull": {"moduleTestName": moduleTest, "_moduleTest_id": str(moduleTestId)}},
+                            )
        
         return process_run(run_key, data, testRuns_collection, modules_collection, moduleTests_collection, sessions_collection)

@@ -1112,7 +1112,8 @@ class TestAPI(TestCase):
         new_run0_response = self.client.post("/addRun", json=test_run_data)
         self.assertEqual(new_run0_response.status_code, 201)
         full_new_run0_response = self.client.get("/test_run/run0")
-        self.assertEqual(full_run0_response.status_code, 200)
+        # print(full_new_run0_response.json)
+        self.assertEqual(full_new_run0_response.status_code, 200)
         # get the session and check that the run is there
         response = self.client.get("/sessions/" + sessionName1)
         self.assertEqual(response.status_code, 200)
@@ -1125,6 +1126,7 @@ class TestAPI(TestCase):
         self.assertEqual(new_run0_module_test_response.json["_test_run_id"], new_run0_response.json["run_id"])
         # check the _moduleTest_id of one of the modules
         response = self.client.get("/modules/M123")
+        # print(response.json)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(set(response.json["_moduleTest_id"]).intersection(set(full_new_run0_response.json["_moduleTest_id"])))
         self.assertFalse(set(response.json["_moduleTest_id"]).intersection(set(full_run0_response.json["_moduleTest_id"])))
