@@ -42,9 +42,6 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
         # add the session ObjectId as str to the run entryrunSession_id
         run_entry["_runSession_id"] = str(session_id)
         if run_key != "run0":
-            # delete the old run0 if it exists
-            if testRuns_collection.count_documents({"test_runName": "run0"}) != 0:
-                testRuns_collection.delete_one({"test_runName": "run0"})
             run_id = testRuns_collection.insert_one(run_entry).inserted_id
         else:
             # we are adding a run0, so we do not delete it
@@ -148,6 +145,7 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                 #     module_tests_names_list.append(moduleTestName)
                 # if str(test_id) not in module_tests_ids_list:
                 #     module_tests_ids_list.append(str(test_id))
+                # print(f"Adding module test {moduleTestName} with id {test_id} to module {module_key}")
                 modules_collection.update_one(
                     {"moduleName": module_key},
                     {"$addToSet": {"moduleTestName": moduleTestName, "_moduleTest_id": str(test_id)}},
