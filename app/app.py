@@ -15,6 +15,7 @@ import datetime
 from importlib import import_module
 from dotenv import load_dotenv
 from flask_cors import CORS
+from flask_pymongo import PyMongo
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "utils")))
 # make it so that utils can be imported from anywhere
@@ -50,11 +51,25 @@ def create_app(config_name):
 
     if (config_name == "unittest") & (os.environ["MONGO_DB_NAME"] != "unittest_db"):
         raise ValueError("MONGO_DB_NAME must be set to 'unittest' for unittests")
-    app.config["MONGO_URI"] = os.environ["MONGO_URI"]
+    app.config["MONGO_URI"] = os.environ["MONGO_URI"]+"/"+ os.environ["MONGO_DB_NAME"]+"?authSource=admin"
     app.config["MONGO_DB_NAME"] = os.environ["MONGO_DB_NAME"]
     app.config["TESTING"] = os.environ["TESTING"]
     api = Api(app)
+    mongo = PyMongo(app)
     app.json = CustomJSONProvider(app)
+    
+    # needed to clean up connections after each request at the end of application context
+    @app.teardown_appcontext
+    def close_db_connections(exception=None):
+        # Close connection from get_db()
+        db = g.pop('db', None)
+        if db is not None and hasattr(db, 'client'):
+            db.client.close()
+        
+        # Close connection from get_unittest_db() if it was used
+        unittest_db = g.pop('unittest_db', None)
+        if unittest_db is not None and hasattr(unittest_db, 'client'):
+            unittest_db.client.close()
 
     # Load resources
     api.add_resource(modules.ModulesResource, "/modules", "/modules/<string:moduleName>")
@@ -99,6 +114,18 @@ def create_app(config_name):
     app.register_blueprint(add_analysis_bp.bp)
     app.register_blueprint(webgui_bp.bp)
     app.register_blueprint(TBPS_blueprints.bp)
+    
+    # flask-pymongo blueprint for generic mongodb queries on modules
+    @app.route("/generic_module_query", methods=['POST'])
+    def generic_module_query():
+        data = request.get_json()
+        if type(data) != dict:
+            return jsonify({"error": "Invalid input, expected a JSON object"}), 400
+        if data is None:
+            return jsonify({"error": "No data provided"}), 400
+        filtered_modules = mongo.db.modules.find(data)
+
+        return jsonify([json_util.loads(json_util.dumps(module)) for module in filtered_modules]), 200
 
     return app
 

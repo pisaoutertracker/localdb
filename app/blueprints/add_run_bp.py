@@ -218,8 +218,6 @@ def add_run():
                 {"$pull": {"test_runName": "run0", "_test_run_id": str(old_run0["_id"])}},
             )
             
-            # NOTE: the following code is not needed anymore
-            # as we are simply updating the moduleTests entries in process_run
             # # remove the old run0 from the module_test documents
             for module_test_id, module_test_name in zip(old_run0["_moduleTest_id"], old_run0["moduleTestName"]):
                 moduleTests_collection.delete_one({"_id": ObjectId(module_test_id)})
