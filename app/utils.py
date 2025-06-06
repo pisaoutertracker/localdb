@@ -11,13 +11,28 @@ import datetime
 
 
 def get_db():
+    # the current app mongo uri contains the database name after the /, we need to drop it
+    mongo_uri = current_app.config["MONGO_URI"] # something like mongodb://localhost:27017/mydatabase
+    # want to drop /mydatabase
+    # use regex to find the last / and drop everything after it
+    if mongo_uri.endswith('/'):
+        mongo_uri = mongo_uri[:-1]
+    if 'MONGO_DB_NAME' in current_app.config:
+        mongo_uri = mongo_uri.rsplit('/', 1)[0]
     if 'db' not in g:
-        g.db = MongoClient(current_app.config["MONGO_URI"])[current_app.config["MONGO_DB_NAME"]]
+        g.db = MongoClient(mongo_uri)[current_app.config["MONGO_DB_NAME"]]
     return g.db
 
 def get_unittest_db():
+        # the current app mongo uri contains the database name after the /, we need to drop it
+    if 'MONGO_DB_NAME' in current_app.config:
+        mongo_uri = current_app.config["MONGO_URI"]
+    if mongo_uri.endswith('/'):
+        mongo_uri = mongo_uri[:-1]
+    if 'MONGO_DB_NAME' in current_app.config:
+        mongo_uri = mongo_uri.rsplit('/', 1)[0]
     if 'unittest_db' not in g:
-        g.unittest_db = MongoClient(current_app.config["MONGO_URI"])["unittest_db"]
+        g.unittest_db = MongoClient(mongo_uri)["unittest_db"]
     return g.unittest_db
 
 # define regexps to select module ids, crateid, etc
