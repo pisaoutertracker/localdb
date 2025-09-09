@@ -12,8 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.utils import module_schema
 
 # Constants
-#API_URL = "http://192.168.0.45:5005"
-API_URL = "http://localhost:5000"
+API_URL = os.environ.get("API_URL", "http://localhost:5005")
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 

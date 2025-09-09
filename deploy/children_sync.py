@@ -6,8 +6,7 @@ from pymongo import MongoClient
 from jsonschema import validate, ValidationError
 
 # Constants
-# API_URL = "http://192.168.0.45:5000"
-API_URL = "http://localhost:5005"
+API_URL = os.environ.get("API_URL", "http://localhost:5005")
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
@@ -36,6 +35,8 @@ def update_module_children(module, children_map, all_component_details, mongo_co
     update_doc = {
         "children": process_children(children, all_component_details)
     }
+    if module_id == "PS_26_IPG-10009":
+        print(f"Updating module {module_id} with children: {update_doc['children']}")
     
     # check if the module already has the field "children", if the two fields are the same, then skip the update
     if module.get("children") == update_doc["children"]:
@@ -44,7 +45,7 @@ def update_module_children(module, children_map, all_component_details, mongo_co
     
     # if children is empty skip the update
     if not update_doc["children"]:
-        logging.info(f"No children found for module {module_id}.")
+        logging.info(f"No children found for module {module_id}, skipping update.")
         return
         
 
@@ -67,7 +68,7 @@ def main():
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
     modules_collection = db["modules"]
-    logging.info("Connected to MongoDB.")
+    logging.info(f"Connected to MongoDB at {MONGO_URI} on database {DB_NAME}.")
 
     # # clear the modules collection
     # modules_collection.delete_many({})
