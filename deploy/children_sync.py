@@ -12,16 +12,12 @@ DB_NAME = os.environ["MONGO_DB_NAME"]
 
 # Import common functions from db_sync
 from db_sync import (
-    get_children_of_modules, get_all_component_details,
+    get_children_of_modules, get_all_component_details, get_local_modules,
     process_children, module_schema
 )
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def get_local_modules():
-    req = requests.get(f"{API_URL}/modules")
-    return req.json()
 
 def update_module_children(module, children_map, all_component_details, mongo_collection):
     module_id = module["moduleName"]
@@ -80,7 +76,7 @@ def main():
     #     upsert=True
     # )
     
-    local_modules = get_local_modules()
+    local_modules = get_local_modules(DB_NAME)
     logging.info(f"Found {len(local_modules)} local modules to update.")
 
     # Get NAME_LABELs from local modules

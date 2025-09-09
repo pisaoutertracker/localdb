@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.utils import module_schema
 
 # Constants
-API_URL = os.environ.get("API_URL", "http://localhost:5005")
+API_URL = os.environ["API_URL"]
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
@@ -52,9 +52,16 @@ def get_central_modules(by_name=False, location="Pisa"):
     output = run_rhapi_command(command)
     return parse_csv_output(output)
 
-def get_local_modules():
-    req = requests.get(f"{API_URL}/modules")
-    return req.json()
+def get_local_modules(db_name):
+    if db_name == "prod_db":
+        req = requests.get(f"{API_URL}/modules")
+        return req.json()
+
+    else: # the api does not support other dbs than prod_db
+        client = MongoClient(MONGO_URI)
+        db = client[db_name]
+        modules_collection = db["modules"]
+        return list(modules_collection.find({}, {"_id": 0}))
 
 def get_children_of_modules(parent_labels, PSROH=False):
     labels = "', '".join(parent_labels)
@@ -210,7 +217,7 @@ def main():
     # modules_collection.delete_many({})
     
     central_modules = get_central_modules(by_name=args.by_name, location=args.location)
-    local_modules = get_local_modules()
+    local_modules = get_local_modules(DB_NAME)
     
     # print(local_modules)
     
@@ -218,6 +225,7 @@ def main():
     logging.info(f"Local DB has {len(local_modules)} modules.")
     
     local_names = set(m["moduleName"] for m in local_modules)
+    print([m["SERIAL_NUMBER"] for m in central_modules if m["SERIAL_NUMBER"] in local_names])
     missing = [m for m in central_modules if m["SERIAL_NUMBER"] not in local_names]
     logging.info(f"Missing modules: {len(missing)}")
     logging.info([m["SERIAL_NUMBER"] for m in missing])
