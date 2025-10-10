@@ -5,7 +5,20 @@
     <title>TBPS Pisa Local DB</title>
     <link rel="stylesheet" href="/static/nav.css">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>body{font-family: Arial, sans-serif; background-color:#f4f4f9;margin:0;padding:0}</style>
+    <style>
+        body{font-family: Arial, sans-serif; background-color:#f4f4f9;margin:0;padding:0}
+        .home-menu{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:18px}
+        .home-item{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;background:#ffffff;border-radius:10px;border:1px solid rgba(11,94,215,0.12);color:#0b5ed7;text-decoration:none;font-weight:700;box-shadow:0 4px 10px rgba(2,6,23,0.06);transition:transform .08s ease,box-shadow .12s ease}
+        .home-item .icon{font-size:18px}
+        .home-item span{display:inline-block}
+        .home-item:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(2,6,23,0.08)}
+        .home-item:active{transform:translateY(0)}
+        /* responsive: make items full-width on small screens */
+        @media (max-width:520px){
+            .home-menu{flex-direction:column;align-items:stretch}
+            .home-item{justify-content:flex-start;width:100%}
+        }
+    </style>
 </head>
 <body>
 
