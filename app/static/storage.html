@@ -81,7 +81,7 @@
         .box-title { text-align: center; font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #555; }
         .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; justify-items: center; }
         .slot {
-            width: 90%; max-width: 30px; height: 8px;
+            width: 90%; max-width: 100px; height: 8px;
             background-color: #ddd; border: 1px solid #ccc; border-radius: 2px; cursor: pointer; transition: all 0.2s;
         }
         .slot.free { background-color: #5cb85c; border-color: #4cae4c; }
@@ -97,7 +97,8 @@
     <div class="control-panel">
         <div class="form-group">
             <label for="moduleName">Module Name</label>
-            <input type="text" id="moduleName" placeholder="Click a slot or find by name...">
+            <input type="text" id="moduleName" list="moduleList" placeholder="Click a slot or find by name...">
+            <datalist id="moduleList"></datalist>
             <button id="findBtn">Find Module</button>
         </div>
         <div class="form-group">
@@ -112,7 +113,7 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const API_BASE_URL = `${window.location.origin}/modules`;
 //            const API_BASE_URL = 'http://cmslabserver:5000/modules';
             const USE_MOCK_API = false;
@@ -121,6 +122,7 @@
             const mainView = document.getElementById('mainView');
             const statusMessage = document.getElementById('statusMessage');
             const moduleNameInput = document.getElementById('moduleName');
+            const moduleList = document.getElementById('moduleList');
             const positionInput = document.getElementById('positionInput');
             const findBtn = document.getElementById('findBtn');
             const updateBtn = document.getElementById('updateBtn');
@@ -223,10 +225,19 @@
                 try {
                     const allModules = USE_MOCK_API ? await mockApi.get(API_BASE_URL) : await (await fetch(API_BASE_URL)).json();
                     positionToModuleMap.clear();
+                    // clear previous datalist options
+                    if (moduleList) moduleList.innerHTML = '';
                     allModules.forEach(module => {
                         if (module.position && positionRegex.test(module.position)) {
                             positionToModuleMap.set(module.position, module.moduleName);
-                        }
+                                 // add to datalist for browser autocomplete
+                            if (moduleList) {
+                                const option = document.createElement('option');
+                                option.value = module.moduleName;
+                                moduleList.appendChild(option);
+                            }
+                      }
+                   
                     });
                     updateAllSlotColors();
                     showStatus('Occupancy data loaded. Click a slot to see details.', 'success');
@@ -246,21 +257,24 @@
                     const url = `${API_BASE_URL}/${moduleName}`;
                     const data = USE_MOCK_API ? await mockApi.get(url) : await (await fetch(url)).json();
                     
-                    if (data && data.position && positionRegex.test(data.position)) {
-                        highlightPosition(data.position);
+                    if (data && data.position) {
                         positionInput.value = data.position;
                         currentSelectedModule = data.moduleName;
                         originalPosition = data.position;
-                        showStatus(`Found "${data.moduleName}" at ${data.position}. To move it, click a free slot then 'Update Position'.`, 'success');
-                    } else {
-                        currentSelectedModule = data.moduleName;
-                        originalPosition = null;
-                        positionInput.value = '';
-                        showStatus(`Module "${data.moduleName}" found, but it is not in a storage slot.`, 'info');
+                        
+                        if( positionRegex.test(data.position)) {
+                            highlightPosition(data.position);
+                            showStatus(`Found "${data.moduleName}" at ${data.position}. To move it, click a free slot then 'Update Position'.`, 'success');
+                        } 
+                    }   else {
+                            currentSelectedModule = data.moduleName;
+                            originalPosition = null;
+                            positionInput.value = '';
+                            showStatus(`Module "${data.moduleName}" found, but it is not in a storage slot.`, 'info');
+                        }
+                    } catch (error) {
+                        showStatus(`Error: ${error.message}`, 'error');
                     }
-                } catch (error) {
-                    showStatus(`Error: ${error.message}`, 'error');
-                }
             }
 
             async function confirmAndUpdatePosition() {
@@ -338,10 +352,49 @@
 
             // --- INITIALIZATION ---
             generateUI();
-            loadAndDisplayOccupancy();
-            findBtn.addEventListener('click', findModule);
-            updateBtn.addEventListener('click', confirmAndUpdatePosition);
-        });
-    </script>
+            await loadAndDisplayOccupancy();
+
+            // Check URL query only when it starts with the requested param
+            const rawSearch = window.location.search || '';
+            if (rawSearch.startsWith('?moduleName=')) {
+                // Search for moduleName from URL and run the existing find flow
+                const params = new URLSearchParams(rawSearch);
+                const moduleParam = params.get('moduleName');
+                if (moduleParam) {
+                    moduleNameInput.value = decodeURIComponent(moduleParam);
+                    // reuse existing function to fetch and highlight module
+                    await findModule();
+                }
+            } else if (rawSearch.startsWith('?position=')) {
+                // Select/highlight position from URL
+                const params = new URLSearchParams(rawSearch);
+                const posParam = params.get('position');
+                if (posParam) {
+                    const pos = decodeURIComponent(posParam);
+                    positionInput.value = pos;
+                    if (!positionRegex.test(pos)) {
+                        showStatus('Invalid position format in URL.', 'error');
+                    } else {
+                        // highlight and if occupied, fill module name
+                        if (highlightPosition(pos)) {
+                            if (positionToModuleMap.has(pos)) {
+                                const moduleName = positionToModuleMap.get(pos);
+                                moduleNameInput.value = moduleName;
+                                currentSelectedModule = moduleName;
+                                originalPosition = pos;
+                                showStatus(`Selected "${moduleName}" at ${pos}.`, 'success');
+                            } else {
+                                currentSelectedModule = null;
+                                originalPosition = null;
+                                showStatus(`Selected free slot ${pos}.`, 'info');
+                            }
+                        }
+                    }
+                }
+            }
+             findBtn.addEventListener('click', findModule);
+             updateBtn.addEventListener('click', confirmAndUpdatePosition);
+         });
+     </script>
 </body>
 </html>

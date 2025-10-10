@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Module Inventory</title>
+  <style>
+    :root{
+      --bg:#f4f7fb;--card:#ffffff;--muted:#6b7280;--accent:#2563eb;--border:#e6eefc;--surface:#f8fafc
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{font-family:Inter,ui-sans-serif,system-ui,Arial,Helvetica,sans-serif;background:var(--bg);color:#0f172a;margin:0;padding:18px;height:100%}
+  /* limit container to viewport height so page never grows beyond screen */
+  .container{width:100%;max-width:none;margin:0 auto;padding:18px 24px;background:linear-gradient(180deg,rgba(255,255,255,0.8),rgba(255,255,255,0.95));border-radius:10px;box-shadow:0 6px 20px rgba(14,30,37,0.08);border:1px solid rgba(15,23,42,0.04);height:calc(100vh - 36px);display:flex;flex-direction:column;overflow:hidden}
+    h1{margin:0 0 8px;font-weight:600}
+    .muted{color:var(--muted);font-size:13px}
+    .filters{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 18px}
+    .filters label{font-size:13px;color:#0f172a;display:flex;align-items:center;gap:8px;background:var(--surface);padding:6px 8px;border-radius:8px;border:1px solid var(--border)}
+    .filters select,.filters input{padding:6px;border-radius:6px;border:1px solid #dbeafe;background:white}
+    .layout{display:flex;gap:16px;flex:1;align-items:stretch}
+  /* table-wrap scrolls internally and is capped to the remaining viewport height */
+  .table-wrap{flex:1;min-height:0;overflow:auto;overflow-x:auto;border-radius:8px;border:1px solid var(--border);background:linear-gradient(180deg,#fff,#fbfdff);width:100%;max-height:calc(100vh - 220px);position:relative}
+  table{width:100%;min-width:1100px;border-collapse:collapse;font-size:13px}
+  thead th{position:sticky;top:0;background:linear-gradient(180deg,#f8fbff,#f1f7ff);padding:10px;border-bottom:1px solid var(--border);text-align:left;z-index:2}
+    tbody tr:nth-child(odd){background:transparent}
+    tbody tr{border-bottom:1px solid #f1f5f9}
+    td{padding:10px;vertical-align:middle}
+  td.name{font-weight:600;color:#0b5ed7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+  table td, table th{white-space:nowrap}
+  .details{width:460px;padding:14px;border-radius:8px;background:#ffffff;border:1px solid var(--border);box-shadow:0 4px 12px rgba(2,6,23,0.04);display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 120px)}
+  /* keep JSON details from exceeding container height; pin buttons to bottom */
+  #detail-content{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
+  #detail-json{background:#ffffff;color:#0f172a;padding:12px;border-radius:6px;overflow:auto;overflow-y:auto;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;flex:1;min-height:0;max-height:calc(100vh - 340px)}
+    #detail-editor{width:100%;height:260px;margin-top:8px;border-radius:6px;border:1px solid #e6eefc;padding:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;display:none}
+    .buttons{display:flex;gap:8px;margin-top:12px}
+    button{padding:8px 12px;border-radius:8px;border:none;background:var(--accent);color:white;cursor:pointer;font-weight:600}
+    button.secondary{background:#e6eefc;color:#0b4dd9}
+    button.ghost{background:transparent;border:1px solid #e6eefc;color:#0b4dd9}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .small{font-size:12px;padding:6px 8px}
+  /* JSON tree viewer/editor styles */
+  .jt-node{margin:4px 0}
+  .jt-children{margin-left:14px;padding-left:6px;border-left:1px dashed #e6eefc}
+  details summary{cursor:pointer;font-weight:600;padding:6px 0}
+  .jt-leaf{display:flex;gap:8px;align-items:center;padding:4px 0}
+  .jt-key{color:#0b5ed7;min-width:120px}
+  .jt-value{color:#0f172a}
+  .jt-input{padding:4px 6px;border:1px solid #e6eefc;border-radius:6px}
+  .pos-link{color:#0b5ed7;text-decoration:none;font-weight:600}
+  .pos-link:hover{text-decoration:underline}
+  tbody tr.selected{background:#eef6ff}
+  tbody tr:hover{background:#f8fbff}
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="filters">
+      <label>Layer type:
+        <select id="filter-layer"><option value="any">any</option></select>
+      </label>
+      <label>Center:
+        <select id="filter-center"><option value="any">any</option><option selected>Pisa</option></select>
+      </label>
+      <label>Speed:
+        <select id="filter-speed"><option value="any">any</option><option>10G</option><option>5G</option></select>
+      </label>
+      <label>Spacer:
+        <select id="filter-spacer"><option value="any">any</option></select>
+      </label>
+      <label>Status:
+        <select id="filter-status"><option value="any">any</option><option>MOUNTED</option><option>DISCONNECTED</option></select>
+      </label>
+      <label>Search:
+        <input id="search" placeholder="Search modules..." />
+      </label>
+    </div>
+
+    <div class="layout">
+      <div class="table-wrap">
+        <table id="modules-table">
+          <thead>
+            <tr><th>Name</th><th>Inventory Slot</th><th>Speed</th><th>Spacer</th><th>Status</th><th>Connections</th><th>Position</th><th>Description</th><th>Mounted</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="details" id="details-panel">
+        <h2 id="detail-title">Select a module</h2>
+        <div id="detail-content" style="display:flex;flex-direction:column;gap:8px;flex:1;min-height:0">
+          <div id="detail-json">{}</div>
+        </div>
+        <div class="buttons">
+          <button id="edit-selected">Edit Selected</button>
+          <button id="save-changes">Save Changes</button>
+          <button id="disconnect">Disconnect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isEditing = false;
+
+    // Render a nested tree viewer (and editor when editable) into container.
+    function renderJsonTree(container, obj, editable = false){
+      container.innerHTML = '';
+      function makeNode(key, value, path){
+        const wrapper = document.createElement('div');
+        wrapper.className = 'jt-node';
+        if (value !== null && typeof value === 'object'){
+          const details = document.createElement('details');
+          details.open = false;
+          const summary = document.createElement('summary');
+          summary.textContent = key === null ? (Array.isArray(value) ? '[array]' : '[object]') : key;
+          details.appendChild(summary);
+          const inner = document.createElement('div');
+          inner.className = 'jt-children';
+          if (Array.isArray(value)){
+            value.forEach((v,i)=>{
+              inner.appendChild(makeNode(String(i), v, path ? path + '.' + i : String(i)));
+            });
+          }else{
+            Object.keys(value).forEach(k=>{
+              inner.appendChild(makeNode(k, value[k], path ? path + '.' + k : k));
+            });
+          }
+          details.appendChild(inner);
+          wrapper.appendChild(details);
+        }else{
+          const row = document.createElement('div');
+          row.className = 'jt-leaf';
+          const kspan = document.createElement('span');
+          kspan.className = 'jt-key';
+          kspan.textContent = key;
+          row.appendChild(kspan);
+          if (editable){
+            const inp = document.createElement('input');
+            inp.className = 'jt-input';
+            inp.setAttribute('data-path', path);
+            inp.value = value === null ? '' : String(value);
+            inp.setAttribute('data-type', value === null ? 'null' : typeof value);
+            row.appendChild(inp);
+          }else{
+            const vspan = document.createElement('span');
+            vspan.className = 'jt-value';
+            vspan.textContent = value === null ? 'null' : String(value);
+            row.appendChild(vspan);
+          }
+          wrapper.appendChild(row);
+        }
+        return wrapper;
+      }
+
+      // root
+      if (obj !== null && typeof obj === 'object'){
+        if (Array.isArray(obj)){
+          obj.forEach((v,i)=> container.appendChild(makeNode(String(i), v, String(i))));
+        }else{
+          Object.keys(obj).forEach(k=> container.appendChild(makeNode(k, obj[k], k)));
+        }
+      }else{
+        container.textContent = String(obj);
+      }
+    }
+
+    // Read back edited values from inputs in container and rebuild object
+    function readJsonFromTree(container, original){
+      const inputs = container.querySelectorAll('input.jt-input');
+      // start with deep clone of original to preserve structure and types
+      const result = Array.isArray(original) ? [] : {};
+      function setByPath(root, path, val, type){
+        const parts = path.split('.');
+        let cur = root;
+        for (let i=0;i<parts.length-1;i++){
+          const p = parts[i];
+          const next = parts[i+1];
+          const isIndex = !isNaN(Number(next));
+          if (!(p in cur)) cur[p] = isIndex ? [] : {};
+          cur = cur[p];
+        }
+        const last = parts[parts.length-1];
+        // convert to original type
+        let finalVal = val;
+        if (type === 'number'){
+          const n = Number(val);
+          finalVal = isNaN(n) ? val : n;
+        }else if (type === 'boolean'){
+          finalVal = (val === 'true' || val === true);
+        }else if (type === 'null'){
+          finalVal = null;
+        }
+        cur[last] = finalVal;
+      }
+      inputs.forEach(inp=>{
+        const path = inp.getAttribute('data-path');
+        const type = inp.getAttribute('data-type');
+        setByPath(result, path, inp.value, type);
+      });
+      return result;
+    }
+    // Layers config (same mapping used for filter choices)
+    const layers_to_filters = {
+      "L1_47": {"spacer":"2.6mm","speed":"10G"},
+      "L1_60": {"spacer":"4.0mm","speed":"10G"},
+      "L1_72": {"spacer":"4.0mm","speed":"10G"},
+      "L2_40": {"spacer":"2.6mm","speed":"10G"},
+      "L2_55": {"spacer":"2.6mm","speed":"10G"},
+      "L2_68": {"spacer":"4.0mm","speed":"10G"},
+      "L3": {"spacer":"2.6mm","speed":"5G"}
+    };
+
+    function populateFilters(){
+      const layerSelect = $('filter-layer');
+      layerSelect.innerHTML = '<option value="any">any</option>' + Object.keys(layers_to_filters).map(k=>`<option>${k}</option>`).join('');
+      const spacers = new Set(Object.values(layers_to_filters).map(x=>x.spacer));
+      const spSel = $('filter-spacer');
+      spSel && (spSel.innerHTML = '<option value="any">any</option>' + [...spacers].map(s=>`<option>${s}</option>`).join(''));
+    }
+
+    // data store
+    let modules = [];
+
+    function $(id){ return document.getElementById(id); }
+
+    function computeModuleSpeed(module){
+      let module_speed = "";
+      const name = module.moduleName || "";
+      if (name.includes("_5_") || name.includes("_05_") || name.includes("_5-") || name.includes("_05-")) module_speed = "5G";
+      if (name.includes("_10_") || name.includes("_10-")) module_speed = "10G";
+      try{
+        if (module.children && typeof module.children === 'object'){
+          const roh = module.children["PS Read-out Hybrid"];
+          if (roh && roh.details && roh.details.ALPGBT_BANDWIDTH){
+            module_speed = roh.details.ALPGBT_BANDWIDTH === '10Gbps' ? '10G' : (roh.details.ALPGBT_BANDWIDTH === '5Gbps' ? '5G' : roh.details.ALPGBT_BANDWIDTH);
+          }
+        }
+      }catch(e){/* ignore */}
+      module.speed = module_speed || module.speed || "";
+      return module.speed;
+    }
+
+    function renderTable(){
+      const tbody = document.querySelector('#modules-table tbody');
+      tbody.innerHTML = '';
+      const q = $('search').value.toLowerCase();
+      const layer = $('filter-layer').value;
+      const speedF = $('filter-speed').value;
+      const spacerF = $('filter-spacer').value;
+      const statusF = $('filter-status').value;
+      const centerF = $('filter-center') ? $('filter-center').value : 'any';
+      modules.forEach((m,idx)=>{
+        computeModuleSpeed(m);
+        if (q && !(m.moduleName||'').toLowerCase().includes(q)) return;
+        if (layer !== 'any' && !(m.position||'').includes(layer)) return;
+        if (centerF !== 'any'){
+          const centerVal = (m['Current Center'] || m['CurrentCenter'] || m.currentCenter || '') + '';
+          if (!centerVal.includes(centerF)) return;
+        }
+        if (speedF !== 'any' && speedF && m.speed !== speedF) return;
+        if (spacerF !== 'any' && spacerF && (m.spacer||'') !== spacerF) return;
+        if (statusF !== 'any' && statusF && (m.status||'') !== statusF) return;
+
+        const tr = document.createElement('tr');
+        // render connections as plain text instead of a button
+        let connText = '';
+        if (m.connections){
+          if (Array.isArray(m.connections)) connText = m.connections.join(', ');
+          else if (typeof m.connections === 'object') connText = JSON.stringify(m.connections);
+          else connText = String(m.connections);
+        }
+        // position: if it contains exactly two semicolons (three fields), render as link
+        const pos = m.position || '';
+        let posHtml = pos;
+        if ((pos.match(/;/g)||[]).length === 2){
+          posHtml = `<a href="#" class="pos-link" data-pos="${pos}">${pos}</a>`;
+        }
+        tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''}</td><td>${m.inventorySlot||''}</td><td>${m.speed||''}</td><td>${m.spacer||''}</td><td>${m.status||''}</td><td>${connText||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
+        tr.addEventListener('click',()=>{ try{ selectModule(idx); highlightRow(idx); }catch(e){ console.error(e); } });
+        // attach click handler for position link (stop propagation so row click isn't triggered)
+        setTimeout(()=>{
+          const link = tr.querySelector('.pos-link');
+          if (link){
+            link.addEventListener('click',(ev)=>{ ev.preventDefault(); ev.stopPropagation(); const p = link.getAttribute('data-pos'); window.location = '/static/storage.html?position=' + encodeURIComponent(p); });
+          }
+        },0);
+        tbody.appendChild(tr);
+      });
+    }
+
+    let selectedIndex = null;
+    async function selectModule(idx){
+      selectedIndex = idx;
+      const m = modules[idx];
+      $('detail-title').textContent = m.moduleName || 'Module';
+      const container = $('detail-json');
+      // render read-only tree view
+      renderJsonTree(container, m, false);
+      isEditing = false;
+      const editBtn = $('edit-selected'); if (editBtn) editBtn.textContent = 'Edit Selected';
+    }
+
+    function attachEvents(){
+      ['filter-layer','filter-speed','filter-spacer','filter-status','filter-center'].forEach(id=>$(id).addEventListener('change',renderTable));
+      $('search').addEventListener('input',renderTable);
+
+      // Edit selected toggles an in-place JSON editor (textarea)
+      $('edit-selected').addEventListener('click',async()=>{
+        if (selectedIndex==null) return alert('Select a module first');
+        const container = $('detail-json');
+        if (!isEditing){
+          renderJsonTree(container, modules[selectedIndex], true);
+          isEditing = true;
+          $('edit-selected').textContent = 'Cancel Edit';
+        }else{
+          renderJsonTree(container, modules[selectedIndex], false);
+          isEditing = false;
+          $('edit-selected').textContent = 'Edit Selected';
+        }
+      });
+
+      // Save changes uses the textarea content when in edit mode, then PUTs to server if _id present
+      $('save-changes').addEventListener('click',async()=>{
+        if (selectedIndex==null) return alert('Select a module first');
+        let m = modules[selectedIndex];
+        if (isEditing){
+          try{
+            const container = $('detail-json');
+            const parsed = readJsonFromTree(container, modules[selectedIndex]);
+            modules[selectedIndex] = parsed;
+            m = parsed;
+            // switch back to view mode showing saved data
+            renderJsonTree(container, m, false);
+            isEditing = false;
+            const editBtn = $('edit-selected'); if (editBtn) editBtn.textContent = 'Edit Selected';
+            selectModule(selectedIndex);
+            renderTable();
+          }catch(e){ return alert('Invalid JSON from tree editor: '+e.message); }
+        }
+        if (!m._id){ return alert('Module has no _id — server-side save requires an identifier'); }
+        try{
+          const res = await fetch('/modules/' + encodeURIComponent(m._id), {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(m)});
+          if (!res.ok) throw new Error('Status '+res.status);
+          alert('Saved');
+          loadData();
+        }catch(e){alert('Save failed: '+e.message)}
+      });
+
+      $('disconnect').addEventListener('click',()=>{
+        if (selectedIndex==null) return alert('Select a module first');
+        modules[selectedIndex].status = modules[selectedIndex].status === 'MOUNTED' ? '' : 'MOUNTED';
+        renderTable();
+      });
+    }
+
+    async function loadData(){
+      try{
+        const resp = await fetch('/modules');
+        if (!resp.ok) throw new Error('Fetch failed: '+resp.status);
+        const data = await resp.json();
+        // expect an array — if wrapped, try to extract
+        modules = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);
+        populateFilters();
+        renderTable();
+        // auto-select first module if present
+        if (modules.length>0) { try{ selectModule(0); highlightRow(0); }catch(e){console.error(e);} }
+      }catch(e){
+        console.error(e);
+        document.querySelector('#modules-table tbody').innerHTML = '<tr><td colspan="9">Failed to load modules: '+e.message+'</td></tr>';
+      }
+    }
+
+    function highlightRow(idx){
+      const tbody = document.querySelector('#modules-table tbody');
+      Array.from(tbody.children).forEach((tr,i)=> tr.classList.toggle('selected', i===idx));
+    }
+
+    // bootstrap
+    populateFilters();
+    attachEvents();
+    loadData();
+  </script>
+</body>
+</html>
