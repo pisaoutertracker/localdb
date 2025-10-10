@@ -65,14 +65,15 @@
                     for (var ln in out) {
                         var l = out[ln];
                         for (var i = 0; i < l.connections.length; i++) {
+                            console.log(l.connections[i]);
                             var c = l.connections[i];
                             allcables.push(c.cable);
                             var label = "";
                             if (i > 0) {
                                 var prev = l.connections[i - 1];
                                 if(singleLines){
-                                    label = `${prev.line} ${prev[fromport].join("_")}`;
-                                    label += `:${c[toport].join("_")} ${c.line}`;
+                                    label = `${prev.line} ${prev[fromport].join(";")}`;
+                                    label += `:${c[toport].join(";")} ${c.line}`;
                                     conn= `"${l.cable}" -- "${c.cable}" "${label}"`;
                                     if(conn in printedConnections){
                                         continue;
@@ -80,13 +81,17 @@
                                     printedConnections[conn] = 1;
                                 } else {
 
-                                    label = `${prev[fromport].join("_")}`;
-                                    label += `:${c[toport].join("_")}`;
+                                    label = `${prev[fromport].join(";")}`;
+                                    label += `:${c[toport].join(";")}`;
                                     conn= `"${prev.cable}" -- "${c.cable}" "${label}"`;
                                     if(conn in printedConnections){
                                         continue;
                                     }
                                     printedConnections[conn] = 1;
+                                }
+                                if(side == "detSide") {
+                                  //invert labels sides
+                                    label = label.split(":").reverse().join(":");
                                 }
                                 if (direction == "crate") {
                                     dot += `"${prev.cable}" -- "${c.cable}" [label="${label}" fontsize=9]\n`;
@@ -96,7 +101,7 @@
                             } else {
                                 if(singleLines){
                                     label = `${ln} ${l[fromport]}`;
-                                    label += `:${c[toport].join("_")} ${c.line}`;
+                                    label += `:${c[toport].join(";")} ${c.line}`;
                                     conn= `"${l.cable}" -- "${c.cable}" "${label}"`;
                                     if(conn in printedConnections){
                                         continue;
@@ -105,12 +110,16 @@
 
                                 } else {
                                     label = `${l[fromport]}`;
-                                    label += `:${c[toport].join("_")}`;
+                                    label += `:${c[toport].join(";")}`;
                                     conn= `"${l.cable}" -- "${c.cable}" "${label}"`;
                                     if(conn in printedConnections){
                                         continue;
                                     }
                                     printedConnections[conn] = 1;
+                                }
+                                if(side == "detSide") {
+                                  //invert labels sides
+                                    label = label.split(":").reverse().join(":");
                                 }
                                 if (direction == "crate") {
                                     dot += `"${slot}" -- "${c.cable}" [label="${label}" fontsize=9]\n`;
@@ -235,28 +244,37 @@
                         contextMenu.style.border = "1px solid black";
                         contextMenu.style.padding = "5px";
                         contextMenu.style.zIndex = 1000;
-                        contextMenu.innerHTML = `<div id=disconnectDIV><button id=disconnect>Disconnect ${cable1} ${port1} - ${cable2} ${port2}</button></div>`;
+                        //if there is a ";" in the port split it and add one button for each port, both for cable1 and cable2
+                        ports1 = port1.split(";");
+                        ports2 = port2.split(";");
+                        for (var j = 0; j < ports1.length; j++) 
+                            for( var k = 0; k < ports2.length; k++) {
+                                contextMenu.innerHTML += `<div><button class="disconnect-btn" data-cable1="${cable1}" data-port1="${ports1[j]}" data-cable2="${cable2}" data-port2="${ports2[k]}">Disconnect: ${cable1} ${ports1[j]} - ${cable2} ${ports2[k]}</button></div>`;
+                            }
                         contextMenu.innerHTML += `<div id=info>Info ${cable1} ${port1} - ${cable2} ${port2}</div>`;
                         document.body.appendChild(contextMenu);
                         // document.body.addEventListener("click", function() {
                         //         document.body.removeChild(contextMenu);
                         //     });
-                        contextMenu.addEventListener("click", function() {
-                            var action = event.target.id;
-                            if (action == "disconnect") {
-                                //disconnect the cables
-                                console.log("Disconnecting", cable1, port1, cable2, port2);
-                                //fetch disconnect
+                        contextMenu.addEventListener("click", function(event) {
+                            if (event.target.classList.contains("disconnect-btn")) {
+                                //disconnect the specific cables and ports
+                                var btnCable1 = event.target.dataset.cable1;
+                                var btnPort1 = event.target.dataset.port1;
+                                var btnCable2 = event.target.dataset.cable2;
+                                var btnPort2 = event.target.dataset.port2;
+                                console.log("Disconnecting", btnCable1, btnPort1, btnCable2, btnPort2);
+                                //fetch disconnect with specific ports
                                 fetch('/disconnect', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
                                     },
                                     body: JSON.stringify({
-                                        cable1: cable1,
-                                        port1: port1,
-                                        cable2: cable2,
-                                        port2: port2,
+                                        cable1: btnCable1,
+                                        port1: btnPort1,
+                                        cable2: btnCable2,
+                                        port2: btnPort2,
                                     }),
                                 })
                                     .then(response => response.json())

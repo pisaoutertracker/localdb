@@ -161,6 +161,13 @@ def create_app(database=db):
                 If the module is successfully updated, returns a message indicating success.
             """
             updated_data = request.get_json()
+            for key in updated_data:
+              if updated_data[key] == "":
+                 updated_data[key] = None  # Convert empty strings to None
+              elif updated_data[key] == 'None':
+                 updated_data[key] = None  # Convert 'None' string back to None
+
+
             modules_collection.update_one({"moduleID": moduleID}, {"$set": updated_data})
             return {"message": "Module updated"}, 200
 
@@ -497,7 +504,7 @@ def create_app(database=db):
             else:
                 entries = list(crates_collection.find())
            # a route for crates for now equal to cables
-         for entry in entries:
+                for entry in entries:
                     entry["_id"] = str(entry["_id"])
                 return jsonify(entries)
 
@@ -595,7 +602,7 @@ def create_app(database=db):
             logs1 = logbook_collection.find({"details": rexp})
             result = set()
             for i in logs:
-            result.add(str(i["_id"])) 
+                result.add(str(i["_id"])) 
             for i in logs1:
                 result.add(str(i["_id"]))
             results = list(result)
@@ -612,7 +619,7 @@ def create_app(database=db):
     #        logs =logbook_collection.find({"involved_modules": ""})
             result = []
             for i in logs:
-            result.append(str(i["_id"])) 
+                result.append(str(i["_id"])) 
             return jsonify(result), 200        
 
     @app.route("/disconnectCables", methods=["POST"])
@@ -1010,9 +1017,6 @@ def find_starting_cable(starting_point_name, starting_side, starting_port):
     return app
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    app.run(host="0.0.0.0", port=5005, debug=False)
-=======
+#    app.run(host="0.0.0.0", port=5005, debug=False)
     app = create_app()
     app.run(host="0.0.0.0", port=5005, debug=False)
->>>>>>> addRun
