@@ -132,17 +132,14 @@
 
             const mockApiData = {
                 allModules: [
-                    { name: "PS_40_05_IBA-00001", position: "1;4L;A7" },
-                    { name: "PS_30_02_IBA-00055", position: "2;2L;B3" },
-                    { name: "PS_10_01_IBA-00123", position: "1;5R;C10" },
-                    { name: "TEMP_MODULE_A", position: "2;1R;A1"},
-                    { name: "ORPHAN-001", position: "In Repair" },
-                    { name: "UNPLACED-002", position: null }
+                    { moduleName: "PS_40_05_IBA-00001", position: "1;4L;A7" },
+                    { moduleName: "PS_30_02_IBA-00055", position: "2;2L;B3" },
+                    { moduleName: "UNPLACED-002", position: null }
                 ]
             };
             const mockApi = {
-                 get: async (url) => { if (url === API_BASE_URL) return mockApiData.allModules; const moduleName = url.split('/').pop(); const module = mockApiData.allModules.find(m => m.name === moduleName); if (module) return module; else throw new Error(`Mock: Module ${moduleName} not found.`); },
-                 put: async (url, payload) => { const moduleName = url.split('/').pop(); const module = mockApiData.allModules.find(m => m.name === moduleName); if (module) module.position = payload.position; else throw new Error(`Mock: Module ${moduleName} not found.`); }
+                 get: async (url) => { if (url === API_BASE_URL) return mockApiData.allModules; const moduleName = url.split('/').pop(); const module = mockApiData.allModules.find(m => m.moduleName === moduleName); if (module) return module; else throw new Error(`Mock: Module ${moduleName} not found.`); },
+                 put: async (url, payload) => { const moduleName = url.split('/').pop(); const module = mockApiData.allModules.find(m => m.moduleName === moduleName); if (module) module.position = payload.position; else throw new Error(`Mock: Module ${moduleName} not found.`); }
             };
 
             // --- FULL FUNCTION DEFINITIONS ---
@@ -228,7 +225,7 @@
                     positionToModuleMap.clear();
                     allModules.forEach(module => {
                         if (module.position && positionRegex.test(module.position)) {
-                            positionToModuleMap.set(module.position, module.name);
+                            positionToModuleMap.set(module.position, module.moduleName);
                         }
                     });
                     updateAllSlotColors();
@@ -252,14 +249,14 @@
                     if (data && data.position && positionRegex.test(data.position)) {
                         highlightPosition(data.position);
                         positionInput.value = data.position;
-                        currentSelectedModule = data.name;
+                        currentSelectedModule = data.moduleName;
                         originalPosition = data.position;
-                        showStatus(`Found "${data.name}" at ${data.position}. To move it, click a free slot then 'Update Position'.`, 'success');
+                        showStatus(`Found "${data.moduleName}" at ${data.position}. To move it, click a free slot then 'Update Position'.`, 'success');
                     } else {
-                        currentSelectedModule = data.name;
+                        currentSelectedModule = data.moduleName;
                         originalPosition = null;
                         positionInput.value = '';
-                        showStatus(`Module "${data.name}" found, but it is not in a storage slot.`, 'info');
+                        showStatus(`Module "${data.moduleName}" found, but it is not in a storage slot.`, 'info');
                     }
                 } catch (error) {
                     showStatus(`Error: ${error.message}`, 'error');

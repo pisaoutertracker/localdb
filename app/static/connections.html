@@ -12,6 +12,9 @@
     List of cables, modulus, crate objects to map (comma separated)
     <input type="text" id="slot"  placeholder="e.g. B1,B2" >
     <button id="submit" >Submit</button>
+    --- Disconnect all connections on one side:
+    <button id="disconnect_crate_side" >Disconnect ALL Crate Side</button>
+    <button id="disconnect_det_side" >Disconnect ALL Det Side</button>
     <br> Single line details <input type="checkbox" id="singleLines" >
     <br>You can click to navigate
     <br><a href="/static/connect_cables.html">Connect</a> page
@@ -195,6 +198,72 @@
                     console.error(dot);
                 });
         }
+        //we can use the disconnec_all_crateSide/detSide endpoints to disconnect all cables on one side
+        $(document).on('click', '#disconnect_crate_side', function() {
+            //ask confirmation listing the connections that will be removed
+            if(!confirm("Are you sure you want to disconnect all connections on the crate side?")) {
+                return;
+            }
+            var slot = $('#slot').val();
+            fetch('/disconnect_all_crateSide', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cable: slot,
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data)
+                    // Get the current time
+                    let currentTime = new Date().toLocaleString();
+                    //refresh
+                    $('#submit').click();
+                    // Get the responseOutput element
+                    let responseOutput = document.getElementById('responseOutput');
+
+                    // Append the new response to the existing text
+                    responseOutput.innerHTML += `<p>Acting on crate side of ${slot}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        });
+        $(document).on('click', '#disconnect_det_side', function() {
+            //ask confirmation listing the connections that will be removed
+            if(!confirm("Are you sure you want to disconnect all connections on the det side?")) {
+                return;
+            }
+
+            var slot = $('#slot').val();
+            fetch('/disconnect_all_detSide', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cable: slot,
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data)
+                    // Get the current time
+                    let currentTime = new Date().toLocaleString();
+                    //refresh
+                    $('#submit').click();
+                    // Get the responseOutput element
+                    let responseOutput = document.getElementById('responseOutput');
+
+                    // Append the new response to the existing text
+                    responseOutput.innerHTML += `<p>Acting on det side of ${slot}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        });
 
         $('#submit').click(function() {
            dot = "graph {\n      rankdir=LR; \n";
