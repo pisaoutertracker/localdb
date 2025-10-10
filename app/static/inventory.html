@@ -32,6 +32,9 @@
     td{padding:10px;vertical-align:middle}
   td.name{font-weight:600;color:#0b5ed7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
   table td, table th{white-space:nowrap}
+  .results-link{margin-left:8px;color:inherit;text-decoration:none}
+  .results-icon{width:16px;height:16px;vertical-align:middle;opacity:0.9}
+  .results-emoji{font-size:14px;line-height:1;vertical-align:middle;display:inline-block}
   .details{width:460px;padding:14px;border-radius:8px;background:#ffffff;border:1px solid var(--border);box-shadow:0 4px 12px rgba(2,6,23,0.04);display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 120px)}
   /* keep JSON details from exceeding container height; pin buttons to bottom */
   #detail-content{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
@@ -56,8 +59,10 @@
   tbody tr.selected{background:#eef6ff}
   tbody tr:hover{background:#f8fbff}
   </style>
+  <link rel="stylesheet" href="/static/nav.css">
+  <script src="/static/nav.js" defer></script>
 </head>
-<body>
+<body style="margin-top:46px;">
   <div class="container">
 
     <div class="filters">
@@ -361,7 +366,7 @@
       // sort filtered rows
       filtered.sort((a,b) => compareRows(a.m, b.m));
 
-      // render rows
+        // render rows
       filtered.forEach(({m, idx, spacerToken}) => {
         const tr = document.createElement('tr');
         // render connections as plain text instead of a button
@@ -403,7 +408,23 @@
         if ((pos.match(/;/g)||[]).length === 2){
           posHtml = `<a href="#" class="pos-link" data-pos="${pos}">${pos}</a>`;
         }
-  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''}</td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connText||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
+        // connections column: link to connections page with bare query equal to moduleName
+        let connectionsHtml = connText || '';
+        if (m && m.moduleName){
+          const cm = encodeURIComponent(m.moduleName || '');
+          const href = '/static/connections.html?' + cm;
+          const safeName = (m.moduleName||'').replace(/"/g,'&quot;');
+          connectionsHtml = `<a class="connections-link" href="${href}" title="Show connections for ${safeName}">${connText || 'Connections'}</a>`;
+        }
+  const resultsUrl = 'https://cmstkita.web.cern.ch/Pisa/TBPS/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
+  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
+  // prevent the results link from triggering the row click selection
+  setTimeout(()=>{
+    const rl = tr.querySelector('.results-link');
+    if (rl) rl.addEventListener('click', (ev)=>{ ev.stopPropagation(); });
+    const cl = tr.querySelector('.connections-link');
+    if (cl) cl.addEventListener('click', (ev)=>{ ev.stopPropagation(); });
+  },0);
         tr.addEventListener('click',()=>{ try{ selectModule(idx); highlightRow(idx); }catch(e){ console.error(e); } });
         // attach click handler for position link (stop propagation so row click isn't triggered)
         setTimeout(()=>{

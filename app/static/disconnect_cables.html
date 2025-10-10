@@ -1,53 +1,22 @@
 <!DOCTYPE html>
 <html>
-<body>
-<h1>Disconnect Cables</h1>
+<head>
+    <title>Disconnect Cables</title>
+    <link rel="stylesheet" href="/static/nav.css">
+    <script src="/static/nav.js" defer></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .container {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .box {
-            border: 2px solid #000;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .detbox {
-            border: 2px solid #000;
-            padding: 10px;
-            width: 200px; /* adjust as needed */
-            height: 200px; /* adjust as needed */
-            background-color: /* carbon grey */ #666666;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .cratebox {
-            border: 2px solid #000;
-            padding: 10px;
-            width: 200px; /* adjust as needed */
-            height: 200px; /* adjust as needed */
-            background-color: #ff0000; /* red */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        select {
-            margin-top: 10px;
-            padding: 5px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { display: flex; align-items: center; gap: 20px; }
+        .box { border: 2px solid #000; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .detbox { border: 2px solid #000; padding: 10px; width: 200px; height: 200px; background-color: #666666; display: flex; flex-direction: column; align-items: center; }
+        .cratebox { border: 2px solid #000; padding: 10px; width: 200px; height: 200px; background-color: #ff0000; display: flex; flex-direction: column; align-items: center; }
+        select { margin-top: 10px; padding: 5px; }
+        button { padding: 10px 20px; font-size: 16px; }
     </style>
+</head>
+<body style="margin-top:46px;">
+<h1 style="margin-top:0">Disconnect Cables</h1>
+
 <form id="disconnectForm">
     <div class="container">
         <div class="detbox">
@@ -82,179 +51,74 @@
             const portSelectDet = document.getElementById('portSelectDet');
             const portSelectCrate = document.getElementById('portSelectCrate');
 
-            // Create arrays for sorting
             let detCables = [];
             let crateCables = [];
-
-            // Collect all cable names
-            for (const cable of data) {
-                detCables.push(cable.name);
-                crateCables.push(cable.name);
-            }
-
-            // Sort the arrays alphabetically
-            detCables.sort();
-            crateCables.sort();
-
-            // Populate the cable select options with sorted arrays
-            for (const cableName of detCables) {
-                const optionDet = document.createElement('option');
-                optionDet.value = cableName;
-                optionDet.text = cableName;
-                cableSelectDet.appendChild(optionDet);
-            }
-
-            for (const cableName of crateCables) {
-                const optionCrate = document.createElement('option');
-                optionCrate.value = cableName;
-                optionCrate.text = cableName;
-                cableSelectCrate.appendChild(optionCrate);
-            }
+            for (const cable of data) { detCables.push(cable.name); crateCables.push(cable.name); }
+            detCables.sort(); crateCables.sort();
+            for (const cableName of detCables) { const optionDet = document.createElement('option'); optionDet.value = cableName; optionDet.text = cableName; cableSelectDet.appendChild(optionDet); }
+            for (const cableName of crateCables) { const optionCrate = document.createElement('option'); optionCrate.value = cableName; optionCrate.text = cableName; cableSelectCrate.appendChild(optionCrate); }
         });
 
     document.getElementById('cableSelectDet').addEventListener('change', function(event) {
-    const cable = event.target.value;
-    fetch(`/cables/${cable}`)
-    .then(response => response.json())
-    .then(data => {
-        var cableTemplate = data.type;
-        //if not found use "module"
-        if (!cableTemplate) {
-              cableTemplate = "module";
-        }
-        // Fetch the cable template
-        fetch(`/cable_templates/${cableTemplate}`)
+        const cable = event.target.value;
+        fetch(`/cables/${cable}`)
             .then(response => response.json())
-            .then(templateData => {
-                const portSelectDet = document.getElementById('portSelectDet');
-                portSelectDet.innerHTML = '';
-                for (const port in templateData.crateSide) {
-                    const option = document.createElement('option');
-                    option.value = port;
-                    option.text = port;// templateData.detSide[port].join('_');
-                    portSelectDet.appendChild(option);
-                }
+            .then(data => {
+                var cableTemplate = data.type || 'module';
+                fetch(`/cable_templates/${cableTemplate}`)
+                    .then(response => response.json())
+                    .then(templateData => {
+                        const portSelectDet = document.getElementById('portSelectDet');
+                        portSelectDet.innerHTML = '';
+                        for (const port in templateData.crateSide) { const option = document.createElement('option'); option.value = port; option.text = port; portSelectDet.appendChild(option); }
+                    });
             });
-        });
     });
-    //add modules as cables on detside list
+
+    // add modules as cables on detside list
     fetch('/modules')
         .then(response => response.json())
         .then(data => {
             const cableSelectDet = document.getElementById('cableSelectDet');
-            
-            // Create array for sorting
             let moduleNames = [];
-            
-            // Collect all module names
-            for (const module of data) {
-                moduleNames.push(module.moduleName);
-            }
-            
-            // Sort module names alphabetically
+            for (const module of data) { if (module && module.moduleName) moduleNames.push(module.moduleName); }
             moduleNames.sort();
-            
-            // Add sorted module names to the list
-            for (const moduleName of moduleNames) {
-                const optionDet = document.createElement('option');                
-                optionDet.value = moduleName;
-                optionDet.text = moduleName;
-                cableSelectDet.appendChild(optionDet);
-            }
+            for (const moduleName of moduleNames) { const optionDet = document.createElement('option'); optionDet.value = moduleName; optionDet.text = moduleName; cableSelectDet.appendChild(optionDet); }
         });
 
-    // same for crate side
     document.getElementById('cableSelectCrate').addEventListener('change', function(event) {
-    const cable = event.target.value;
-    fetch(`/cables/${cable}`)
-    .then(response => response.json())
-    .then(data => {
-        const cableTemplate = data.type;
-     
-        // Fetch the cable template
-        fetch(`/cable_templates/${cableTemplate}`)
-            .then(response => response.json())
-            .then(templateData => {
+        const cable = event.target.value;
+        fetch(`/cables/${cable}`).then(response => response.json()).then(data => {
+            const cableTemplate = data.type || 'module';
+            fetch(`/cable_templates/${cableTemplate}`).then(response => response.json()).then(templateData => {
                 const portSelectCrate = document.getElementById('portSelectCrate');
                 portSelectCrate.innerHTML = '';
-                for (const port in templateData.detSide) {
-                    const option = document.createElement('option');
-                    option.value = port;
-                    option.text = port;// templateData.detSide[port].join('_');
-                    portSelectCrate.appendChild(option);
-                }
+                for (const port in templateData.detSide) { const option = document.createElement('option'); option.value = port; option.text = port; portSelectCrate.appendChild(option); }
             });
         });
     });
 
-    // Handle the form submission
     document.getElementById('disconnectForm').addEventListener('submit', function(event) {
         event.preventDefault();
-
-    let cable1 = document.getElementById('cableSelectDet').value;
-    let port1 = document.getElementById('portSelectDet').value;    
-    let cable2 = document.getElementById('cableSelectCrate').value; // Assuming you have a select element for crate side cable
-    let port2 = document.getElementById('portSelectCrate').value; // Assuming you have a select element for crate side port
-
-    // print the selected values
-    console.log(cable1, port1, cable2, port2);
-
-    if (!cable1 || !cable2) {
-        alert('Please select both cables');
-        return;
-    }
-    if (!port1 && !port2) {
-        fetch('/disconnect', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                cable1: cable1,
-                cable2: cable2,
-            }),
-        })
-        .then(response => response.json())
-        .then(data => console.log(data))
-        .catch((error) => {
-            console.error('Error:', error);
-        });
-    } else if (port1 && port2) {
-        fetch('/disconnect', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                cable1: cable1,
-                port1: port1,
-                cable2: cable2,
-                port2: port2,
-            }),
-        })
-        .then(response => response.json())
-        .then(data =>  {
-                    console.log(data)
-                    // Get the current time
-                    let currentTime = new Date().toLocaleString();
-                    // Get the responseOutput element
-                    let responseOutput = document.getElementById('responseOutput');
-
-                    // Append the new response to the existing text
-                    responseOutput.innerHTML += `<p>Acting on: detside ${cable1}, port ${port1} and crateside ${cable2}, port ${port2}. Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
-                    })
-        .catch((error) => {
-            console.error('Error:', error);
-        });
-    } else {
-        alert('Please select both ports');
-        return;
-    }
-});
-
+        let cable1 = document.getElementById('cableSelectDet').value;
+        let port1 = document.getElementById('portSelectDet').value;
+        let cable2 = document.getElementById('cableSelectCrate').value;
+        let port2 = document.getElementById('portSelectCrate').value;
+        if (!cable1 || !cable2) { alert('Please select both cables'); return; }
+        const payload = port1 && port2 ? { cable1, port1, cable2, port2 } : { cable1, cable2 };
+        fetch('/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            .then(response => response.json())
+            .then(data => {
+                const currentTime = new Date().toLocaleString();
+                const responseOutput = document.getElementById('responseOutput');
+                responseOutput.innerHTML += `<p>Response: ${JSON.stringify(data)}, Time: ${currentTime}</p>`;
+            })
+            .catch(err => console.error(err));
+    });
 </script>
 <br>
 <a href="/"> DB HOME </a>
 
 </body>
 </html>
+              cableTemplate = "module";

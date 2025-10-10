@@ -3,12 +3,14 @@
 <html>
 <head>
     <title>Snapshot Interface</title>
+    <link rel="stylesheet" href="/static/nav.css">
+    <script src="/static/nav.js" defer></script>
    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
     <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
-<body>
+<body style="margin-top:46px;">
     List of cables, modulus, crate objects to map (comma separated)
     <input type="text" id="slot"  placeholder="e.g. B1,B2" >
     <button id="submit" >Submit</button>
@@ -28,6 +30,41 @@
                 $('#submit').click();
             }
         });
+
+        // Detect an object in the URL query and use it as the starting slot.
+        // Supports both forms: ?object=E51 or a bare query like ?E51
+        (function() {
+            try {
+                var search = window.location.search || '';
+                if (search && search.length > 1) {
+                    // strip leading '?'
+                    var param = search.substring(1);
+                    var slotVal = null;
+                    if (param.indexOf('=') !== -1) {
+                        var usp = new URLSearchParams(search);
+                        slotVal = usp.get('object') || usp.get('slot') || usp.get('cable') || usp.get('q') || usp.get('s');
+                        if (!slotVal) {
+                            var firstKey = usp.keys().next().value;
+                            if (firstKey) {
+                                slotVal = usp.get(firstKey);
+                            }
+                        }
+                    } else {
+                        // bare querystring: ?E51
+                        slotVal = decodeURIComponent(param.split('#')[0]);
+                    }
+
+                    if (slotVal) {
+                        // Put the value into the input and trigger the same behaviour as a manual submit
+                        $('#slot').val(slotVal);
+                        // Give the DOM a tick in case other handlers need to initialize
+                        setTimeout(function() { $('#submit').click(); }, 50);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to parse initial object from URL:', e);
+            }
+        })();
         $('#singleLines').change(function() {
             singleLines = this.checked;
             dot = "graph {\n      rankdir=LR; \n";
