@@ -163,11 +163,6 @@ def disconnect_cables():
         A JSON response containing a success message if the cables or modules are disconnected successfully,
         or an error message if any errors occur during the disconnection process.
     """
-    
-    data = request.get_json()
-    cables_collection = get_db()["cables"]
-    modules_collection = get_db()["modules"]
-    templates_collection = get_db()["cable_templates"]
 
     data = request.get_json()
     cables_collection = get_db()["cables"]
@@ -279,6 +274,99 @@ def disconnect_cables():
             400,
         )
 
+@bp.route("/disconnect_all", methods=["POST"])
+def disconnect_all_ports():
+    return _disconnect_all("all")
+
+@bp.route("/disconnect_all_crateSide", methods=["POST"])
+def disconnect_all_crateSide():
+    return _disconnect_all("crateSide")
+
+@bp.route("/disconnect_all_detSide", methods=["POST"])
+def disconnect_all_detSide():
+    return _disconnect_all("detSide")
+
+def _disconnect_all(side_to_disconnect):
+    """ 
+    this function disconnects all the ports of a given cable or module
+    also deleting its connections in the other cables/modules.
+    It can disconnect all, just crateSide or just detSide
+    """
+    data = request.get_json()
+    cables_collection = get_db()["cables"]
+    modules_collection = get_db()["modules"]
+    templates_collection = get_db()["cable_templates"]
+    
+    if "cable" not in data:
+        return jsonify({"error": "Cable must be specified"}), 400
+    
+    cable_name = data["cable"]
+    # retrive the cable from the database
+    cable = cables_collection.find_one({"name": cable_name})
+    is_module = False
+    if not cable:
+        cable = modules_collection.find_one({"moduleName": cable_name})
+        if cable:
+            is_module = True
+            if "type" not in cable:
+                cable["type"] = "module"
+            template = templates_collection.find_one({"type": cable["type"]})
+            if "crateSide" not in cable:
+                cable["crateSide"] = {
+                    str(i): [] for i in range(1, template["lines"] + 1)
+                }
+                
+    if not cable:
+        return jsonify({"error": "Cable not found"}), 404
+    
+    # disconnect all the ports in crateSide
+    if side_to_disconnect in ["all", "crateSide"] and "crateSide" in cable:
+        for line, connection in cable["crateSide"].items():
+            if len(connection) > 0:
+                other_cable_is_module = False
+                other_cable = cables_collection.find_one({"name": connection[0]})
+                if not other_cable:
+                    other_cable = modules_collection.find_one({"moduleName": connection[0]})
+                    if other_cable:
+                        other_cable_is_module = True
+
+                if other_cable:
+                    if "detSide" in other_cable and str(connection[1]) in other_cable["detSide"]:
+                        other_cable["detSide"][str(connection[1])] = []
+                        if other_cable_is_module:
+                            modules_collection.update_one({"moduleName": connection[0]}, {"$set": other_cable})
+                        else:
+                            cables_collection.update_one({"name": connection[0]}, {"$set": other_cable})
+
+                cable["crateSide"][str(line)] = []
+            
+    # now the detSide
+    if side_to_disconnect in ["all", "detSide"] and "detSide" in cable:
+        for line, connection in cable["detSide"].items():
+            if len(connection) > 0:
+                other_cable_is_module = False
+                other_cable = cables_collection.find_one({"name": connection[0]})
+                if not other_cable:
+                    other_cable = modules_collection.find_one({"moduleName": connection[0]})
+                    if other_cable:
+                        other_cable_is_module = True
+                        
+                if other_cable:
+                    if "crateSide" in other_cable and str(connection[1]) in other_cable["crateSide"]:
+                        other_cable["crateSide"][str(connection[1])] = []
+                        if other_cable_is_module:
+                            modules_collection.update_one({"moduleName": connection[0]}, {"$set": other_cable})
+                        else:
+                            cables_collection.update_one({"name": connection[0]}, {"$set": other_cable})
+                cable["detSide"][str(line)] = []
+            
+    # update the cable in the database
+    if is_module:
+        modules_collection.update_one({"moduleName": cable_name}, {"$set": cable})
+    else:
+        cables_collection.update_one({"name": cable_name}, {"$set": cable})
+    
+    return jsonify({"message": "All ports disconnected successfully"}), 200
 
 @bp.route("/snapshot", methods=["POST"])
 def snapshot():
