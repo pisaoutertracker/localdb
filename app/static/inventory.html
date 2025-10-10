@@ -22,6 +22,10 @@
   /* table-wrap scrolls internally and is capped to the remaining viewport height */
   .table-wrap{flex:1;min-height:0;overflow:auto;overflow-x:auto;border-radius:8px;border:1px solid var(--border);background:linear-gradient(180deg,#fff,#fbfdff);width:100%;max-height:calc(100vh - 220px);position:relative}
   table{width:100%;min-width:1100px;border-collapse:collapse;font-size:13px}
+  thead th[data-col]{cursor:pointer;user-select:none;position:relative;padding-right:18px}
+  thead th[data-col]::after{content:'';position:absolute;right:6px;top:50%;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;margin-top:-6px;opacity:0.25}
+  thead th.sorted-asc::after{border-bottom:8px solid #0b5ed7;opacity:1}
+  thead th.sorted-desc::after{border-top:8px solid #0b5ed7;opacity:1}
   thead th{position:sticky;top:0;background:linear-gradient(180deg,#f8fbff,#f1f7ff);padding:10px;border-bottom:1px solid var(--border);text-align:left;z-index:2}
     tbody tr:nth-child(odd){background:transparent}
     tbody tr{border-bottom:1px solid #f1f5f9}
@@ -81,7 +85,16 @@
       <div class="table-wrap">
         <table id="modules-table">
           <thead>
-            <tr><th>Name</th><th>Inventory Slot</th><th>Speed</th><th>Spacer</th><th>Status</th><th>Connections</th><th>Position</th><th>Description</th><th>Mounted</th></tr>
+            <tr>
+              <th data-col="name">Name</th>
+              <th data-col="speed">Speed</th>
+              <th data-col="spacer">Spacer</th>
+              <th data-col="status">Status</th>
+              <th data-col="connections">Connections</th>
+              <th data-col="position">Position</th>
+              <th data-col="description">Description</th>
+              <th data-col="mounted">Mounted</th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -223,22 +236,57 @@
       return result;
     }
     // Layers config (same mapping used for filter choices)
+    // spacer token values are '16','26','40' (representing 1.6mm, 2.6mm, 4.0mm)
     const layers_to_filters = {
-      "L1_47": {"spacer":"2.6mm","speed":"10G"},
-      "L1_60": {"spacer":"4.0mm","speed":"10G"},
-      "L1_72": {"spacer":"4.0mm","speed":"10G"},
-      "L2_40": {"spacer":"2.6mm","speed":"10G"},
-      "L2_55": {"spacer":"2.6mm","speed":"10G"},
-      "L2_68": {"spacer":"4.0mm","speed":"10G"},
-      "L3": {"spacer":"2.6mm","speed":"5G"}
+      "L1_47": {"spacer":"26","speed":"10G"},
+      "L1_60": {"spacer":"40","speed":"10G"},
+      "L1_72": {"spacer":"40","speed":"10G"},
+      "L2_40": {"spacer":"26","speed":"10G"},
+      "L2_55": {"spacer":"26","speed":"10G"},
+      "L2_68": {"spacer":"40","speed":"10G"},
+      "L3": {"spacer":"26","speed":"5G"}
     };
+
+    function spacerTokenToLabel(token){
+      if (!token) return '';
+      const map = { '16': '1.6mm', '26': '2.6mm', '40': '4.0mm' };
+      return token + (map[token] ? (' ('+map[token]+')') : '');
+    }
 
     function populateFilters(){
       const layerSelect = $('filter-layer');
       layerSelect.innerHTML = '<option value="any">any</option>' + Object.keys(layers_to_filters).map(k=>`<option>${k}</option>`).join('');
       const spacers = new Set(Object.values(layers_to_filters).map(x=>x.spacer));
       const spSel = $('filter-spacer');
-      spSel && (spSel.innerHTML = '<option value="any">any</option>' + [...spacers].map(s=>`<option>${s}</option>`).join(''));
+      if (spSel) {
+        const opts = ['<option value="any">any</option>'];
+        [...spacers].forEach(s => opts.push(`<option value="${s}">${spacerTokenToLabel(s)}</option>`));
+        spSel.innerHTML = opts.join('');
+      }
+    }
+
+    // Sorting state
+    let sortCol = 'name';
+    let sortDir = 'asc'; // 'asc' or 'desc'
+
+    function compareRows(a,b){
+      // a and b are module objects; use spacer token and speed computed
+      const get = (m, col) => {
+        if (col === 'name') return (m.moduleName||'').toLowerCase();
+        if (col === 'speed') return (m.speed||'').toLowerCase();
+        if (col === 'spacer') return computeSpacerToken(m.moduleName||m.module||'') || '';
+        if (col === 'status') return (m.status||'').toLowerCase();
+        if (col === 'connections') return (JSON.stringify(m.crateSide||m.connections||'')||'').toLowerCase();
+        if (col === 'position') return (m.position||'').toLowerCase();
+        if (col === 'description') return (m.description||'').toLowerCase();
+        if (col === 'mounted') return String(m.mounted||'').toLowerCase();
+        return '';
+      };
+      const A = get(a, sortCol);
+      const B = get(b, sortCol);
+      if (A < B) return sortDir === 'asc' ? -1 : 1;
+      if (A > B) return sortDir === 'asc' ? 1 : -1;
+      return 0;
     }
 
     // data store
@@ -269,6 +317,20 @@
       return module.speed;
     }
 
+    // Compute spacer token ('16','26','40') from a module name without mutating module
+    function computeSpacerToken(name){
+      const n = (name || '') + '';
+      // look for tokens like _26_, _26- , PS_26, PS26, etc.
+      if (/\b26\b|_26_|_26-|26-|26_/.test(n)) return '26';
+      if (/\b40\b|_40_|_40-|40-|40_/.test(n)) return '40';
+      if (/\b16\b|_16_|_16-|16-|16_/.test(n)) return '16';
+      // loose checks
+      if (/26/.test(n)) return '26';
+      if (/40/.test(n)) return '40';
+      if (/16/.test(n)) return '16';
+      return '';
+    }
+
     function renderTable(){
       const tbody = document.querySelector('#modules-table tbody');
       tbody.innerHTML = '';
@@ -278,18 +340,29 @@
       const spacerF = $('filter-spacer').value;
       const statusF = $('filter-status').value;
       const centerF = $('filter-center') ? $('filter-center').value : 'any';
+      // build filtered list first
+      const filtered = [];
       modules.forEach((m,idx)=>{
         computeModuleSpeed(m);
+        const spacerToken = computeSpacerToken(m.moduleName || m.module || '');
         if (q && !(m.moduleName||'').toLowerCase().includes(q)) return;
-        if (layer !== 'any' && !(m.position||'').includes(layer)) return;
         if (centerF !== 'any'){
           const centerVal = (m['Current Center'] || m['CurrentCenter'] || m.currentCenter || '') + '';
           if (!centerVal.includes(centerF)) return;
         }
         if (speedF !== 'any' && speedF && m.speed !== speedF) return;
-        if (spacerF !== 'any' && spacerF && (m.spacer||'') !== spacerF) return;
+        if (spacerF !== 'any' && spacerF){
+          if ((spacerToken || '') !== spacerF) return;
+        }
         if (statusF !== 'any' && statusF && (m.status||'') !== statusF) return;
+        filtered.push({ m, idx, spacerToken });
+      });
 
+      // sort filtered rows
+      filtered.sort((a,b) => compareRows(a.m, b.m));
+
+      // render rows
+      filtered.forEach(({m, idx, spacerToken}) => {
         const tr = document.createElement('tr');
         // render connections as plain text instead of a button
 
@@ -330,7 +403,7 @@
         if ((pos.match(/;/g)||[]).length === 2){
           posHtml = `<a href="#" class="pos-link" data-pos="${pos}">${pos}</a>`;
         }
-        tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''}</td><td>${m.inventorySlot||''}</td><td>${m.speed||''}</td><td>${m.spacer||''}</td><td>${m.status||''}</td><td>${connText||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
+  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''}</td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connText||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
         tr.addEventListener('click',()=>{ try{ selectModule(idx); highlightRow(idx); }catch(e){ console.error(e); } });
         // attach click handler for position link (stop propagation so row click isn't triggered)
         setTimeout(()=>{
@@ -369,7 +442,35 @@
     }
 
     function attachEvents(){
-      ['filter-layer','filter-speed','filter-spacer','filter-status','filter-center'].forEach(id=>$(id).addEventListener('change',renderTable));
+      // make table headers sortable
+      const headers = document.querySelectorAll('#modules-table thead th[data-col]');
+      headers.forEach(h => {
+        h.addEventListener('click', () => {
+          const col = h.getAttribute('data-col');
+          if (sortCol === col) sortDir = (sortDir === 'asc' ? 'desc' : 'asc');
+          else { sortCol = col; sortDir = 'asc'; }
+          // update header classes
+          headers.forEach(h2 => h2.classList.remove('sorted-asc','sorted-desc'));
+          h.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+          renderTable();
+        });
+      });
+      // When a layer is selected, set the speed and spacer filters according to mapping
+      $("filter-layer").addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val && val !== 'any' && layers_to_filters[val]){
+          const mapping = layers_to_filters[val];
+          // set speed and spacer selects to mapping values if present
+          const speedSel = $('filter-speed');
+          const spacerSel = $('filter-spacer');
+          if (mapping.speed && speedSel){ speedSel.value = mapping.speed; }
+          if (mapping.spacer && spacerSel){ spacerSel.value = mapping.spacer; }
+        }
+        // re-render table after adjusting filters
+        renderTable();
+      });
+      // other filters just re-render
+      ['filter-speed','filter-spacer','filter-status','filter-center'].forEach(id=>$(id).addEventListener('change',renderTable));
       $('search').addEventListener('input',renderTable);
 
       // Edit selected toggles an in-place JSON editor (textarea)
@@ -424,7 +525,7 @@
     async function loadData(){
       try{
         // load only the minimal fields for the table to improve performance
-  const tableFields = { moduleName: 1, inventorySlot: 1, spacer: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "Current Center": 1, CurrentCenter: 1, currentCenter: 1 };
+  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "Current Center": 1, CurrentCenter: 1, currentCenter: 1 };
         const data = await postGenericQuery({}, tableFields);
         // expect an array — if wrapped, try to extract
         const tableRows = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);
