@@ -103,6 +103,27 @@
 
   <script>
     let isEditing = false;
+    const GENERIC_QUERY_URL = `${window.location.origin}/generic_module_query`;
+
+    async function postGenericQuery(query, projection){
+      const body = { query: query || {} };
+      if (projection !== undefined) body.projection = projection;
+      try{
+        const res = await fetch(GENERIC_QUERY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error('generic query failed');
+        return await res.json();
+      }catch(e){
+        // fallback: return full modules list or single module depending on query
+        if (query && query.moduleName){
+          const resp = await fetch('/modules/' + encodeURIComponent(query.moduleName));
+          if (!resp.ok) throw e;
+          return await resp.json();
+        }
+        const resp = await fetch('/modules');
+        if (!resp.ok) throw e;
+        return await resp.json();
+      }
+    }
 
     // Render a nested tree viewer (and editor when editable) into container.
     function renderJsonTree(container, obj, editable = false){
@@ -231,12 +252,18 @@
       if (name.includes("_5_") || name.includes("_05_") || name.includes("_5-") || name.includes("_05-")) module_speed = "5G";
       if (name.includes("_10_") || name.includes("_10-")) module_speed = "10G";
       try{
-        if (module.children && typeof module.children === 'object'){
-          const roh = module.children["PS Read-out Hybrid"];
-          if (roh && roh.details && roh.details.ALPGBT_BANDWIDTH){
-            module_speed = roh.details.ALPGBT_BANDWIDTH === '10Gbps' ? '10G' : (roh.details.ALPGBT_BANDWIDTH === '5Gbps' ? '5G' : roh.details.ALPGBT_BANDWIDTH);
+          // try deep children object first (full document)
+          if (module.children && typeof module.children === 'object'){
+            const roh = module.children["PS Read-out Hybrid"];
+            if (roh && roh.details && roh.details.ALPGBT_BANDWIDTH){
+              module_speed = roh.details.ALPGBT_BANDWIDTH === '10Gbps' ? '10G' : (roh.details.ALPGBT_BANDWIDTH === '5Gbps' ? '5G' : roh.details.ALPGBT_BANDWIDTH);
+            }
           }
-        }
+          // fallback: check for projected path flattened into document (some Mongo drivers keep nested fields accessible via dotted keys)
+          const projected_bw = module?.['children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH'] || module?.['children.PS Read-out Hybrid.details']?.ALPGBT_BANDWIDTH;
+          if (projected_bw){
+            module_speed = projected_bw === '10Gbps' ? '10G' : (projected_bw === '5Gbps' ? '5G' : projected_bw);
+          }
       }catch(e){/* ignore */}
       module.speed = module_speed || module.speed || "";
       return module.speed;
@@ -265,11 +292,37 @@
 
         const tr = document.createElement('tr');
         // render connections as plain text instead of a button
+
         let connText = '';
-        if (m.connections){
-          if (Array.isArray(m.connections)) connText = m.connections.join(', ');
-          else if (typeof m.connections === 'object') connText = JSON.stringify(m.connections);
-          else connText = String(m.connections);
+        if (m?.crateSide){
+
+          const csConns = m.crateSide || m['crateSide'];
+          if (csConns){
+            if (Array.isArray(csConns)) connText = csConns.join(', ');
+            else if (typeof csConns === 'object') connText = JSON.stringify(csConns);
+            else connText = String(csConns);
+          } else if (typeof m.crateSide === 'object'){
+            // crateSide is a mapping of ports to [name, num] arrays (your example)
+            try{
+              const parts = Object.values(m.crateSide).map(v=>{
+                if (Array.isArray(v)) return v.join('/');
+                if (typeof v === 'string' || typeof v === 'number') return String(v);
+                return JSON.stringify(v);
+              });
+              connText = parts.join(', ');
+            }catch(e){ connText = JSON.stringify(m.crateSide); }
+          }
+        }
+        // crateSide is authoritative; format mapping entries as 'key:value/num' (e.g. '1:E10/9')
+        if (m?.crateSide && typeof m.crateSide === 'object'){
+          try{
+            const parts = Object.entries(m.crateSide).map(([k,v])=>{
+              if (Array.isArray(v)) return `${k}:${v.join('/')}`;
+              if (typeof v === 'string' || typeof v === 'number') return `${k}:${v}`;
+              return `${k}:${JSON.stringify(v)}`;
+            });
+            connText = parts.join(', ');
+          }catch(e){ connText = JSON.stringify(m.crateSide); }
         }
         // position: if it contains exactly two semicolons (three fields), render as link
         const pos = m.position || '';
@@ -293,11 +346,24 @@
     let selectedIndex = null;
     async function selectModule(idx){
       selectedIndex = idx;
-      const m = modules[idx];
-      $('detail-title').textContent = m.moduleName || 'Module';
+      let m = modules[idx];
+      // if this is a lightweight row, fetch full details
+      if (m && m._light){
+        try{
+          // prefer generic query to fetch full document
+          const results = await postGenericQuery({ moduleName: m.moduleName });
+          m = Array.isArray(results) ? results[0] : results;
+          if (!m) {
+            const resp = await fetch('/modules/' + encodeURIComponent(m.moduleName));
+            m = await resp.json();
+          }
+          modules[idx] = m; // replace with full object
+        }catch(e){ console.error('Failed to fetch full module', e); }
+      }
+      $('detail-title').textContent = (m && m.moduleName) ? m.moduleName : 'Module';
       const container = $('detail-json');
       // render read-only tree view
-      renderJsonTree(container, m, false);
+      renderJsonTree(container, m || {}, false);
       isEditing = false;
       const editBtn = $('edit-selected'); if (editBtn) editBtn.textContent = 'Edit Selected';
     }
@@ -357,15 +423,18 @@
 
     async function loadData(){
       try{
-        const resp = await fetch('/modules');
-        if (!resp.ok) throw new Error('Fetch failed: '+resp.status);
-        const data = await resp.json();
+        // load only the minimal fields for the table to improve performance
+  const tableFields = { moduleName: 1, inventorySlot: 1, spacer: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "Current Center": 1, CurrentCenter: 1, currentCenter: 1 };
+        const data = await postGenericQuery({}, tableFields);
         // expect an array — if wrapped, try to extract
-        modules = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);
+        const tableRows = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);
+        // store lightweight refs; full module details will be fetched when needed
+        modules = tableRows.map(r => ({ _light: true, ...r }));
         populateFilters();
-        renderTable();
-        // auto-select first module if present
-        if (modules.length>0) { try{ selectModule(0); highlightRow(0); }catch(e){console.error(e);} }
+  renderTable();
+  // auto-select first rendered row if any (respecting filters)
+  const tbody = document.querySelector('#modules-table tbody');
+  if (tbody && tbody.children.length>0){ try{ selectModule(0); highlightRow(0); }catch(e){console.error(e);} }
       }catch(e){
         console.error(e);
         document.querySelector('#modules-table tbody').innerHTML = '<tr><td colspan="9">Failed to load modules: '+e.message+'</td></tr>';

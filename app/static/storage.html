@@ -115,6 +115,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const API_BASE_URL = `${window.location.origin}/modules`;
+            const GENERIC_QUERY_URL = `${window.location.origin}/generic_module_query`;
 //            const API_BASE_URL = 'http://cmslabserver:5000/modules';
             const USE_MOCK_API = false;
             const config = { storages: [1, 2], floors: 5, cols: ['A', 'B', 'C'], rows: 10 };
@@ -220,24 +221,35 @@
                 });
             }
 
+            async function postGenericQuery(query, projection) {
+                // use JSON POST projection to reduce payload size
+                const body = { query: query || {}, projection: projection || { moduleName: 1, position: 1 } };
+                if (USE_MOCK_API) return mockApi.get(API_BASE_URL);
+                const res = await fetch(GENERIC_QUERY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                if (!res.ok) {
+                    // fallback to full modules endpoint
+                    return (await (await fetch(API_BASE_URL)).json());
+                }
+                return await res.json();
+            }
+
             async function loadAndDisplayOccupancy() {
                 showStatus('Loading occupancy data...', 'info');
                 try {
-                    const allModules = USE_MOCK_API ? await mockApi.get(API_BASE_URL) : await (await fetch(API_BASE_URL)).json();
+                    const allModules = await postGenericQuery({}, { moduleName: 1, position: 1 });
                     positionToModuleMap.clear();
                     // clear previous datalist options
                     if (moduleList) moduleList.innerHTML = '';
                     allModules.forEach(module => {
                         if (module.position && positionRegex.test(module.position)) {
                             positionToModuleMap.set(module.position, module.moduleName);
-                                 // add to datalist for browser autocomplete
+                            // add to datalist for browser autocomplete
                             if (moduleList) {
                                 const option = document.createElement('option');
                                 option.value = module.moduleName;
                                 moduleList.appendChild(option);
                             }
-                      }
-                   
+                        }
                     });
                     updateAllSlotColors();
                     showStatus('Occupancy data loaded. Click a slot to see details.', 'success');
@@ -254,8 +266,23 @@
                 showStatus(`Searching for module "${moduleName}"...`, 'info');
                 
                 try {
-                    const url = `${API_BASE_URL}/${moduleName}`;
-                    const data = USE_MOCK_API ? await mockApi.get(url) : await (await fetch(url)).json();
+                    let data;
+                    if (USE_MOCK_API) {
+                        const url = `${API_BASE_URL}/${moduleName}`;
+                        data = await mockApi.get(url);
+                    } else {
+                        // prefer a targeted query to return only moduleName and position
+                        try{
+                            const results = await postGenericQuery({ moduleName: moduleName }, { moduleName: 1, position: 1 });
+                            data = Array.isArray(results) ? results[0] : results;
+                            if (!data) {
+                                // fallback to direct GET
+                                data = await (await fetch(`${API_BASE_URL}/${encodeURIComponent(moduleName)}`)).json();
+                            }
+                        }catch(e){
+                            data = await (await fetch(`${API_BASE_URL}/${encodeURIComponent(moduleName)}`)).json();
+                        }
+                    }
                     
                     if (data && data.position) {
                         positionInput.value = data.position;

@@ -119,12 +119,18 @@ def create_app(config_name):
     @app.route("/generic_module_query", methods=['POST'])
     def generic_module_query():
         data = request.get_json()
-        if type(data) != dict:
+        if "query" in data:
+            query= data["query"]
+            projection = data.get("projection", None)
+        else:
+            query = data
+            projection = None
+        if type(query) != dict:
             return jsonify({"error": "Invalid input, expected a JSON object"}), 400
         if data is None:
             return jsonify({"error": "No data provided"}), 400
-        filtered_modules = mongo.db.modules.find(data)
-
+        filtered_modules = mongo.db.modules.find(query, projection) 
+    
         return jsonify([json_util.loads(json_util.dumps(module)) for module in filtered_modules]), 200
 
     return app
