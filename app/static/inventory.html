@@ -35,6 +35,9 @@
   .results-link{margin-left:8px;color:inherit;text-decoration:none}
   .results-icon{width:16px;height:16px;vertical-align:middle;opacity:0.9}
   .results-emoji{font-size:14px;line-height:1;vertical-align:middle;display:inline-block}
+  /* connections link style: bold blue, no underline to match other table links */
+  .connections-link{color:#0b5ed7;text-decoration:none;font-weight:600}
+  .connections-link:hover{text-decoration:underline}
   .details{width:460px;padding:14px;border-radius:8px;background:#ffffff;border:1px solid var(--border);box-shadow:0 4px 12px rgba(2,6,23,0.04);display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 120px)}
   /* keep JSON details from exceeding container height; pin buttons to bottom */
   #detail-content{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
@@ -336,6 +339,42 @@
       return '';
     }
 
+    // Fetch module endpoints (LV/HV/FC7) from snapshot endpoint for a given module name.
+    // Returns an object { LV: string|null, HV: string|null, FC7: string|null } or null on error.
+    async function getModuleEndpoints(moduleId){
+      try{
+        const res = await fetch('/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cable: moduleId, side: 'crateSide' }) });
+        if (!res.ok) return null;
+        const snapshot = await res.json();
+        const ret = { LV: null, HV: null, FC7: null };
+        // snapshot may be an object mapping keys -> { connections: [...] }
+        for (const key in snapshot){
+          try{
+            const item = snapshot[key];
+            const connections = item && item.connections;
+            if (connections && connections.length){
+              const last_conn = connections[connections.length - 1];
+              const cable = last_conn.cable || '';
+              // FC7
+              if (cable.includes('FC7')){
+                const detp = Array.isArray(last_conn.det_port) && last_conn.det_port.length ? last_conn.det_port[0] : '';
+                ret.FC7 = cable + (detp ? ('_' + detp) : '');
+              }else if (cable.includes('XSLOT')){
+                // XSLOTxxxxx -> strip 'XSLOT' prefix
+                const suff = cable.slice(5);
+                ret.LV = 'LV' + suff + '.' + (last_conn.line !== undefined ? last_conn.line : '');
+              }else if (cable.includes('ASLOT')){
+                const suff = cable.slice(5);
+                const detp = Array.isArray(last_conn.det_port) && last_conn.det_port.length ? last_conn.det_port[0] : '';
+                ret.HV = 'HV' + suff + (detp ? ('.' + detp) : '');
+              }
+            }
+          }catch(e){ /* ignore malformed entry */ }
+        }
+        return ret;
+      }catch(e){ return null; }
+    }
+
     function renderTable(){
       const tbody = document.querySelector('#modules-table tbody');
       tbody.innerHTML = '';
@@ -409,12 +448,14 @@
           posHtml = `<a href="#" class="pos-link" data-pos="${pos}">${pos}</a>`;
         }
         // connections column: link to connections page with bare query equal to moduleName
+        // we'll display endpoints (LV/HV/FC7) fetched from /snapshot when possible
         let connectionsHtml = connText || '';
         if (m && m.moduleName){
           const cm = encodeURIComponent(m.moduleName || '');
           const href = '/static/connections.html?' + cm;
           const safeName = (m.moduleName||'').replace(/"/g,'&quot;');
-          connectionsHtml = `<a class="connections-link" href="${href}" title="Show connections for ${safeName}">${connText || 'Connections'}</a>`;
+          // initial placeholder text; will be updated asynchronously with endpoints
+          connectionsHtml = `<a class="connections-link" href="${href}" title="Show connections for ${safeName}">` + (connText || 'Connections') + `</a>`;
         }
   const resultsUrl = 'https://cmstkita.web.cern.ch/Pisa/TBPS/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
   tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
@@ -431,6 +472,27 @@
           const link = tr.querySelector('.pos-link');
           if (link){
             link.addEventListener('click',(ev)=>{ ev.preventDefault(); ev.stopPropagation(); const p = link.getAttribute('data-pos'); window.location = '/static/storage.html?position=' + encodeURIComponent(p); });
+          }
+        },0);
+        // asynchronously fetch and render LV/HV/FC7 endpoints for crateSide (non-blocking)
+        setTimeout(()=>{
+          const anchor = tr.querySelector('.connections-link');
+          if (anchor && m && m.moduleName){
+            // call snapshot endpoint to compute endpoints
+            getModuleEndpoints(m.moduleName).then(ep => {
+              if (ep){
+                const parts = [];
+                if (ep.LV) parts.push(ep.LV);
+                if (ep.HV) parts.push(ep.HV);
+                if (ep.FC7) parts.push(ep.FC7);
+                if (parts.length>0){
+                  anchor.textContent = parts.join(', ');
+                } else {
+                  // no endpoints found -> keep existing text (connText or 'Connections')
+                  anchor.textContent = connText || 'Connections';
+                }
+              }
+            }).catch(err => { /* ignore and keep fallback text */ });
           }
         },0);
         tbody.appendChild(tr);
