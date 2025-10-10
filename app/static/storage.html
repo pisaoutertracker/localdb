@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Positions</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9; color: #333; margin: 0; padding: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .main-content {
+            flex-grow: 1;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 10px;
+            background-color: #eef;
+            border-radius: 8px;
+            width: 220px;
+        }
+        .control-panel .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-panel label {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .control-panel input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        .control-panel button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .control-panel button:hover { background-color: #0056b3; }
+        /* status message lives in the left sidebar now */
+        #statusMessage {
+            text-align: left;
+            margin: 0;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            visibility: hidden;
+            min-height: 36px;
+            align-self: stretch;
+        }
+        .status-success { background-color: #d4edda; color: #155724; visibility: visible; }
+        .status-error { background-color: #f8d7da; color: #721c24; visibility: visible; }
+        .status-info { background-color: #cce5ff; color: #004085; visibility: visible; }
+        .storage-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .storage {
+            border: 2px solid #b0b0b0; padding: 5px; border-radius: 5px;
+            background-color: #f0f0f0; display: flex; flex-direction: column; gap: 5px;
+        }
+        .storage h2 { margin: 0 0 10px 0; text-align: center; color: #333; }
+        .floor {
+            display: flex; gap: 5px; padding: 5px; border: 1px solid #ccc;
+            border-radius: 4px; background-color: #e9f5e9;
+        }
+        .box { flex: 1; }
+        .box-title { text-align: center; font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #555; }
+        .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; justify-items: center; }
+        .slot {
+            width: 90%; max-width: 30px; height: 8px;
+            background-color: #ddd; border: 1px solid #ccc; border-radius: 2px; cursor: pointer; transition: all 0.2s;
+        }
+        .slot.free { background-color: #5cb85c; border-color: #4cae4c; }
+        .slot.occupied { background-color: #d9534f; border-color: #d43f3a; }
+        .slot:hover { transform: scale(1.1); box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+        .slot.highlighted {
+            background-color: #f0ad4e; border: 2px solid #eea236;
+            transform: scale(1.2); box-shadow: 0 0 8px #f0ad4e;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <div class="form-group">
+            <label for="moduleName">Module Name</label>
+            <input type="text" id="moduleName" placeholder="Click a slot or find by name...">
+            <button id="findBtn">Find Module</button>
+        </div>
+        <div class="form-group">
+            <label for="positionInput">Position</label>
+            <input type="text" id="positionInput" placeholder="Click a slot to select...">
+            <button id="updateBtn">Update Position</button>
+        </div>
+        <div id="statusMessage"></div>
+    </div>
+    <div class="main-content">
+        <div class="storage-container" id="mainView"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_BASE_URL = `${window.location.origin}/modules`;
+//            const API_BASE_URL = 'http://cmslabserver:5000/modules';
+            const USE_MOCK_API = false;
+            const config = { storages: [1, 2], floors: 5, cols: ['A', 'B', 'C'], rows: 10 };
+
+            const mainView = document.getElementById('mainView');
+            const statusMessage = document.getElementById('statusMessage');
+            const moduleNameInput = document.getElementById('moduleName');
+            const positionInput = document.getElementById('positionInput');
+            const findBtn = document.getElementById('findBtn');
+            const updateBtn = document.getElementById('updateBtn');
+
+            let currentSelectedModule = null;
+            let originalPosition = null;
+            const positionToModuleMap = new Map();
+            const positionRegex = /^\d+;[\w\d]+;[A-Z]\d{1,2}$/;
+
+            const mockApiData = {
+                allModules: [
+                    { name: "PS_40_05_IBA-00001", position: "1;4L;A7" },
+                    { name: "PS_30_02_IBA-00055", position: "2;2L;B3" },
+                    { name: "PS_10_01_IBA-00123", position: "1;5R;C10" },
+                    { name: "TEMP_MODULE_A", position: "2;1R;A1"},
+                    { name: "ORPHAN-001", position: "In Repair" },
+                    { name: "UNPLACED-002", position: null }
+                ]
+            };
+            const mockApi = {
+                 get: async (url) => { if (url === API_BASE_URL) return mockApiData.allModules; const moduleName = url.split('/').pop(); const module = mockApiData.allModules.find(m => m.name === moduleName); if (module) return module; else throw new Error(`Mock: Module ${moduleName} not found.`); },
+                 put: async (url, payload) => { const moduleName = url.split('/').pop(); const module = mockApiData.allModules.find(m => m.name === moduleName); if (module) module.position = payload.position; else throw new Error(`Mock: Module ${moduleName} not found.`); }
+            };
+
+            // --- FULL FUNCTION DEFINITIONS ---
+
+            function generateUI() {
+                mainView.innerHTML = '';
+                config.storages.forEach(storageId => {
+                    const storageDiv = document.createElement('div');
+                    storageDiv.className = 'storage';
+                    storageDiv.innerHTML = `<h2>Storage ${storageId}</h2>`;
+                    for (let floorNum = 1; floorNum <= config.floors; floorNum++) {
+                        const floorDiv = document.createElement('div');
+                        floorDiv.className = 'floor';
+                        [`${floorNum}L`, `${floorNum}R`].forEach(boxId => {
+                            const boxDiv = document.createElement('div');
+                            boxDiv.className = 'box';
+                            boxDiv.innerHTML = `<div class="box-title">Box ${boxId}</div>`;
+                            const slotGridDiv = document.createElement('div');
+                            slotGridDiv.className = 'slot-grid';
+                            for (let row = 1; row <= config.rows; row++) {
+                                config.cols.forEach(col => {
+                                    const slotId = `${col}${row}`;
+                                    const slotDiv = document.createElement('div');
+                                    slotDiv.className = 'slot';
+                                    slotDiv.dataset.storage = storageId;
+                                    slotDiv.dataset.box = boxId;
+                                    slotDiv.dataset.slot = slotId;
+                                    slotDiv.title = `Position: ${storageId};${boxId};${slotId}`;
+                                    slotDiv.addEventListener('click', handleSlotClick);
+                                    slotGridDiv.appendChild(slotDiv);
+                                });
+                            }
+                            boxDiv.appendChild(slotGridDiv);
+                            floorDiv.appendChild(boxDiv);
+                        });
+                        storageDiv.appendChild(floorDiv);
+                    }
+                    mainView.appendChild(storageDiv);
+                });
+            }
+
+            function clearHighlight() {
+                const highlighted = document.querySelector('.slot.highlighted');
+                if (highlighted) highlighted.classList.remove('highlighted');
+            }
+            
+            function showStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = `status-${type}`;
+            }
+
+            function highlightPosition(positionString) {
+                clearHighlight();
+                const [storage, box, slot] = positionString.split(';');
+                const selector = `.slot[data-storage="${storage}"][data-box="${box}"][data-slot="${slot}"]`;
+                const element = document.querySelector(selector);
+                if (element) {
+                    element.classList.add('highlighted');
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return true;
+                } else {
+                    showStatus(`Position "${positionString}" does not exist in the layout.`, 'error');
+                    return false;
+                }
+            }
+
+            function updateAllSlotColors() {
+                document.querySelectorAll('.slot').forEach(slot => {
+                    const positionString = `${slot.dataset.storage};${slot.dataset.box};${slot.dataset.slot}`;
+                    slot.classList.remove('free', 'occupied');
+                    if (positionToModuleMap.has(positionString)) {
+                        slot.classList.add('occupied');
+                    } else {
+                        slot.classList.add('free');
+                    }
+                });
+            }
+
+            async function loadAndDisplayOccupancy() {
+                showStatus('Loading occupancy data...', 'info');
+                try {
+                    const allModules = USE_MOCK_API ? await mockApi.get(API_BASE_URL) : await (await fetch(API_BASE_URL)).json();
+                    positionToModuleMap.clear();
+                    allModules.forEach(module => {
+                        if (module.position && positionRegex.test(module.position)) {
+                            positionToModuleMap.set(module.position, module.name);
+                        }
+                    });
+                    updateAllSlotColors();
+                    showStatus('Occupancy data loaded. Click a slot to see details.', 'success');
+                } catch (error) {
+                    showStatus(`Error loading occupancy data: ${error.message}`, 'error');
+                }
+            }
+            
+            async function findModule() {
+                const moduleName = moduleNameInput.value.trim();
+                if (!moduleName) return showStatus('Please enter a module name to find.', 'error');
+                
+                clearHighlight();
+                showStatus(`Searching for module "${moduleName}"...`, 'info');
+                
+                try {
+                    const url = `${API_BASE_URL}/${moduleName}`;
+                    const data = USE_MOCK_API ? await mockApi.get(url) : await (await fetch(url)).json();
+                    
+                    if (data && data.position && positionRegex.test(data.position)) {
+                        highlightPosition(data.position);
+                        positionInput.value = data.position;
+                        currentSelectedModule = data.name;
+                        originalPosition = data.position;
+                        showStatus(`Found "${data.name}" at ${data.position}. To move it, click a free slot then 'Update Position'.`, 'success');
+                    } else {
+                        currentSelectedModule = data.name;
+                        originalPosition = null;
+                        positionInput.value = '';
+                        showStatus(`Module "${data.name}" found, but it is not in a storage slot.`, 'info');
+                    }
+                } catch (error) {
+                    showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async function confirmAndUpdatePosition() {
+                const moduleToMove = moduleNameInput.value.trim();
+                const newPosition = positionInput.value.trim();
+
+                if (!moduleToMove) return showStatus('No module selected to move. Find a module or click an occupied slot first.', 'error');
+                if (!positionRegex.test(newPosition)) return showStatus('Invalid destination position format.', 'error');
+                if (positionToModuleMap.has(newPosition) && positionToModuleMap.get(newPosition) !== moduleToMove) {
+                     return showStatus('Destination is already occupied by another module.', 'error');
+                }
+
+                if (highlightPosition(newPosition)) {
+                    setTimeout(() => {
+                        const confirmed = confirm(`Move module "${moduleToMove}" to the highlighted position "${newPosition}"?`);
+                        if (confirmed) {
+                            updateModulePositionInDb(moduleToMove, newPosition);
+                        } else {
+                            if (originalPosition) highlightPosition(originalPosition); else clearHighlight();
+                            showStatus('Update canceled.', 'info');
+                        }
+                    }, 100);
+                }
+            }
+
+            async function updateModulePositionInDb(moduleName, newPosition) {
+                 showStatus(`Updating "${moduleName}" to position ${newPosition}...`, 'info');
+                try {
+                    const url = `${API_BASE_URL}/${moduleName}`;
+                    const payload = { position: newPosition };
+                    if(USE_MOCK_API) {
+                        await mockApi.put(url, payload);
+                    } else {
+                        const response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        if (!response.ok) throw new Error(`Failed to update (HTTP ${response.status})`);
+                    }
+                    
+                    if (originalPosition) positionToModuleMap.delete(originalPosition);
+                    positionToModuleMap.set(newPosition, moduleName);
+                    updateAllSlotColors();
+
+                    originalPosition = newPosition;
+                    highlightPosition(newPosition);
+                    showStatus(`Successfully moved "${moduleName}" to ${newPosition}.`, 'success');
+
+                } catch (error) {
+                    showStatus(`Error updating position: ${error.message}`, 'error');
+                }
+            }
+
+            function handleSlotClick(event) {
+                const slot = event.currentTarget;
+                const { storage, box, slot: slotId } = slot.dataset;
+                const positionString = `${storage};${box};${slotId}`;
+
+                positionInput.value = positionString;
+                clearHighlight();
+                highlightPosition(positionString);
+
+                if (positionToModuleMap.has(positionString)) {
+                    const moduleName = positionToModuleMap.get(positionString);
+                    moduleNameInput.value = moduleName;
+                    currentSelectedModule = moduleName;
+                    originalPosition = positionString;
+                    showStatus(`Selected module "${moduleName}". To move, click a green slot and then 'Update Position'.`, 'info');
+                } else {
+                    if (currentSelectedModule) {
+                        showStatus(`Destination for "${currentSelectedModule}" set to ${positionString}. Click 'Update Position' to confirm.`, 'info');
+                    } else {
+                         moduleNameInput.value = '';
+                         showStatus(`Selected free slot ${positionString}.`, 'info');
+                    }
+                }
+            }
+
+            // --- INITIALIZATION ---
+            generateUI();
+            loadAndDisplayOccupancy();
+            findBtn.addEventListener('click', findModule);
+            updateBtn.addEventListener('click', confirmAndUpdatePosition);
+        });
+    </script>
+</body>
+</html>
