@@ -14,7 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
     <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
-<body style="margin-top:46px;">
+<body style="margin: 0; height: 100vh; overflow: hidden;">
     List of cables, modulus, crate objects to map (comma separated)
     <input type="text" id="slot"  placeholder="e.g. B1,B2" >
     <button id="submit" >Submit</button>
@@ -24,11 +24,98 @@
     <br> Single line details <input type="checkbox" id="singleLines" >
     <br>You can click to navigate
     <br><a href="/static/connect_cables.html">Connect</a> page
-    <div id="graph"></div>
+    <!-- <div>
+        <button id="zoom-in">+</button>
+        <button id="zoom-out">-</button>
+    </div> -->
+    <div id="graph-wrapper" style="width:100%; height:calc(100% - 46px); overflow:hidden; position:relative; top: 46px;">
+        <div id="graph" style="width:100%; height:100%; position: absolute; top: 0; left: 0;"></div>
+    </div>
+    <style>
+        /* Ensure that even if the SVG content resizes, the container width stays constant,
+             and overflow is automatically scaled down */
+        #graph svg {
+            width: 100%;
+            height: 100%;
+            /* Maintain aspect ratio and scale down if needed */
+            transform-origin: top left;
+            cursor: grab;
+        }
+        #graph-wrapper.panning #graph svg {
+            cursor: grabbing;
+        }
+    </style>
 
     <script>
         var dot = "graph {\n   splines=polyline;   rankdir=LR; \n";
         var singleLines = false;
+        var currentZoom = 1.0;
+        var panX = 0;
+        var panY = 0;
+
+        // $('#zoom-in').on('click', function() {
+        //     currentZoom += 0.1;
+        //     updateTransform();
+        // });
+
+        // $('#zoom-out').on('click', function() {
+        //     currentZoom = Math.max(0.1, currentZoom - 0.1);
+        //     updateTransform();
+        // });
+
+        function updateTransform() {
+            const graphElement = document.getElementById('graph');
+            if (graphElement) {
+                graphElement.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
+            }
+        }
+
+        // Panning logic
+        const graphWrapper = document.getElementById('graph-wrapper');
+        let isPanning = false;
+        let startX, startY;
+
+        graphWrapper.addEventListener('mousedown', function(e) {
+            // Don't pan if clicking on a node, edge, or any interactive element.
+            if (e.target.closest('.node, .edge, button, a, input')) {
+                return;
+            }
+            isPanning = true;
+            graphWrapper.classList.add('panning');
+            startX = e.pageX - panX;
+            startY = e.pageY - panY;
+        });
+
+        graphWrapper.addEventListener('mouseleave', function() {
+            isPanning = false;
+            graphWrapper.classList.remove('panning');
+        });
+
+        graphWrapper.addEventListener('mouseup', function() {
+            isPanning = false;
+            graphWrapper.classList.remove('panning');
+        });
+
+        graphWrapper.addEventListener('mousemove', function(e) {
+            if (!isPanning) return;
+            e.preventDefault();
+            panX = e.pageX - startX;
+            panY = e.pageY - startY;
+            updateTransform();
+        });
+
+        graphWrapper.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                // Zoom in
+                currentZoom += 0.1;
+            } else {
+                // Zoom out
+                currentZoom = Math.max(0.1, currentZoom - 0.1);
+            }
+            updateTransform();
+        });
+
         $('#slot').on('keypress', function(e) {
             if (e.which == 13) {
                 $('#submit').click();
@@ -232,6 +319,7 @@
                 .then(function(element) {
                     document.getElementById('graph').innerHTML = '';
                     document.getElementById('graph').appendChild(element);
+                    updateZoom();
                 })
                 .catch(error => {
                     viz = new Viz();
