@@ -22,6 +22,7 @@
     <button id="disconnect_crate_side" >Disconnect ALL Crate Side</button>
     <button id="disconnect_det_side" >Disconnect ALL Det Side</button>
     <br> Single line details <input type="checkbox" id="singleLines" >
+    <br> Use SVG artwork <input type="checkbox" id="useSVGArt" checked>
     <br>You can click to navigate
     <br><a href="/static/connect_cables.html">Connect</a> page
     <!-- <div>
@@ -163,6 +164,11 @@
             //trigger rendering again
             $('#submit').click();
         });
+        // Re-render when toggling SVG artwork on/off
+        $('#useSVGArt').change(function() {
+            // re-render to show either original polygons or SVG artwork
+            setTimeout(function() { $('#submit').click(); }, 10);
+        });
         function getFiberLink(slot, direction = "crate") {
             var ip = "192.168.0.45";
             var port = 5000;
@@ -295,9 +301,9 @@
                                 break;
                             case 'P':
 								if(c[1]!='S') {
-                                  style = '[shape = polygon,width=2,height=3,sides = 4,color = blue,style = filled,]\n';
+                                  style = '[shape = polygon,width=2.5,height=1.5,sides = 4,color = blue,style = filled,]\n';
                                 }else{
-                                  style = '[shape = polygon,width=2,height=0.5,sides = 4,color = yellow,style = filled,]\n';
+                                  style = '[shape = polygon,width=2,height=1.1,sides = 4,color = yellow,style = filled,]\n';
 								}
 								break;
                         }
@@ -318,8 +324,39 @@
             viz.renderSVGElement(dot)
                 .then(function(element) {
                     document.getElementById('graph').innerHTML = '';
-                    document.getElementById('graph').appendChild(element);
-                    updateZoom();
+                                        document.getElementById('graph').appendChild(element);
+                                        // After the graph is attached, replace any node that represents a "C" cable
+                                        // with the detailed MPO SVG artwork.
+                                        try {
+                                            // Only perform SVG artwork replacements when user enabled them
+                                            var useSVG = document.getElementById('useSVGArt');
+                                            var doSVG = useSVG ? useSVG.checked : true;
+                                            if (doSVG) {
+                                                try {
+                                                    replaceCNodes();
+                                                } catch (e) {
+                                                    console.error('replaceCNodes failed:', e);
+                                                }
+                                                try {
+                                                    replaceDNodes();
+                                                } catch (e) {
+                                                    console.error('replaceDNodes failed:', e);
+                                                }
+                                                try {
+                                                    replaceENodes();
+                                                } catch (e) {
+                                                    console.error('replaceENodes failed:', e);
+                                                }
+                                                try {
+                                                    replacePNodes();
+                                                } catch (e) {
+                                                    console.error('replacePNodes failed:', e);
+                                                }
+                                            }
+                                        } catch (e) {
+                                            console.error('replace nodes unexpected error:', e);
+                                        }
+                                        updateTransform();
                 })
                 .catch(error => {
                     viz = new Viz();
@@ -327,6 +364,963 @@
                     console.error(dot);
                 });
         }
+
+                // Inline SVG artwork to use for Cxxx cable nodes.
+                const mpoSvgString = `
+<svg width="800" height="150" viewBox="0 0 800 150" xmlns="http://www.w3.org/2000/svg">
+    <title>MPO Fiber Optic Cable</title>
+    <desc>A cartoon-style drawing of a fiber optic cable with MPO connectors on both ends.</desc>
+  
+    <style>
+        .connector-body { fill: #555; stroke: #222; stroke-width: 2; }
+        .connector-boot { fill: #333; stroke: #222; stroke-width: 2; }
+        .connector-latch { fill: #777; stroke: #222; stroke-width: 2; }
+        .ferrule { fill: #f0f0f0; stroke: #aaa; stroke-width: 1; }
+        .fiber-ribbon { fill: #00bcd4; /* Cyan */ }
+        .cable-break { stroke: #555; stroke-width: 3; stroke-dasharray: 8 8; stroke-linecap: round; }
+    </style>
+
+    <!-- Define the MPO Connector as a reusable group -->
+    <defs>
+        <g id="mpo-connector">
+            <!-- Boot / Strain Relief -->
+            <path class="connector-boot" d="M 100 55 C 120 55, 130 65, 150 70 L 150 80 C 130 85, 120 95, 100 95 Z" />
+      
+            <!-- Main Connector Body -->
+            <rect class="connector-body" x="10" y="45" width="90" height="60" rx="5" />
+      
+            <!-- Latch Mechanism -->
+            <rect class="connector-latch" x="25" y="35" width="70" height="15" rx="3" />
+            <rect class="connector-latch" x="50" y="30" width="20" height="5" rx="2" />
+      
+            <!-- Ferrule (the tip) -->
+            <rect class="ferrule" x="0" y="60" width="10" height="30" />
+            <!-- Alignment Key -->
+            <rect class="connector-body" x="2" y="55" width="6" height="5" />
+        </g>
+    </defs>
+
+    <!-- Left Side -->
+    <g id="left-side">
+        <use href="#mpo-connector" />
+        <rect class="fiber-ribbon" x="150" y="71" width="200" height="8" />
+    </g>
+
+    <!-- Middle Break Section -->
+    <line class="cable-break" x1="350" y1="75" x2="450" y2="75" />
+
+    <!-- Right Side (flipped and moved clone of the left side) -->
+    <g id="right-side" transform="translate(800, 0) scale(-1, 1)">
+        <use href="#mpo-connector" />
+        <rect class="fiber-ribbon" x="150" y="71" width="200" height="8" />
+    </g>
+
+</svg>
+`;
+
+                                // Inline SVG artwork for 'D' nodes (MPO -> 6x LC breakout)
+                                const mpoDsvgString = `
+<svg width="800" height="250" viewBox="0 0 800 250" xmlns="http://www.w3.org/2000/svg">
+    <title>MPO to 6x LC Breakout Cable</title>
+    <desc>A cartoon-style drawing of a fiber optic cable with an MPO connector on one end and a breakout to six light-brown LC connectors on the other.</desc>
+  
+    <style>
+        /* General Styles */
+        .cable-break { stroke: #555; stroke-width: 3; stroke-dasharray: 8 8; stroke-linecap: round; }
+    
+        /* MPO Connector Styles */
+        .mpo-body { fill: #555; stroke: #222; stroke-width: 2; }
+        .mpo-boot { fill: #333; stroke: #222; stroke-width: 2; }
+        .mpo-latch { fill: #777; stroke: #222; stroke-width: 2; }
+        .mpo-ferrule { fill: #f0f0f0; stroke: #aaa; stroke-width: 1; }
+        .fiber-ribbon { fill: #00bcd4; /* Cyan */ }
+
+        .breakout-module { fill: #444; stroke: #222; stroke-width: 2; }
+        .single-fiber { stroke: #00bcd4; stroke-width: 3; fill: none; }
+        .lc-body { fill: #C19A6B; /* Light Brown / Beige for Multimode */ stroke: #8D6E63; stroke-width: 1.5; }
+        .lc-boot { fill: #333; stroke: #222; stroke-width: 1.5; }
+        .lc-ferrule { fill: #fff; stroke: #bbb; stroke-width: 1; }
+    </style>
+
+    <!-- Define reusable connectors -->
+    <defs>
+        <!-- MPO Connector (Left Side) - Centered vertically at 125px -->
+        <g id="mpo-connector">
+            <path class="mpo-boot" d="M 100 105 C 120 105, 130 115, 150 120 L 150 130 C 130 135, 120 145, 100 145 Z" />
+            <rect class="mpo-body" x="10" y="95" width="90" height="60" rx="5" />
+            <rect class="mpo-latch" x="25" y="85" width="70" height="15" rx="3" />
+            <rect class="mpo-latch" x="50" y="80" width="20" height="5" rx="2" />
+            <rect class="mpo-ferrule" x="0" y="110" width="10" height="30" />
+            <rect class="mpo-body" x="2" y="105" width="6" height="5" />
+        </g>
+
+        <!-- LC Connector (for the breakout side) - Centered vertically at 125px -->
+        <g id="lc-connector">
+             <path class="lc-boot" d="M 780 115 L 760 120 L 760 130 L 780 135 Z" />
+             <rect class="lc-body" x="780" y="117.5" width="20" height="15" rx="2" />
+             <rect class="lc-ferrule" x="800" y="121.5" width="5" height="7" />
+        </g>
+    </defs>
+
+    <!-- === Left Side (MPO) === -->
+    <g id="left-side">
+        <use href="#mpo-connector" />
+        <rect class="fiber-ribbon" x="150" y="121" width="150" height="8" />
+    </g>
+
+    <!-- === Middle Break Section === -->
+    <line class="cable-break" x1="300" y1="125" x2="400" y2="125" />
+
+    <!-- === Right Side (Breakout to 6x LC) === -->
+    <g id="right-side">
+        <!-- Main ribbon leading to breakout -->
+        <rect class="fiber-ribbon" x="400" y="121" width="50" height="8" />
+    
+        <!-- Breakout Module -->
+        <rect class="breakout-module" x="450" y="110" width="20" height="30" rx="3" />
+    
+        <!-- Fanned-out single fibers -->
+        <path class="single-fiber" d="M 470 125 C 550 125, 650 50, 760 50" />
+        <path class="single-fiber" d="M 470 125 C 550 125, 650 80, 760 80" />
+        <path class="single-fiber" d="M 470 125 C 550 125, 650 110, 760 110" />
+        <path class="single-fiber" d="M 470 125 C 550 125, 650 140, 760 140" />
+        <path class="single-fiber" d="M 470 125 C 550 125, 650 170, 760 170" />
+        <path class="single-fiber" d="M 470 125 C 550 125, 650 200, 760 200" />
+
+        <!-- LC Connectors placed at the end of each fiber -->
+        <!-- We use a transform to move instances of the pre-defined LC connector -->
+        <g transform="translate(0, -75)"> <use href="#lc-connector" /> </g>
+        <g transform="translate(0, -45)"> <use href="#lc-connector" /> </g>
+        <g transform="translate(0, -15)"> <use href="#lc-connector" /> </g>
+        <g transform="translate(0, 15)">  <use href="#lc-connector" /> </g>
+        <g transform="translate(0, 45)">  <use href="#lc-connector" /> </g>
+        <g transform="translate(0, 75)">  <use href="#lc-connector" /> </g>
+    </g>
+</svg>
+
+`;
+
+                                                                // Inline SVG artwork for 'P' nodes (Patch Panel v2)
+                                                                const mpoPsvgString = `
+<svg width="800" height="420" viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg">
+    <title>Patch Panel v2</title>
+    <desc>A cartoon-style patch panel with LV connectors, blue LEDs, cylindrical HV connectors, and pin headers.</desc>
+  
+    <style>
+        .panel-body { fill: #ECEFF1; stroke: #546E7A; stroke-width: 3; }
+        .lv-connector-body { fill: #D7CCC8; stroke: #5D4037; stroke-width: 2; }
+        .connector-contact { fill: #757575; }
+        .hv-connector-body { fill: #EF9A9A; stroke: #C62828; stroke-width: 2; }
+        .hv-connector-face { fill: #E57373; stroke: #C62828; stroke-width: 2; }
+        .hv-barrel-contact { fill: none; stroke: #616161; stroke-width: 3; }
+        .hv-pin-contact { fill: #616161; }
+        .pin-header-body { fill: #212121; stroke: #000000; stroke-width: 2; }
+        .pin-contact { fill: #BDBDBD; }
+        .led-bezel { fill: #424242; }
+        .led-light-off { fill: #0D47A1; }
+        .led-light-on { fill: #40C4FF; }
+        .warning-symbol { fill: #FDD835; stroke: #F57F17; stroke-width: 1.5; stroke-linejoin: round; }
+    </style>
+
+    <defs>
+        <g id="lv-connector">
+            <rect class="lv-connector-body" x="0" y="0" width="60" height="40" rx="4" />
+            <rect class="connector-contact" x="12" y="10" width="8" height="8" rx="1" />
+            <rect class="connector-contact" x="26" y="10" width="8" height="8" rx="1" />
+            <rect class="connector-contact" x="40" y="10" width="8" height="8" rx="1" />
+            <rect class="connector-contact" x="12" y="22" width="8" height="8" rx="1" />
+            <rect class="connector-contact" x="26" y="22" width="8" height="8" rx="1" />
+            <rect class="connector-contact" x="40" y="22" width="8" height="8" rx="1" />
+        </g>
+        <g id="hv-connector">
+            <rect class="hv-connector-body" x="10" y="0" width="50" height="40" rx="4" />
+            <ellipse class="hv-connector-face" cx="10" cy="20" rx="10" ry="20" />
+            <circle class="hv-barrel-contact" cx="10" cy="20" r="10" />
+            <circle class="hv-pin-contact" cx="10" cy="20" r="4" />
+            <path class="warning-symbol" d="M 40 10 L 35 20 L 45 20 L 40 30 Z" />
+        </g>
+        <g id="status-led">
+            <circle class="led-bezel" cx="0" cy="0" r="8" />
+            <circle class="led-light-off" cx="0" cy="0" r="5" />
+        </g>
+        <g id="pin-header-connector">
+                <rect class="pin-header-body" x="0" y="0" width="140" height="50" rx="4" />
+                <g class="pin-contact">
+                    <rect x="10" y="12" width="4" height="8" /><rect x="20" y="12" width="4" height="8" />
+                    <rect x="30" y="12" width="4" height="8" /><rect x="40" y="12" width="4" height="8" />
+                    <rect x="50" y="12" width="4" height="8" /><rect x="60" y="12" width="4" height="8" />
+                    <rect x="70" y="12" width="4" height="8" /><rect x="80" y="12" width="4" height="8" />
+                    <rect x="90" y="12" width="4" height="8" /><rect x="100" y="12" width="4" height="8" />
+                    <rect x="110" y="12" width="4" height="8" /><rect x="120" y="12" width="4" height="8" /><rect x="130" y="12" width="4" height="8" />
+                    <rect x="10" y="30" width="4" height="8" /><rect x="20" y="30" width="4" height="8" />
+                    <rect x="30" y="30" width="4" height="8" /><rect x="40" y="30" width="4" height="8" />
+                    <rect x="50" y="30" width="4" height="8" /><rect x="60" y="30" width="4" height="8" />
+                    <rect x="70" y="30" width="4" height="8" /><rect x="80" y="30" width="4" height="8" />
+                    <rect x="90" y="30" width="4" height="8" /><rect x="100" y="30" width="4" height="8" />
+                    <rect x="110" y="30" width="4" height="8" /><rect x="120" y="30" width="4" height="8" /><rect x="130" y="30" width="4" height="8" />
+                </g>
+        </g>
+    </defs>
+
+    <rect class="panel-body" x="10" y="10" width="780" height="400" rx="10" />
+    <g id="lv-connector-grid">
+        <use href="#lv-connector" transform="translate(40, 60)" />
+        <use href="#lv-connector" transform="translate(130, 60)" />
+        <use href="#lv-connector" transform="translate(220, 60)" />
+        <use href="#lv-connector" transform="translate(40, 120)" />
+        <use href="#lv-connector" transform="translate(130, 120)" />
+        <use href="#lv-connector" transform="translate(220, 120)" />
+        <use href="#lv-connector" transform="translate(40, 180)" />
+        <use href="#lv-connector" transform="translate(130, 180)" />
+        <use href="#lv-connector" transform="translate(220, 180)" />
+    </g>
+    <g id="pin-headers">
+        <use href="#pin-header-connector" transform="translate(40, 310)" />
+        <use href="#pin-header-connector" transform="translate(190, 310)" />
+    </g>
+    <g id="led-column">
+        <use href="#status-led" transform="translate(390, 70)" />
+        <use href="#status-led" transform="translate(390, 95)" />
+        <use class="led-light-on" href="#status-led" transform="translate(390, 120)" />
+        <use href="#status-led" transform="translate(390, 145)" />
+        <use href="#status-led" transform="translate(390, 170)" />
+        <use class="led-light-on" href="#status-led" transform="translate(390, 195)" />
+        <use href="#status-led" transform="translate(390, 220)" />
+        <use href="#status-led" transform="translate(390, 245)" />
+        <use href="#status-led" transform="translate(390, 270)" />
+        <use href="#status-led" transform="translate(390, 295)" />
+        <use href="#status-led" transform="translate(390, 320)" />
+        <use href="#status-led" transform="translate(390, 345)" />
+    </g>
+    <g id="hv-connector-grid">
+        <use href="#hv-connector" transform="translate(480, 60)" /><use href="#hv-connector" transform="translate(570, 60)" /><use href="#hv-connector" transform="translate(660, 60)" />
+        <use href="#hv-connector" transform="translate(480, 120)" /><use href="#hv-connector" transform="translate(570, 120)" /><use href="#hv-connector" transform="translate(660, 120)" />
+        <use href="#hv-connector" transform="translate(480, 180)" /><use href="#hv-connector" transform="translate(570, 180)" /><use href="#hv-connector" transform="translate(660, 180)" />
+        <use href="#hv-connector" transform="translate(480, 240)" /><use href="#hv-connector" transform="translate(570, 240)" /><use href="#hv-connector" transform="translate(660, 240)" />
+    </g>
+
+</svg>
+
+`;
+
+                                // ...existing code... (replacePNodes implementation replaced by PS-aware version below)
+
+                                // Special artwork for nodes starting with "PS" (distinct from other P nodes)
+                                const mpoPSsvgString = `
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+  <title>Rotated Top-Down View of Device</title>
+  <desc>A top-down, cartoon-style representation of a device, rotated 90 degrees to be horizontal.</desc>
+
+  <style>
+    .main-body { fill: #FFA726; /* Orange */ stroke: #E65100; /* Dark Orange */ stroke-width: 3; }
+    .central-sensor { fill: #FFEE58; /* Yellow */ stroke: #FBC02D; stroke-width: 2; }
+    .side-pad { fill: #A1887F; /* Brownish */ stroke: #4E342E; stroke-width: 2; }
+    .top-block { fill: #BF360C; /* Dark Red/Brown */ stroke: #4E342E; stroke-width: 2; }
+    .bottom-electronics-base { fill: #78909C; /* Gray */ stroke: #37474F; stroke-width: 2; }
+    .bottom-pcb { fill: #66BB6A; /* Green */ stroke: #2E7D32; stroke-width: 2; }
+    .top-connectors { fill: #40C4FF; /* Light Blue */ stroke: #0091EA; stroke-width: 2; }
+  </style>
+
+  <defs>
+    <!-- Define a single side-pad to be reused -->
+    <rect id="side-pad" width="60" height="30" rx="4" class="side-pad" />
+  </defs>
+
+  <!-- Group all visual elements and apply a transform to rotate and reposition them -->
+  <g transform="translate(800, 0) rotate(90)">
+
+    <!-- Main Body / Frame -->
+    <!-- Using a path to create the shape with cut-off corners -->
+    <path class="main-body" d="M 50 20 L 450 20 L 480 50 L 480 750 L 450 780 L 50 780 L 20 750 L 20 50 Z" />
+
+    <!-- Top End Components -->
+    <g id="top-end">
+      <rect class="top-block" x="350" y="40" width="110" height="60" rx="5" />
+      <rect class="top-connectors" x="415" y="110" width="20" height="25" rx="3" />
+      <rect class="top-connectors" x="445" y="110" width="20" height="25" rx="3" />
+    </g>
+
+    <!-- Bottom End Components -->
+    <g id="bottom-end">
+      <rect class="bottom-electronics-base" x="120" y="700" width="100" height="60" rx="5" />
+      <rect class="bottom-pcb" x="230" y="700" width="50" height="60" rx="5" />
+    </g>
+
+    <!-- Side Pads (Left and Right Columns) -->
+    <g id="side-pad-columns">
+      <!-- Left Column -->
+      <use href="#side-pad" x="40" y="150" /><use href="#side-pad" x="40" y="190" /><use href="#side-pad" x="40" y="230" />
+      <use href="#side-pad" x="40" y="270" /><use href="#side-pad" x="40" y="310" /><use href="#side-pad" x="40" y="350" />
+      <use href="#side-pad" x="40" y="390" /><use href="#side-pad" x="40" y="430" /><use href="#side-pad" x="40" y="470" />
+      <use href="#side-pad" x="40" y="510" /><use href="#side-pad" x="40" y="550" /><use href="#side-pad" x="40" y="590" />
+      <use href="#side-pad" x="40" y="630" />
+      
+      <!-- Right Column -->
+      <use href="#side-pad" x="400" y="150" /><use href="#side-pad" x="400" y="190" /><use href="#side-pad" x="400" y="230" />
+      <use href="#side-pad" x="400" y="270" /><use href="#side-pad" x="400" y="310" /><use href="#side-pad" x="400" y="350" />
+      <use href="#side-pad" x="400" y="390" /><use href="#side-pad" x="400" y="430" /><use href="#side-pad" x="400" y="470" />
+      <use href="#side-pad" x="400" y="510" /><use href="#side-pad" x="400" y="550" /><use href="#side-pad" x="400" y="590" />
+      <use href="#side-pad" x="400" y="630" />
+    </g>
+
+    <!-- Central Yellow Sensor Area -->
+    <rect class="central-sensor" x="110" y="150" width="280" height="510" rx="5" />
+    
+  </g>
+</svg>
+`;
+
+// Modify replacePNodes to choose PS-specific artwork when title startsWith 'PS'
+function replacePNodes() {
+    var graphSvg = document.querySelector('#graph svg');
+    if (!graphSvg) return;
+
+    var parser = new DOMParser();
+    var nodes = graphSvg.querySelectorAll('g.node');
+    nodes.forEach(function(node) {
+        try {
+            var titleEl = node.querySelector('title');
+            if (!titleEl) return;
+            var title = (titleEl.textContent || '').trim();
+            if (title.length === 0) return;
+            if (title[0] !== 'P') return; // only Pxxx cables
+
+            // decide which SVG to use: PS-prefixed nodes get mpoPSsvgString
+            var usePS = title.toUpperCase().startsWith('PS');
+            var svgSource = usePS ? mpoPSsvgString : mpoPsvgString;
+
+            // parse per-node so we can namespace ids/styles per instance
+            var doc = parser.parseFromString(svgSource, 'image/svg+xml');
+            var mpoSvgEl = doc.documentElement;
+            var suffix = (usePS ? 'ps' : 'p') + Date.now() + '_' + Math.floor(Math.random()*10000);
+
+            // rename ids inside the parsed artwork
+            var allWithId = mpoSvgEl.querySelectorAll('[id]');
+            allWithId.forEach(function(el) {
+                try {
+                    var oldId = el.getAttribute('id');
+                    if (!oldId) return;
+                    var newId = oldId + '_' + suffix;
+                    el.setAttribute('id', newId);
+                } catch (e) {}
+            });
+
+            // Safe href/xlink handling
+            var hrefElems = [];
+            Array.from(mpoSvgEl.querySelectorAll('*')).forEach(function(el) {
+                try {
+                    if (el.hasAttribute && el.hasAttribute('href')) hrefElems.push({el: el, attr: 'href'});
+                    if (el.hasAttribute && el.hasAttribute('xlink:href')) hrefElems.push({el: el, attr: 'xlink:href'});
+                } catch (e) {}
+            });
+            hrefElems.forEach(function(item) {
+                try {
+                    var el = item.el;
+                    var attr = item.attr;
+                    var v = el.getAttribute(attr);
+                    if (v && v.indexOf('#') === 0) {
+                        el.setAttribute(attr, v + '_' + suffix);
+                    }
+                } catch (e) {}
+            });
+
+            // Scope styles
+            var styleEl = mpoSvgEl.querySelector('style');
+            var wrapperClass = undefined;
+            if (styleEl) {
+                var raw = styleEl.textContent || '';
+                wrapperClass = (usePS ? 'mpops-repl-' : 'mpop-repl-') + suffix;
+                var scoped = raw.replace(/(^|\})\s*([^\{\}]+)\{/g, function(_, sep, selector){
+                    var parts = selector.split(',').map(function(s){ return '.' + wrapperClass + ' ' + s.trim(); });
+                    return sep + ' ' + parts.join(', ') + ' {';
+                });
+                styleEl.textContent = scoped;
+            }
+
+            // Remove the default shape(s) (polygon/rect) so we can insert our artwork.
+            var shapes = node.querySelectorAll('polygon, rect, ellipse, path');
+            shapes.forEach(function(s) { if (s.parentNode === node) s.remove(); });
+
+            var bbox;
+            try { bbox = node.getBBox(); } catch (e) { bbox = { x:0, y:-10, width:100, height:24 }; }
+            var targetW = bbox.width || 100;
+            var targetH = bbox.height || 24;
+
+            var svgW = parseFloat(mpoSvgEl.getAttribute('width')) || 800;
+            var svgH = parseFloat(mpoSvgEl.getAttribute('height')) || 420;
+            var scale = Math.min(targetW / svgW, targetH / svgH);
+            if (!isFinite(scale) || scale <= 0) scale = 0.02;
+            scale = scale * 7.0; // baseline
+            scale = Math.min(Math.max(scale, 0.02), 10);
+
+            var wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            if (typeof wrapperClass !== 'undefined' && wrapperClass) wrapper.setAttribute('class', wrapperClass);
+            wrapper.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+            wrapper.setAttribute('width', svgW);
+            wrapper.setAttribute('height', svgH);
+
+            var transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            var offsetX = bbox.x + (targetW - svgW * scale) / 2;
+            var offsetY = bbox.y + (targetH - svgH * scale) / 2;
+            transformGroup.setAttribute('transform', `translate(${offsetX}, ${offsetY}) scale(${scale})`);
+            if (typeof wrapperClass !== 'undefined' && wrapperClass) transformGroup.setAttribute('class', wrapperClass);
+
+            // Add hit-rect
+            try {
+                var hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                hitRect.setAttribute('x', 0);
+                hitRect.setAttribute('y', 0);
+                hitRect.setAttribute('width', svgW);
+                hitRect.setAttribute('height', svgH);
+                hitRect.setAttribute('fill', 'transparent');
+                hitRect.setAttribute('pointer-events', 'all');
+                wrapper.appendChild(hitRect);
+            } catch (e) {}
+
+            // Nudge text
+            try {
+                var texts = node.querySelectorAll('text');
+                texts.forEach(function(t) {
+                    try {
+                        var y = t.getAttribute('y');
+                        if (y !== null) {
+                            var ny = parseFloat(y) + 12;
+                            if (isFinite(ny)) t.setAttribute('y', ny);
+                        } else {
+                            var tr = t.getAttribute('transform') || '';
+                            t.setAttribute('transform', 'translate(0,12) ' + tr);
+                        }
+                    } catch (e) {}
+                });
+            } catch (e) {}
+
+            Array.from(mpoSvgEl.childNodes).forEach(function(child) {
+                try {
+                    var imported = document.importNode(child, true);
+                    wrapper.appendChild(imported);
+                } catch (e) {}
+            });
+
+            transformGroup.appendChild(wrapper);
+            node.appendChild(transformGroup);
+            try {
+                var nodeTexts = node.querySelectorAll('text');
+                nodeTexts.forEach(function(t) { try { node.appendChild(t); } catch(e){} });
+            } catch (e) {}
+
+        } catch (nodeErr) {
+            console.warn('replacePNodes: failed on node', node, nodeErr);
+        }
+    });
+}
+
+
+                                // Replace rendered nodes whose title starts with 'D' with the breakout SVG.
+                                function replaceDNodes() {
+                                                var graphSvg = document.querySelector('#graph svg');
+                                                if (!graphSvg) return;
+
+                                    var parser = new DOMParser();
+                                    var doc = parser.parseFromString(mpoDsvgString, 'image/svg+xml');
+                                    var mpoSvgEl = doc.documentElement;
+                                    var suffix = 'd' + Date.now() + '_' + Math.floor(Math.random()*10000);
+                                    var allWithId = mpoSvgEl.querySelectorAll('[id]');
+                                    allWithId.forEach(function(el) {
+                                        var oldId = el.getAttribute('id');
+                                        var newId = oldId + '_' + suffix;
+                                        el.setAttribute('id', newId);
+                                    });
+                                    // Querying for selectors with colons can be invalid in some browsers.
+                                    // Instead iterate all elements and check attributes directly.
+                                    var hrefElems = [];
+                                    Array.from(mpoSvgEl.querySelectorAll('*')).forEach(function(el) {
+                                        if (el.hasAttribute && el.hasAttribute('href')) hrefElems.push({el: el, attr: 'href'});
+                                        if (el.hasAttribute && el.hasAttribute('xlink:href')) hrefElems.push({el: el, attr: 'xlink:href'});
+                                    });
+                                    hrefElems.forEach(function(item) {
+                                        try {
+                                            var el = item.el;
+                                            var attr = item.attr;
+                                            var v = el.getAttribute(attr);
+                                            if (v && v.indexOf('#') === 0) {
+                                                el.setAttribute(attr, v + '_' + suffix);
+                                            }
+                                        } catch (e) {
+                                            // ignore individual attribute errors
+                                        }
+                                    });
+                                    var styleEl = mpoSvgEl.querySelector('style');
+                                    if (styleEl) {
+                                        var raw = styleEl.textContent || '';
+                                        var wrapperClass = 'mpod-repl-' + suffix;
+                                        var scoped = raw.replace(/(^|\})\s*([^\{\}]+)\{/g, function(_, sep, selector){
+                                            var parts = selector.split(',').map(function(s){ return '.' + wrapperClass + ' ' + s.trim(); });
+                                            return sep + ' ' + parts.join(', ') + ' {';
+                                        });
+                                        styleEl.textContent = scoped;
+                                    }
+
+                                                // Iterate over graph nodes
+                                                var nodes = graphSvg.querySelectorAll('g.node');
+                                    nodes.forEach(function(node) {
+                                        try {
+                                            var titleEl = node.querySelector('title');
+                                            if (!titleEl) return;
+                                            var title = titleEl.textContent || '';
+                                            if (title.trim().length === 0) return;
+                                            if (title.trim()[0] !== 'D') return; // only Dxxx cables
+
+                                            // Remove the default shape(s) (polygon/rect) so we can insert our artwork.
+                                            var shapes = node.querySelectorAll('polygon, rect, ellipse, path');
+                                            shapes.forEach(function(s) {
+                                                    if (s.parentNode === node) s.remove();
+                                            });
+
+                                            var bbox;
+                                            try {
+                                                    bbox = node.getBBox();
+                                            } catch (e) {
+                                                    bbox = { x: 0, y: -10, width: 100, height: 24 };
+                                            }
+
+                                            var targetW = bbox.width || 100;
+                                            var targetH = bbox.height || 24;
+
+                                            var svgW = parseFloat(mpoSvgEl.getAttribute('width')) || 800;
+                                            var svgH = parseFloat(mpoSvgEl.getAttribute('height')) || 250;
+
+                                            var scale = Math.min(targetW / svgW, targetH / svgH);
+                                            if (!isFinite(scale) || scale <= 0) scale = 0.08;
+                                            // Make the artwork larger so it is visible and comparable to other node sizes
+                                            // user requested doubling D size then +20% -> apply 7x * 1.2 = 8.4 total multiplier
+                                            scale = scale * 8.4;
+                                            scale = Math.min(Math.max(scale, 0.02), 10);
+
+                                            // Use nested SVG for D artwork to isolate styles/defs
+                                            var wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                                            if (typeof wrapperClass !== 'undefined') wrapper.setAttribute('class', wrapperClass);
+                                            wrapper.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+                                            wrapper.setAttribute('width', svgW);
+                                            wrapper.setAttribute('height', svgH);
+
+                                            var transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                                            var offsetX = bbox.x + (targetW - svgW * scale) / 2;
+                                            var offsetY = bbox.y + (targetH - svgH * scale) / 2;
+                                            transformGroup.setAttribute('transform', `translate(${offsetX}, ${offsetY}) scale(${scale})`);
+
+                                            // Add an invisible hit-rect so the nested artwork receives pointer events
+                                            try {
+                                                var hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                                                hitRect.setAttribute('x', 0);
+                                                hitRect.setAttribute('y', 0);
+                                                hitRect.setAttribute('width', svgW);
+                                                hitRect.setAttribute('height', svgH);
+                                                hitRect.setAttribute('fill', 'transparent');
+                                                hitRect.setAttribute('pointer-events', 'all');
+                                                wrapper.appendChild(hitRect);
+                                            } catch (e) {}
+
+                                            // Nudge Graphviz-generated text elements for this node to avoid overlap
+                                            try {
+                                                var texts = node.querySelectorAll('text');
+                                                texts.forEach(function(t) {
+                                                    try {
+                                                        var y = t.getAttribute('y');
+                                                        if (y !== null) {
+                                                            var ny = parseFloat(y) + 12;
+                                                            if (isFinite(ny)) t.setAttribute('y', ny);
+                                                        } else {
+                                                            var tr = t.getAttribute('transform') || '';
+                                                            t.setAttribute('transform', ('translate(0,12) ' + tr).trim());
+                                                        }
+                                                    } catch (e) {}
+                                                });
+                                            } catch (e) {}
+
+                                            Array.from(mpoSvgEl.childNodes).forEach(function(child) {
+                                                var imported = document.importNode(child, true);
+                                                wrapper.appendChild(imported);
+                                            });
+
+                                            transformGroup.appendChild(wrapper);
+                                            node.appendChild(transformGroup);
+                                            try {
+                                                var nodeTexts = node.querySelectorAll('text');
+                                                nodeTexts.forEach(function(t) { try { node.appendChild(t); } catch(e){} });
+                                            } catch (e) {}
+                                        } catch (nodeErr) {
+                                            console.warn('replaceDNodes: failed on node', node, nodeErr);
+                                        }
+                                    });
+                                }
+
+                                // Inline SVG artwork for 'E' nodes (6x MPO to 1x MPO trunk)
+                                const mpoEsvgString = `
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+    <title>6x MPO to 1x MPO Trunk Cable</title>
+    <desc>A cartoon-style drawing of a fiber optic cable with six MPO connectors on the left fanning into a single MPO connector on the right.</desc>
+  
+    <style>
+        /* MPO Connector Styles */
+        .mpo-body { fill: #555; stroke: #222; stroke-width: 2; }
+        .mpo-boot { fill: #333; stroke: #222; stroke-width: 2; }
+        .mpo-latch { fill: #777; stroke: #222; stroke-width: 2; }
+        .mpo-ferrule { fill: #f0f0f0; stroke: #aaa; stroke-width: 1; }
+    
+        /* Cable Styles */
+        .fiber-ribbon { stroke: #00bcd4; /* Cyan */ stroke-width: 6; fill: none; }
+        .main-jacket { fill: #00bcd4; stroke: #222; stroke-width: 1; }
+        .breakout-module { fill: #444; stroke: #222; stroke-width: 2; }
+        .cable-break { stroke: #555; stroke-width: 16; stroke-dasharray: 15 15; stroke-linecap: round; }
+    </style>
+
+    <!-- Define the MPO Connector, centered vertically around y=0 for easy placement -->
+    <defs>
+        <g id="mpo-connector">
+            <!-- Boot / Strain Relief -->
+            <path class="mpo-boot" d="M 100 -25 C 120 -25, 130 -15, 150 -10 L 150 10 C 130 15, 120 25, 100 25 Z" />
+      
+            <!-- Main Connector Body -->
+            <rect class="mpo-body" x="10" y="-30" width="90" height="60" rx="5" />
+      
+            <!-- Latch Mechanism -->
+            <rect class="mpo-latch" x="25" y="-40" width="70" height="15" rx="3" />
+            <rect class="mpo-latch" x="50" y="-45" width="20" height="5" rx="2" />
+      
+            <!-- Ferrule (the tip) -->
+            <rect class="mpo-ferrule" x="0" y="-15" width="10" height="30" />
+            <!-- Alignment Key -->
+            <rect class="mpo-body" x="2" y="-20" width="6" height="5" />
+        </g>
+    </defs>
+
+    <!-- === Left Side (6x MPO Connectors) === -->
+    <g id="left-side">
+        <!-- Breakout Module where ribbons converge -->
+        <rect class="breakout-module" x="300" y="215" width="30" height="70" rx="5" />
+    
+        <!-- Ribbons from connectors to breakout module -->
+        <path class="fiber-ribbon" d="M 150 75 C 220 75, 250 250, 300 250" />
+        <path class="fiber-ribbon" d="M 150 145 C 230 145, 260 250, 300 250" />
+        <path class="fiber-ribbon" d="M 150 215 C 250 215, 270 250, 300 250" />
+        <path class="fiber-ribbon" d="M 150 285 C 270 285, 250 250, 300 250" />
+        <path class="fiber-ribbon" d="M 150 355 C 260 355, 230 250, 300 250" />
+        <path class="fiber-ribbon" d="M 150 425 C 250 425, 220 250, 300 250" />
+    
+        <!-- Stack of 6 MPO connectors -->
+        <g transform="translate(0, 75)">  <use href="#mpo-connector" /> </g>
+        <g transform="translate(0, 145)"> <use href="#mpo-connector" /> </g>
+        <g transform="translate(0, 215)"> <use href="#mpo-connector" /> </g>
+        <g transform="translate(0, 285)"> <use href="#mpo-connector" /> </g>
+        <g transform="translate(0, 355)"> <use href="#mpo-connector" /> </g>
+        <g transform="translate(0, 425)"> <use href="#mpo-connector" /> </g>
+    </g>
+  
+    <!-- === Middle Trunk Cable Section === -->
+    <g id="trunk-cable">
+        <!-- Main jacket from breakout module -->
+        <rect class="main-jacket" x="330" y="235" width="120" height="30" />
+        <!-- Dashed break line -->
+        <line class="cable-break" x1="450" y1="250" x2="550" y2="250" />
+        <!-- Main jacket leading to right connector -->
+        <rect class="main-jacket" x="550" y="235" width="100" height="30" />
+    </g>
+
+    <!-- === Right Side (1x MPO Connector) === -->
+    <!-- We flip the connector group horizontally and place it on the right edge -->
+    <g id="right-side" transform="translate(800, 250) scale(-1, 1)">
+        <use href="#mpo-connector" />
+    </g>
+
+</svg>
+
+`;
+
+                                // Replace rendered nodes whose title starts with 'E' with the trunk SVG.
+                                function replaceENodes() {
+                                                var graphSvg = document.querySelector('#graph svg');
+                                                if (!graphSvg) return;
+
+                                                var parser = new DOMParser();
+                                                var doc = parser.parseFromString(mpoEsvgString, 'image/svg+xml');
+                                                var mpoSvgEl = doc.documentElement;
+                                                var suffix = 'e' + Date.now() + '_' + Math.floor(Math.random()*10000);
+
+                                                var allWithId = mpoSvgEl.querySelectorAll('[id]');
+                                                allWithId.forEach(function(el) {
+                                                                var oldId = el.getAttribute('id');
+                                                                var newId = oldId + '_' + suffix;
+                                                                el.setAttribute('id', newId);
+                                                });
+
+                                                // Safe href/xlink handling
+                                                var hrefElems = [];
+                                                Array.from(mpoSvgEl.querySelectorAll('*')).forEach(function(el) {
+                                                        if (el.hasAttribute && el.hasAttribute('href')) hrefElems.push({el: el, attr: 'href'});
+                                                        if (el.hasAttribute && el.hasAttribute('xlink:href')) hrefElems.push({el: el, attr: 'xlink:href'});
+                                                });
+                                                hrefElems.forEach(function(item) {
+                                                        try {
+                                                                var el = item.el;
+                                                                var attr = item.attr;
+                                                                var v = el.getAttribute(attr);
+                                                                if (v && v.indexOf('#') === 0) {
+                                                                        el.setAttribute(attr, v + '_' + suffix);
+                                                                }
+                                                        } catch (e) {}
+                                                });
+
+                                    // Prepare a wrapper class name so we can scope styles and apply it to the nested svg
+                                    var wrapperClass = undefined;
+                                    var styleEl = mpoSvgEl.querySelector('style');
+                                    if (styleEl) {
+                                        var raw = styleEl.textContent || '';
+                                        wrapperClass = 'mpoe-repl-' + suffix;
+                                        var scoped = raw.replace(/(^|\})\s*([^\{\}]+)\{/g, function(_, sep, selector){
+                                            var parts = selector.split(',').map(function(s){ return '.' + wrapperClass + ' ' + s.trim(); });
+                                            return sep + ' ' + parts.join(', ') + ' {';
+                                        });
+                                        styleEl.textContent = scoped;
+                                    }
+
+                                                var nodes = graphSvg.querySelectorAll('g.node');
+                                                nodes.forEach(function(node) {
+                                                                try {
+                                                                                var titleEl = node.querySelector('title');
+                                                                                if (!titleEl) return;
+                                                                                var title = titleEl.textContent || '';
+                                                                                if (title.trim().length === 0) return;
+                                                                                if (title.trim()[0] !== 'E') return; // only Exxx cables
+
+                                                                                var shapes = node.querySelectorAll('polygon, rect, ellipse, path');
+                                                                                shapes.forEach(function(s) { if (s.parentNode === node) s.remove(); });
+
+                                                                                var bbox;
+                                                                                try { bbox = node.getBBox(); } catch (e) { bbox = { x:0, y:-10, width:100, height:24 }; }
+                                                                                var targetW = bbox.width || 100;
+                                                                                var targetH = bbox.height || 24;
+                                                                                var svgW = parseFloat(mpoSvgEl.getAttribute('width')) || 800;
+                                                                                var svgH = parseFloat(mpoSvgEl.getAttribute('height')) || 500;
+                                                                                var scale = Math.min(targetW / svgW, targetH / svgH);
+                                                                                if (!isFinite(scale) || scale <= 0) scale = 0.02;
+                                                                                // make E artwork larger, but shrink slightly per request (down 30%)
+                                                                                // previous multiplier was 8.0, 8.0 * 0.7 = 5.6
+                                                                                scale = Math.min(Math.max(scale * 5.6, 0.02), 10);
+
+                                                                                var wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                                                                                if (typeof wrapperClass !== 'undefined' && wrapperClass) wrapper.setAttribute('class', wrapperClass);
+                                                                                wrapper.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+                                                                                wrapper.setAttribute('width', svgW);
+                                                                                wrapper.setAttribute('height', svgH);
+
+                                                                                var transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                                                                                var offsetX = bbox.x + (targetW - svgW * scale) / 2;
+                                                                                var offsetY = bbox.y + (targetH - svgH * scale) / 2;
+                                                                                transformGroup.setAttribute('transform', `translate(${offsetX}, ${offsetY}) scale(${scale})`);
+                                                                                if (typeof wrapperClass !== 'undefined' && wrapperClass) transformGroup.setAttribute('class', wrapperClass);
+
+                                        // Add an invisible hit-rect so the nested artwork receives pointer events
+                                        try {
+                                            var hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                                            hitRect.setAttribute('x', 0);
+                                            hitRect.setAttribute('y', 0);
+                                            hitRect.setAttribute('width', svgW);
+                                            hitRect.setAttribute('height', svgH);
+                                            hitRect.setAttribute('fill', 'transparent');
+                                            hitRect.setAttribute('pointer-events', 'all');
+                                            wrapper.appendChild(hitRect);
+                                        } catch (e) {}
+
+                                        // Nudge Graphviz-generated text elements for this node to avoid overlap
+                                        try {
+                                            var texts = node.querySelectorAll('text');
+                                            texts.forEach(function(t) {
+                                                try {
+                                                    var y = t.getAttribute('y');
+                                                    if (y !== null) {
+                                                        var ny = parseFloat(y) + 12;
+                                                        if (isFinite(ny)) t.setAttribute('y', ny);
+                                                    } else {
+                                                        var tr = t.getAttribute('transform') || '';
+                                                        t.setAttribute('transform', ('translate(0,12) ' + tr).trim());
+                                                    }
+                                                } catch (e) {}
+                                            });
+                                        } catch (e) {}
+
+                                        Array.from(mpoSvgEl.childNodes).forEach(function(child) {
+                                            var imported = document.importNode(child, true);
+                                            wrapper.appendChild(imported);
+                                        });
+
+                                                                                transformGroup.appendChild(wrapper);
+                                                                                node.appendChild(transformGroup);
+                                                                                try {
+                                                                                    var nodeTexts = node.querySelectorAll('text');
+                                                                                    nodeTexts.forEach(function(t) { try { node.appendChild(t); } catch(e){} });
+                                                                                } catch (e) {}
+                                                                } catch (nodeErr) {
+                                                                                console.warn('replaceENodes: failed on node', node, nodeErr);
+                                                                }
+                                                });
+                                }
+
+                // Replace rendered nodes whose title starts with 'C' with the MPO SVG. This runs
+                // after the viz.js output is attached to the DOM.
+                function replaceCNodes() {
+                        var graphSvg = document.querySelector('#graph svg');
+                        if (!graphSvg) return;
+
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(mpoSvgString, 'image/svg+xml');
+                        var mpoSvgEl = doc.documentElement;
+
+                        // Create a unique suffix so that IDs and styles from this imported
+                        // SVG don't conflict with others in the same document.
+                        var suffix = 'c' + Date.now() + '_' + Math.floor(Math.random()*10000);
+                        // Rename ids inside the parsed SVG and update references
+                        var allWithId = mpoSvgEl.querySelectorAll('[id]');
+                        allWithId.forEach(function(el) {
+                            var oldId = el.getAttribute('id');
+                            var newId = oldId + '_' + suffix;
+                            el.setAttribute('id', newId);
+                        });
+                        // Update href/xlink:href references that point to defs/uses
+                        // Querying for selectors with colons can be invalid in some browsers.
+                        // Instead iterate all elements and check attributes directly.
+                        var hrefElems = [];
+                        Array.from(mpoSvgEl.querySelectorAll('*')).forEach(function(el) {
+                            if (el.hasAttribute && el.hasAttribute('href')) hrefElems.push({el: el, attr: 'href'});
+                            if (el.hasAttribute && el.hasAttribute('xlink:href')) hrefElems.push({el: el, attr: 'xlink:href'});
+                        });
+                        hrefElems.forEach(function(item) {
+                            try {
+                                var el = item.el;
+                                var attr = item.attr;
+                                var v = el.getAttribute(attr);
+                                if (v && v.indexOf('#') === 0) {
+                                    el.setAttribute(attr, v + '_' + suffix);
+                                }
+                            } catch (e) {
+                                // ignore individual attribute errors
+                            }
+                        });
+                        // Scope style rules by prefixing selectors with a unique wrapper class
+                        var styleEl = mpoSvgEl.querySelector('style');
+                        if (styleEl) {
+                            var raw = styleEl.textContent || '';
+                            // very small heuristic: prefix each selector block with the wrapper class
+                            var wrapperClass = 'mpo-repl-' + suffix;
+                            var scoped = raw.replace(/(^|\})\s*([^\{\}]+)\{/g, function(_, sep, selector){
+                                // Split selectors by comma and prefix each
+                                var parts = selector.split(',').map(function(s){ return '.' + wrapperClass + ' ' + s.trim(); });
+                                return sep + ' ' + parts.join(', ') + ' {';
+                            });
+                            styleEl.textContent = scoped;
+                        }
+
+                        // Iterate over graph nodes
+                        var nodes = graphSvg.querySelectorAll('g.node');
+            nodes.forEach(function(node) {
+                try {
+                    var titleEl = node.querySelector('title');
+                    if (!titleEl) return;
+                    var title = titleEl.textContent || '';
+                    if (title.trim().length === 0) return;
+                    if (title.trim()[0] !== 'C') return; // only Cxxx cables
+
+                    // Remove the default shape(s) (polygon/rect) so we can insert our artwork.
+                    var shapes = node.querySelectorAll('polygon, rect, ellipse, path');
+                    shapes.forEach(function(s) {
+                        // leave title and text elements intact; remove shapes only
+                        if (s.parentNode === node) s.remove();
+                    });
+
+                    // Determine the bounding box of the node to scale/position the MPO SVG.
+                    // Use getBBox on the node which may include text; that's fine for sizing.
+                    var bbox;
+                    try {
+                        bbox = node.getBBox();
+                    } catch (e) {
+                        // getBBox can fail if the node is not in the rendered tree; fallback to estimate
+                        bbox = { x: 0, y: -10, width: 100, height: 24 };
+                    }
+
+                    var targetW = bbox.width || 100;
+                    var targetH = bbox.height || 24;
+
+                    var svgW = parseFloat(mpoSvgEl.getAttribute('width')) || 800;
+                    var svgH = parseFloat(mpoSvgEl.getAttribute('height')) || 150;
+
+                    // Scale to fit while preserving aspect ratio
+                    var scale = Math.min(targetW / svgW, targetH / svgH);
+                    if (!isFinite(scale) || scale <= 0) scale = 0.08;
+                    // Make the artwork noticeably larger so it matches the previous visual width.
+                    // Previously used 7x total; increase by 20% per request: 7.0 * 1.2 = 8.4
+                    scale = scale * 8.4;
+                    // Keep scale within reasonable bounds
+                    scale = Math.min(Math.max(scale, 0.02), 10);
+
+                    // Use a nested <svg> so the imported <style> and <defs> remain scoped to this artwork
+                    var wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    if (typeof wrapperClass !== 'undefined') wrapper.setAttribute('class', wrapperClass);
+                    // set explicit viewBox so internal coordinates are preserved
+                    wrapper.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+                    wrapper.setAttribute('width', svgW);
+                    wrapper.setAttribute('height', svgH);
+
+                    // Position and scale the nested svg by wrapping it inside a <g> that applies transform.
+                    var transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    var offsetX = bbox.x + (targetW - svgW * scale) / 2;
+                    var offsetY = bbox.y + (targetH - svgH * scale) / 2;
+                    transformGroup.setAttribute('transform', `translate(${offsetX}, ${offsetY}) scale(${scale})`);
+
+                    // Add hit-rect to ensure pointer events reach the artwork
+                    try {
+                        var hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        hitRect.setAttribute('x', 0);
+                        hitRect.setAttribute('y', 0);
+                        hitRect.setAttribute('width', svgW);
+                        hitRect.setAttribute('height', svgH);
+                        hitRect.setAttribute('fill', 'transparent');
+                        hitRect.setAttribute('pointer-events', 'all');
+                        wrapper.appendChild(hitRect);
+                    } catch (e) {}
+
+                    // Nudge any text elements down to avoid overlap with the artwork
+                    try {
+                        var texts = node.querySelectorAll('text');
+                        texts.forEach(function(t) {
+                            try {
+                                var y = t.getAttribute('y');
+                                if (y !== null) {
+                                    var ny = parseFloat(y) + 12;
+                                    if (isFinite(ny)) t.setAttribute('y', ny);
+                                } else {
+                                    var tr = t.getAttribute('transform') || '';
+                                    t.setAttribute('transform', ('translate(0,12) ' + tr).trim());
+                                }
+                            } catch (e) {}
+                        });
+                    } catch (e) {}
+
+                    // Import children of the parsed SVG into the nested svg element.
+                    Array.from(mpoSvgEl.childNodes).forEach(function(child) {
+                        var imported = document.importNode(child, true);
+                        wrapper.appendChild(imported);
+                    });
+
+                    transformGroup.appendChild(wrapper);
+                    node.appendChild(transformGroup);
+                    try {
+                        var nodeTexts = node.querySelectorAll('text');
+                        nodeTexts.forEach(function(t) { try { node.appendChild(t); } catch(e){} });
+                    } catch (e) {}
+                } catch (nodeErr) {
+                    console.warn('replaceCNodes: failed on node', node, nodeErr);
+                }
+            });
+                }
         //we can use the disconnec_all_crateSide/detSide endpoints to disconnect all cables on one side
         $(document).on('click', '#disconnect_crate_side', function() {
             //ask confirmation listing the connections that will be removed
