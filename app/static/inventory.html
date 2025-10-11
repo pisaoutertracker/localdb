@@ -86,7 +86,7 @@
         <select id="filter-spacer"><option value="any">any</option></select>
       </label>
       <label>Status:
-        <select id="filter-status"><option value="any">any</option><option>MOUNTED</option><option>DISCONNECTED</option></select>
+        <select id="filter-status"><option value="any">any</option><option>MOUNTED</option><option>DISCONNECTED</option><option value="!MOUNTED">not MOUNTED</option></select>
       </label>
       <label>Search:
         <input id="search" placeholder="Search modules..." />
@@ -265,6 +265,28 @@
       return token + (map[token] ? (' ('+map[token]+')') : '');
     }
 
+    // Escape HTML for safe insertion into innerHTML
+    function escapeHtml(str){
+      if (str === undefined || str === null) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Extract a usable text value from possible object/string fields (local_logbook, details.DESCRIPTION, ...)
+    function extractTextField(val){
+      if (val === undefined || val === null) return '';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+      if (typeof val === 'object'){
+        // common pattern: { entry: '...' }
+        if (typeof val.entry === 'string') return val.entry;
+        if (typeof val.description === 'string') return val.description;
+        if (typeof val.DESC === 'string') return val.DESC;
+        // fallback: JSON stringify
+        try{ return JSON.stringify(val); }catch(e){ return String(val); }
+      }
+      return String(val);
+    }
+
     function populateFilters(){
       const layerSelect = $('filter-layer');
       layerSelect.innerHTML = '<option value="any">any</option>' + Object.keys(layers_to_filters).map(k=>`<option>${k}</option>`).join('');
@@ -402,7 +424,15 @@
         if (spacerF !== 'any' && spacerF){
           if ((spacerToken || '') !== spacerF) return;
         }
-        if (statusF !== 'any' && statusF && (m.status||'') !== statusF) return;
+        if (statusF !== 'any' && statusF){
+          // support negative filter like '!MOUNTED' meaning status !== 'MOUNTED'
+          if (statusF.startsWith('!')){
+            const want = statusF.slice(1);
+            if ((m.status||'') === want) return;
+          }else{
+            if ((m.status||'') !== statusF) return;
+          }
+        }
         filtered.push({ m, idx, spacerToken });
       });
 
@@ -462,13 +492,22 @@
           connectionsHtml = `<a class="connections-link" href="${href}" title="Show connections for ${safeName}">` + (connText || 'Connections') + `</a>`;
         }
   const resultsUrl = 'https://cmstkita.web.cern.ch/Pisa/TBPS/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
-  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${posHtml||''}</td><td>${m.description||''}</td><td>${m.mounted||''}</td>`;
+  // build description by concatenating details.DESCRIPTION (or details.Description) and local_logbook
+  const rawDetails = (m.details && (m.details.DESCRIPTION || m.details.Description)) || m['details.DESCRIPTION'] || m['details.Description'] || '';
+  const detailsText = extractTextField(rawDetails) || extractTextField(m.description);
+  const localLogText = extractTextField(m.local_logbook || '');
+  const descText = detailsText + (localLogText ? ('\n' + localLogText) : '');
+  const escDesc = escapeHtml(descText).replace(/\n/g,'<br>');
+  const editBtn = `<button class="small ghost edit-logbook" data-idx="${idx}">Edit note</button>`;
+  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
   // prevent the results link from triggering the row click selection
-  setTimeout(()=>{
+    setTimeout(()=>{
     const rl = tr.querySelector('.results-link');
     if (rl) rl.addEventListener('click', (ev)=>{ ev.stopPropagation(); });
     const cl = tr.querySelector('.connections-link');
     if (cl) cl.addEventListener('click', (ev)=>{ ev.stopPropagation(); });
+      const eb = tr.querySelector('.edit-logbook');
+      if (eb) eb.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i = Number(eb.getAttribute('data-idx')); openLogbookEditor(i); });
   },0);
         tr.addEventListener('click',()=>{ try{ selectModule(idx); highlightRow(idx); }catch(e){ console.error(e); } });
         // attach click handler for position link (stop propagation so row click isn't triggered)
@@ -526,6 +565,41 @@
       renderJsonTree(container, m || {}, false);
       isEditing = false;
       const editBtn = $('edit-selected'); if (editBtn) editBtn.textContent = 'Edit Selected';
+    }
+
+    // Prompt-based editor for per-module local_logbook. Updates modules[] and attempts server save if _id present.
+    async function openLogbookEditor(idx){
+      if (idx == null) return;
+      const m = modules[idx];
+      if (!m) return;
+      const current = extractTextField(m.local_logbook || '');
+      const newText = prompt('Edit local logbook for ' + (m.moduleName || 'module') + '\n(leave empty to remove)', current);
+      if (newText === null) return; // cancelled
+      // preserve object form where possible: if original was object, write back to .entry
+      if (m.local_logbook && typeof m.local_logbook === 'object'){
+        m.local_logbook.entry = newText;
+      }else{
+        m.local_logbook = newText;
+      }
+      // update view immediately
+      renderTable();
+      // if module has an identifier (prefer moduleName) try to persist change
+      if (m.moduleName || m._id){
+        try{
+          // send a partial update containing only the local_logbook field
+          const payload = {};
+          if (m.local_logbook && typeof m.local_logbook === 'object'){
+            // preserve object structure, update .entry
+            payload.local_logbook = { ...m.local_logbook };
+            payload.local_logbook.entry = newText;
+          }else{
+            payload.local_logbook = newText;
+          }
+          const idOrName = m.moduleName ? m.moduleName : m._id;
+          const res = await fetch('/modules/' + encodeURIComponent(idOrName), { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          if (!res.ok) throw new Error('Status '+res.status);
+        }catch(e){ alert('Save failed: '+e.message); }
+      }
     }
 
     function attachEvents(){
@@ -593,9 +667,11 @@
             renderTable();
           }catch(e){ return alert('Invalid JSON from tree editor: '+e.message); }
         }
-        if (!m._id){ return alert('Module has no _id — server-side save requires an identifier'); }
+        // prefer using moduleName as identifier for server-side saves; fallback to _id
+        const idOrName = m.moduleName ? m.moduleName : m._id;
+        if (!idOrName){ return alert('Module has no identifier (moduleName or _id) — server-side save requires an identifier'); }
         try{
-          const res = await fetch('/modules/' + encodeURIComponent(m._id), {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(m)});
+          const res = await fetch('/modules/' + encodeURIComponent(idOrName), {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(m)});
           if (!res.ok) throw new Error('Status '+res.status);
           alert('Saved');
           loadData();
@@ -612,7 +688,7 @@
     async function loadData(){
       try{
         // load only the minimal fields for the table to improve performance
-  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "Current Center": 1, CurrentCenter: 1, currentCenter: 1 };
+  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "Current Center": 1, CurrentCenter: 1, currentCenter: 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1 };
         const data = await postGenericQuery({}, tableFields);
         // expect an array — if wrapped, try to extract
         const tableRows = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);

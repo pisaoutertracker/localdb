@@ -27,7 +27,7 @@
     <div id="graph"></div>
 
     <script>
-        var dot = "graph {\n      rankdir=LR; \n";
+        var dot = "graph {\n   splines=polyline;   rankdir=LR; \n";
         var singleLines = false;
         $('#slot').on('keypress', function(e) {
             if (e.which == 13) {
@@ -71,7 +71,7 @@
         })();
         $('#singleLines').change(function() {
             singleLines = this.checked;
-            dot = "graph {\n      rankdir=LR; \n";
+            dot = "graph {\n   splines=polyline;   rankdir=LR; \n";
 
             //trigger rendering again
             $('#submit').click();
@@ -307,7 +307,7 @@
         });
 
         $('#submit').click(function() {
-           dot = "graph {\n      rankdir=LR; \n";
+           dot = "graph {\n  splines=polyline;    rankdir=LR; \n";
             var slot = $('#slot').val();
             //take comma separated list of slots
             var slots = slot.split(",");
