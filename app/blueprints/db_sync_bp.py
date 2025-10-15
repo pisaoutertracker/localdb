@@ -211,15 +211,19 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
                 
                 sync_status['modules_added'] = modules_added
                 
-                # Build status message
+                # Build status message with details about what was done
                 if num_new > 0 and num_updated > 0:
-                    sync_status['last_message'] = f'Sync completed: {num_new} new, {num_updated} updated at {datetime.now().isoformat()}'
+                    sync_status['last_message'] = f'✓ {num_new} new module(s) imported, {num_updated} existing module(s) updated (details and children fields)'
                 elif num_new > 0:
-                    sync_status['last_message'] = f'Sync completed: {num_new} new module(s) at {datetime.now().isoformat()}'
+                    sync_status['last_message'] = f'✓ {num_new} new module(s) imported to local DB'
                 elif num_updated > 0:
-                    sync_status['last_message'] = f'Sync completed: {num_updated} module(s) updated at {datetime.now().isoformat()}'
+                    sync_status['last_message'] = f'✓ 0 new modules imported, {num_updated} existing module(s) updated in local DB (details and children fields)'
                 else:
-                    sync_status['last_message'] = f'Sync completed at {datetime.now().isoformat()}'
+                    sync_status['last_message'] = f'✓ Sync completed, no changes needed'
+                
+                # Store counts for HTML display
+                sync_status['num_new'] = num_new
+                sync_status['num_updated'] = num_updated
                 
                 logging.info(f"Sync completed. New: {num_new}, Updated: {num_updated}")
             else:

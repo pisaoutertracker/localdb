@@ -404,25 +404,26 @@
                     
                     let messageHtml = status.last_message || '';
                     if (status.last_run) {
-                        messageHtml += ' (at ' + new Date(status.last_run).toLocaleString() + ')';
+                        messageHtml += '<br><small style="color: #6c757d;">Completed at ' + new Date(status.last_run).toLocaleString() + '</small>';
                     }
                     
-                    // Add modules list if available
+                    // Add modules list if available (only for NEW modules)
                     if (status.last_status === 'success' && status.modules_added && status.modules_added.length > 0) {
                         messageHtml += '<div class="modules-list">';
-                        messageHtml += '<h4>📦 Modules Added (' + status.modules_added.length + '):</h4>';
+                        messageHtml += '<h4>📦 New Modules Imported (' + status.modules_added.length + '):</h4>';
                         status.modules_added.forEach(function(module) {
                             messageHtml += '<div class="module-item">' + module + '</div>';
                         });
                         messageHtml += '</div>';
-                    } else if (status.last_status === 'success') {
-                        messageHtml += '<div style="margin-top: 10px; color: #28a745;">✓ All modules were already up to date. No new modules added.</div>';
                     }
                     
                     // Add button to show full output
-                    if (status.output) {
+                    if (status.output && status.last_status === 'success') {
                         messageHtml += '<button class="toggle-output" onclick="toggleOutput()">Show Full Output</button>';
                         messageHtml += '<div id="outputSection" class="output-section" style="display: none;"><pre>' + escapeHtml(status.output) + '</pre></div>';
+                    } else if (status.output && status.last_status === 'error') {
+                        // For errors, show output by default
+                        messageHtml += '<div class="output-section"><pre>' + escapeHtml(status.output) + '</pre></div>';
                     }
                     
                     statusMessage.innerHTML = messageHtml;
