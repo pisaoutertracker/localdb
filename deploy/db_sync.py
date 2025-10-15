@@ -196,6 +196,7 @@ def process_children(children, all_component_details):
     return processed
 
 def process_module(module, children_map, all_component_details, mongo_collection):
+    """Process a NEW module - creates full document with all fields"""
     module_id = module.get("SERIAL_NUMBER")
     if not module_id:
         logging.error(f"No SERIAL_NUMBER for module: {module}")
@@ -220,6 +221,65 @@ def process_module(module, children_map, all_component_details, mongo_collection
         logging.error(f"Validation error for module {module_id}: {e}")
         raise
 
+def update_existing_module(module, children_map, all_component_details, mongo_collection):
+    """Update an EXISTING module - only updates details and children fields"""
+    module_id = module.get("SERIAL_NUMBER")
+    if not module_id:
+        logging.error(f"No SERIAL_NUMBER for module: {module}")
+        return
+    
+    children = children_map.get(module["NAME_LABEL"], [])
+    
+    # Only update details and children, preserve all other fields
+    update_doc = {
+        "details": module,
+        "children": process_children(children, all_component_details)
+    }
+    
+    try:
+        # Validate the fields we're updating (create a minimal doc for validation)
+        validation_doc = {
+            "moduleName": module_id,
+            "details": module,
+            "children": process_children(children, all_component_details),
+            "type": "module",
+            "position": "cleanroom"
+        }
+        validate(instance=validation_doc, schema=module_schema)
+        
+        # Only update the specified fields, preserve everything else
+        mongo_collection.update_one(
+            {"moduleName": module_id},
+            {"$set": update_doc}
+        )
+    except ValidationError as e:
+        logging.error(f"Validation error for module {module_id}: {e}")
+        raise
+
+def get_modules_by_serial_numbers(serial_numbers):
+    """Get module details from central DB by serial numbers (for modules that may have moved)"""
+    if not serial_numbers:
+        return []
+    
+    # Split into batches if too many (SQL query length limit)
+    batch_size = 50
+    all_modules = []
+    
+    for i in range(0, len(serial_numbers), batch_size):
+        batch = serial_numbers[i:i+batch_size]
+        serials = "', '".join(batch)
+        command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.serial_number in ('{serials}')" --all --login -n"""
+        output = run_rhapi_command(command)
+        
+        if output and output.strip():
+            try:
+                modules = parse_csv_output(output)
+                all_modules.extend(modules)
+            except Exception as e:
+                logging.error(f"Failed to parse modules by serial numbers: {e}")
+    
+    return all_modules
+
 def main():
     # Add argument parsing
     parser = argparse.ArgumentParser(description='Sync module data from central to local DB')
@@ -232,34 +292,45 @@ def main():
     modules_collection = db["modules"]
     logging.info(f"Connected to MongoDB at {MONGO_URI} on database {DB_NAME}.")
     
-    # modules_collection.delete_many({})
+    # Step 1: Get modules from central DB by location/name
+    logging.info(f"STEP 1/5: Querying central DB for modules in location/pattern...")
+    central_modules_by_location = get_central_modules(by_name=args.by_name, location=args.location)
     
-    central_modules = get_central_modules(by_name=args.by_name, location=args.location)
-    
-    if not central_modules:
-        logging.error("No modules retrieved from central DB. Aborting sync.")
-        return
-    
+    # Step 2: Get all local modules
+    logging.info(f"STEP 2/5: Fetching all modules from local DB...")
     local_modules = get_local_modules(DB_NAME)
-
-    # print([local_module["moduleName"] for local_module in local_modules])
-
-    logging.info(f"Central DB has {len(central_modules)} modules.")
     logging.info(f"Local DB has {len(local_modules)} modules.")
     
+    # Step 3: Determine which modules to sync
     local_names = set(m["moduleName"] for m in local_modules)
-    # print("Modules in central we already have in local", [m["SERIAL_NUMBER"] for m in central_modules if m["SERIAL_NUMBER"] in local_names])
-    missing = [m for m in central_modules if m["SERIAL_NUMBER"] not in local_names]
-    logging.info(f"Missing modules: {len(missing)}")
-    logging.info([m["SERIAL_NUMBER"] for m in missing])
-    # restrict to a single module
-    # missing = [m for m in central_modules if m["SERIAL_NUMBER"] == "PS_16_10_IPG-00005"]
-    # logging.info([m["SERIAL_NUMBER"] for m in missing])
+    central_names_by_location = set(m["SERIAL_NUMBER"] for m in central_modules_by_location)
     
-    parent_labels = [m["NAME_LABEL"] for m in missing]
+    # Modules to import (new ones from location query)
+    missing = [m for m in central_modules_by_location if m["SERIAL_NUMBER"] not in local_names]
+    
+    # Modules to update (existing in local, need fresh data from central)
+    # Query central DB for ALL local modules (even if moved elsewhere)
+    logging.info(f"STEP 3/5: Querying central DB for existing local modules (including moved ones)...")
+    local_serials = list(local_names)
+    existing_modules_from_central = get_modules_by_serial_numbers(local_serials)
+    
+    logging.info(f"Central DB (by location) has {len(central_modules_by_location)} modules.")
+    logging.info(f"New modules to import: {len(missing)}")
+    logging.info(f"Existing modules to update: {len(existing_modules_from_central)}")
+    
+    if missing:
+        logging.info(f"New modules: {[m['SERIAL_NUMBER'] for m in missing]}")
+    
+    if not missing and not existing_modules_from_central:
+        logging.info("No modules to process. Sync completed.")
+        return
+    
+    # Step 4: Get children and component details for ALL modules (bulk query - efficient!)
+    # Combine both new and existing for a single bulk query
+    all_modules = missing + existing_modules_from_central
+    logging.info(f"STEP 4/5: Fetching children and component details from central DB for {len(all_modules)} modules...")
+    parent_labels = [m["NAME_LABEL"] for m in all_modules]
     children = get_children_of_modules(parent_labels)
-    # print(children)
-    
     all_details = get_all_component_details(children)
     
     # Organize children by parent
@@ -268,10 +339,27 @@ def main():
         parent = child["PARENT_NAME_LABEL"]
         children_map.setdefault(parent, []).append(child)
     
-    for module in missing:
-        process_module(module, children_map, all_details, modules_collection)
+    # Step 5: Process modules with progress tracking
+    total_to_process = len(missing) + len(existing_modules_from_central)
+    logging.info(f"STEP 5/5: Processing {total_to_process} modules ({len(missing)} new, {len(existing_modules_from_central)} updates)...")
     
-    logging.info("Sync completed.")
+    processed_count = 0
+    
+    # First, process NEW modules (full insert with all fields)
+    for i, module in enumerate(missing, 1):
+        module_id = module.get("SERIAL_NUMBER", "unknown")
+        logging.info(f"Progress: {i}/{total_to_process} - Importing NEW module {module_id}")
+        process_module(module, children_map, all_details, modules_collection)
+        processed_count += 1
+    
+    # Second, update EXISTING modules (only details and children fields)
+    for i, module in enumerate(existing_modules_from_central, len(missing) + 1):
+        module_id = module.get("SERIAL_NUMBER", "unknown")
+        logging.info(f"Progress: {i}/{total_to_process} - Updating EXISTING module {module_id}")
+        update_existing_module(module, children_map, all_details, modules_collection)
+        processed_count += 1
+    
+    logging.info(f"Sync completed successfully. Imported {len(missing)} new module(s), updated {len(existing_modules_from_central)} existing module(s).")
 
 if __name__ == "__main__":
     main()

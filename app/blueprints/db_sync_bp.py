@@ -16,7 +16,13 @@ sync_status = {
     'last_status': None,
     'last_message': None,
     'output': None,
-    'modules_added': []
+    'modules_added': [],
+    'progress': {
+        'current': 0,
+        'total': 0,
+        'step': '',
+        'current_module': ''
+    }
 }
 
 # Set up logging
@@ -105,14 +111,67 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
             
             logging.info(f"Running sync command: {' '.join(cmd)}")
             
-            # Run the sync script
-            result = subprocess.run(
+            # Run the sync script with real-time output parsing
+            process = subprocess.Popen(
                 cmd,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 env=env,
-                timeout=600  # 10 minute timeout
+                bufsize=1  # Line buffered
             )
+            
+            output_lines = []
+            # Read output line by line and update progress
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    output_lines.append(line)
+                    # Parse progress from lines like:
+                    # "Progress: 5/10 - Importing NEW module PS_26_IPG-10013"
+                    # "Progress: 5/10 - Updating EXISTING module PS_26_IPG-10013"
+                    if 'Progress:' in line:
+                        try:
+                            # Try to match with action (Importing/Updating)
+                            match = re.search(r'Progress: (\d+)/(\d+) - (Importing NEW|Updating EXISTING) module (.+)', line)
+                            if match:
+                                action = "Importing" if "Importing" in match.group(3) else "Updating"
+                                sync_status['progress'] = {
+                                    'current': int(match.group(1)),
+                                    'total': int(match.group(2)),
+                                    'current_module': match.group(4).strip(),
+                                    'action': action
+                                }
+                            else:
+                                # Fallback to old format
+                                match = re.search(r'Progress: (\d+)/(\d+) - Processing (.+)', line)
+                                if match:
+                                    sync_status['progress'] = {
+                                        'current': int(match.group(1)),
+                                        'total': int(match.group(2)),
+                                        'current_module': match.group(3).strip(),
+                                        'action': 'Processing'
+                                    }
+                        except:
+                            pass
+                    # Update step information
+                    elif 'STEP' in line:
+                        try:
+                            match = re.search(r'STEP (\d+/\d+): (.+)', line)
+                            if match:
+                                sync_status['progress']['step'] = f"Step {match.group(1)}: {match.group(2)}"
+                        except:
+                            pass
+            
+            process.wait(timeout=600)
+            stderr_output = process.stderr.read()
+            
+            # Combine output
+            result_stdout = ''.join(output_lines)
+            result = type('obj', (object,), {
+                'returncode': process.returncode,
+                'stdout': result_stdout,
+                'stderr': stderr_output
+            })
             
             if result.returncode == 0:
                 sync_status['last_status'] = 'success'
@@ -120,31 +179,49 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
                 
                 # Parse output to extract module information
                 modules_added = []
+                num_new = 0
+                num_updated = 0
                 lines = result.stdout.split('\n')
+                
                 for i, line in enumerate(lines):
-                    # Look for the line with "Missing modules:" (with or without INFO: prefix)
-                    if 'Missing modules:' in line and i + 1 < len(lines):
-                        # The next line should contain the list of modules
+                    # Look for "New modules:" to get the list of added modules
+                    if 'New modules:' in line and i + 1 < len(lines):
                         try:
                             next_line = lines[i + 1]
-                            # Handle both plain list and INFO: prefixed list
                             if 'INFO:' in next_line:
-                                # Extract the part after INFO:root: or similar
                                 list_part = next_line.split('INFO:', 1)[-1]
                                 if ':' in list_part:
                                     list_part = list_part.split(':', 1)[-1]
                                 modules_added = re.findall(r"'([^']+)'", list_part.strip())
                             elif next_line.strip().startswith('['):
-                                # Direct list format
                                 modules_added = re.findall(r"'([^']+)'", next_line)
                         except Exception as e:
-                            logging.warning(f"Failed to parse module list: {e}")
-                        break
+                            logging.warning(f"Failed to parse new modules list: {e}")
+                    
+                    # Look for the final summary line:
+                    # "Sync completed successfully. Imported X new module(s), updated Y existing module(s)."
+                    if 'Imported' in line and 'updated' in line:
+                        try:
+                            match = re.search(r'Imported (\d+) new module\(s\), updated (\d+) existing module\(s\)', line)
+                            if match:
+                                num_new = int(match.group(1))
+                                num_updated = int(match.group(2))
+                        except Exception as e:
+                            logging.warning(f"Failed to parse sync summary: {e}")
                 
                 sync_status['modules_added'] = modules_added
-                num_modules = len(modules_added)
-                sync_status['last_message'] = f'Sync completed successfully. Added {num_modules} module(s) at {datetime.now().isoformat()}'
-                logging.info(f"Sync completed successfully. Added {num_modules} modules. Output: {result.stdout}")
+                
+                # Build status message
+                if num_new > 0 and num_updated > 0:
+                    sync_status['last_message'] = f'Sync completed: {num_new} new, {num_updated} updated at {datetime.now().isoformat()}'
+                elif num_new > 0:
+                    sync_status['last_message'] = f'Sync completed: {num_new} new module(s) at {datetime.now().isoformat()}'
+                elif num_updated > 0:
+                    sync_status['last_message'] = f'Sync completed: {num_updated} module(s) updated at {datetime.now().isoformat()}'
+                else:
+                    sync_status['last_message'] = f'Sync completed at {datetime.now().isoformat()}'
+                
+                logging.info(f"Sync completed. New: {num_new}, Updated: {num_updated}")
             else:
                 sync_status['last_status'] = 'error'
                 sync_status['last_message'] = f'Sync failed: {result.stderr}'
