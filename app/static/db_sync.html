@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Database Sync - TBPS Pisa Local DB</title>
+    <link rel="stylesheet" href="/static/nav.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body{font-family: Arial, sans-serif; background-color:#f4f4f9;margin:0;padding:0}
+        .container{max-width: 800px; margin: 24px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); border-radius: 8px;}
+        h1{text-align: center; color: #333;}
+        .sync-section{margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px;}
+        .sync-button{
+            padding: 12px 24px;
+            background: #0b5ed7;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 700;
+            box-shadow: 0 4px 10px rgba(11, 94, 215, 0.3);
+            transition: all 0.2s;
+        }
+        .sync-button:hover:not(:disabled){
+            background: #0a52c0;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(11, 94, 215, 0.4);
+        }
+        .sync-button:disabled{
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status-box{
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            border-left: 4px solid #0b5ed7;
+        }
+        .status-running{border-left-color: #ffc107;}
+        .status-success{border-left-color: #28a745;}
+        .status-error{border-left-color: #dc3545;}
+        .status-label{font-weight: 700; margin-bottom: 5px;}
+        .status-message{color: #555;}
+        .loading-spinner{
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0b5ed7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .options{margin: 20px 0;}
+        .option-group{margin: 10px 0;}
+        label{display: inline-block; margin-right: 10px; font-weight: 600;}
+        input[type="text"]{
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        input[type="checkbox"]{
+            margin-right: 5px;
+        }
+        .home-link{
+            display: inline-block;
+            margin: 20px 0;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            color: #0b5ed7;
+            text-decoration: none;
+            border-radius: 4px;
+            border: 1px solid #0b5ed7;
+            transition: all 0.2s;
+        }
+        .home-link:hover{
+            background: #0b5ed7;
+            color: white;
+        }
+        .db-banner{
+            margin: 20px 0;
+            padding: 15px 20px;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            font-weight: 600;
+            color: #856404;
+        }
+        .db-banner .db-name{
+            color: #d63384;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        .confirmation-dialog{
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .confirmation-content{
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .confirmation-content h3{
+            margin-top: 0;
+            color: #d63384;
+        }
+        .confirmation-content p{
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+        .confirmation-buttons{
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        .btn{
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-confirm{
+            background: #d63384;
+            color: white;
+        }
+        .btn-confirm:hover{
+            background: #b02a6d;
+        }
+        .btn-cancel{
+            background: #6c757d;
+            color: white;
+        }
+        .btn-cancel:hover{
+            background: #5a6268;
+        }
+        .warning-icon{
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .modules-list{
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        .modules-list h4{
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #0b5ed7;
+        }
+        .module-item{
+            padding: 5px 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #28a745;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .output-section{
+            margin-top: 15px;
+            padding: 10px;
+            background: #f1f3f5;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .output-section pre{
+            margin: 0;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .toggle-output{
+            margin-top: 10px;
+            padding: 6px 12px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toggle-output:hover{
+            background: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="home-link">← Back to Home</a>
+        <h1>Database Synchronization</h1>
+        
+        <div class="db-banner">
+            ⚠️ Target Database: <span class="db-name" id="dbName">Loading...</span>
+        </div>
+        
+        <div class="sync-section">
+            <h2>Sync Remote DB to Local DB</h2>
+            <p>This operation will synchronize module data from the remote central database to the local database. 
+               Only one sync operation can run at a time.</p>
+            
+            <div class="options">
+                <div class="option-group">
+                    <label>
+                        <input type="checkbox" id="byNameCheck">
+                        Query by name pattern (IBA/IPG) instead of location
+                    </label>
+                </div>
+                <div class="option-group">
+                    <label for="locationInput">Location:</label>
+                    <input type="text" id="locationInput" value="Pisa" placeholder="Enter location">
+                </div>
+            </div>
+            
+            <button id="syncButton" class="sync-button" onclick="triggerSync()">
+                Start Synchronization
+            </button>
+            
+            <div id="statusBox" class="status-box" style="display: none;">
+                <div class="status-label" id="statusLabel">Status</div>
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div id="confirmationDialog" class="confirmation-dialog">
+        <div class="confirmation-content">
+            <div class="warning-icon">⚠️</div>
+            <h3>Confirm Synchronization</h3>
+            <p>You are about to sync data from the remote database to:</p>
+            <p style="text-align: center; font-size: 18px;"><strong>Database: <span style="color: #d63384;" id="confirmDbName"></span></strong></p>
+            <p style="text-align: center; font-size: 16px;"><strong>Location: <span style="color: #0b5ed7;" id="confirmLocation"></span></strong></p>
+            <p style="margin-top: 20px; font-size: 14px; color: #666;">This operation may take several minutes. Are you sure you want to continue?</p>
+            <div class="confirmation-buttons">
+                <button class="btn btn-cancel" onclick="cancelSync()">Cancel</button>
+                <button class="btn btn-confirm" onclick="confirmSync()">Yes, Start Sync</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let statusCheckInterval = null;
+        let currentDbName = '';
+
+        // Check status on page load
+        window.addEventListener('load', function() {
+            fetchDbName();
+            checkStatus();
+        });
+
+        function fetchDbName() {
+            fetch('/db_sync/db_info')
+                .then(response => response.json())
+                .then(data => {
+                    currentDbName = data.db_name;
+                    document.getElementById('dbName').textContent = currentDbName;
+                })
+                .catch(error => {
+                    console.error('Error fetching DB name:', error);
+                    document.getElementById('dbName').textContent = 'Unknown';
+                });
+        }
+
+        function checkStatus() {
+            fetch('/db_sync/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatusDisplay(data);
+                    
+                    // If sync is running, keep checking status
+                    if (data.is_running && !statusCheckInterval) {
+                        statusCheckInterval = setInterval(checkStatus, 2000);
+                    } else if (!data.is_running && statusCheckInterval) {
+                        clearInterval(statusCheckInterval);
+                        statusCheckInterval = null;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                });
+        }
+
+        function updateStatusDisplay(status) {
+            const statusBox = document.getElementById('statusBox');
+            const statusLabel = document.getElementById('statusLabel');
+            const statusMessage = document.getElementById('statusMessage');
+            const syncButton = document.getElementById('syncButton');
+
+            if (status.last_status) {
+                statusBox.style.display = 'block';
+                statusBox.className = 'status-box status-' + status.last_status;
+                
+                if (status.is_running) {
+                    statusLabel.innerHTML = '<span class="loading-spinner"></span>Synchronization in Progress';
+                    statusMessage.innerHTML = status.last_message || 'Sync operation is running...';
+                    syncButton.disabled = true;
+                    syncButton.textContent = 'Sync in Progress...';
+                } else {
+                    statusLabel.textContent = status.last_status === 'success' ? 'Last Sync: Success' : 'Last Sync: Failed';
+                    
+                    let messageHtml = status.last_message || '';
+                    if (status.last_run) {
+                        messageHtml += ' (at ' + new Date(status.last_run).toLocaleString() + ')';
+                    }
+                    
+                    // Add modules list if available
+                    if (status.last_status === 'success' && status.modules_added && status.modules_added.length > 0) {
+                        messageHtml += '<div class="modules-list">';
+                        messageHtml += '<h4>📦 Modules Added (' + status.modules_added.length + '):</h4>';
+                        status.modules_added.forEach(function(module) {
+                            messageHtml += '<div class="module-item">' + module + '</div>';
+                        });
+                        messageHtml += '</div>';
+                    } else if (status.last_status === 'success') {
+                        messageHtml += '<div style="margin-top: 10px; color: #28a745;">✓ All modules were already up to date. No new modules added.</div>';
+                    }
+                    
+                    // Add button to show full output
+                    if (status.output) {
+                        messageHtml += '<button class="toggle-output" onclick="toggleOutput()">Show Full Output</button>';
+                        messageHtml += '<div id="outputSection" class="output-section" style="display: none;"><pre>' + escapeHtml(status.output) + '</pre></div>';
+                    }
+                    
+                    statusMessage.innerHTML = messageHtml;
+                    syncButton.disabled = false;
+                    syncButton.textContent = 'Start Synchronization';
+                }
+            } else {
+                statusBox.style.display = 'none';
+                syncButton.disabled = false;
+                syncButton.textContent = 'Start Synchronization';
+            }
+        }
+        
+        function toggleOutput() {
+            const outputSection = document.getElementById('outputSection');
+            const button = event.target;
+            if (outputSection.style.display === 'none') {
+                outputSection.style.display = 'block';
+                button.textContent = 'Hide Full Output';
+            } else {
+                outputSection.style.display = 'none';
+                button.textContent = 'Show Full Output';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function triggerSync() {
+            const byName = document.getElementById('byNameCheck').checked;
+            const location = document.getElementById('locationInput').value || 'Pisa';
+            
+            // Show confirmation dialog
+            document.getElementById('confirmDbName').textContent = currentDbName;
+            document.getElementById('confirmLocation').textContent = location + (byName ? ' (by name pattern IBA/IPG)' : '');
+            document.getElementById('confirmationDialog').style.display = 'flex';
+        }
+
+        function cancelSync() {
+            document.getElementById('confirmationDialog').style.display = 'none';
+        }
+
+        function confirmSync() {
+            document.getElementById('confirmationDialog').style.display = 'none';
+            
+            const byName = document.getElementById('byNameCheck').checked;
+            const location = document.getElementById('locationInput').value || 'Pisa';
+            const syncButton = document.getElementById('syncButton');
+
+            syncButton.disabled = true;
+            syncButton.textContent = 'Starting...';
+
+            fetch('/db_sync/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    by_name: byName,
+                    location: location
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    syncButton.disabled = false;
+                    syncButton.textContent = 'Start Synchronization';
+                } else {
+                    // Start checking status
+                    if (!statusCheckInterval) {
+                        statusCheckInterval = setInterval(checkStatus, 2000);
+                    }
+                    checkStatus();
+                }
+            })
+            .catch(error => {
+                console.error('Error triggering sync:', error);
+                alert('Error triggering sync: ' + error);
+                syncButton.disabled = false;
+                syncButton.textContent = 'Start Synchronization';
+            });
+        }
+    </script>
+</body>
+</html>

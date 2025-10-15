@@ -37,7 +37,7 @@ from .resources import (
     module_test_analysis,
     IV_scans,
 )
-from .blueprints import add_run_bp, logbook_bp, cables_bp, add_analysis_bp, webgui_bp, TBPS_blueprints
+from .blueprints import add_run_bp, logbook_bp, cables_bp, add_analysis_bp, webgui_bp, TBPS_blueprints, db_sync_bp
 from resources.burnin_cycles import BurninCyclesResource
 
 
@@ -114,6 +114,7 @@ def create_app(config_name):
     app.register_blueprint(add_analysis_bp.bp)
     app.register_blueprint(webgui_bp.bp)
     app.register_blueprint(TBPS_blueprints.bp)
+    app.register_blueprint(db_sync_bp.bp)
     
     # flask-pymongo blueprint for generic mongodb queries on modules
     @app.route("/generic_module_query", methods=['POST'])
