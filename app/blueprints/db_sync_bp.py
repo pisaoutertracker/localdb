@@ -122,15 +122,23 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
                 modules_added = []
                 lines = result.stdout.split('\n')
                 for i, line in enumerate(lines):
+                    # Look for the line with "Missing modules:" (with or without INFO: prefix)
                     if 'Missing modules:' in line and i + 1 < len(lines):
-                        # Try to parse the next line as a list of modules
+                        # The next line should contain the list of modules
                         try:
                             next_line = lines[i + 1]
-                            if next_line.strip().startswith('['):
-                                # Extract module names from the list
+                            # Handle both plain list and INFO: prefixed list
+                            if 'INFO:' in next_line:
+                                # Extract the part after INFO:root: or similar
+                                list_part = next_line.split('INFO:', 1)[-1]
+                                if ':' in list_part:
+                                    list_part = list_part.split(':', 1)[-1]
+                                modules_added = re.findall(r"'([^']+)'", list_part.strip())
+                            elif next_line.strip().startswith('['):
+                                # Direct list format
                                 modules_added = re.findall(r"'([^']+)'", next_line)
-                        except:
-                            pass
+                        except Exception as e:
+                            logging.warning(f"Failed to parse module list: {e}")
                         break
                 
                 sync_status['modules_added'] = modules_added

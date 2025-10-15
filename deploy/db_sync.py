@@ -50,7 +50,25 @@ def get_central_modules(by_name=False, location="Pisa"):
     else:
         command = f"""python3 rhapi.py --url=https://cmsdca.cern.ch/trk_rhapi "select * from trker_cmsr.p9020 p where p.location LIKE 'IT-{location}[INFN {location}]'" --all --login -n"""
     output = run_rhapi_command(command)
-    return parse_csv_output(output)
+    
+    if not output or not output.strip():
+        logging.error(f"No output received from central DB query. Command: {command}")
+        return []
+    
+    try:
+        modules = parse_csv_output(output)
+        # Validate that we got actual module data
+        if modules and len(modules) > 0:
+            # Check if the first module has expected fields
+            first_module = modules[0]
+            if 'SERIAL_NUMBER' not in first_module or not first_module.get('SERIAL_NUMBER'):
+                logging.error(f"Invalid module data received. First row: {first_module}")
+                return []
+        return modules
+    except Exception as e:
+        logging.error(f"Failed to parse central DB output: {e}")
+        logging.error(f"Output was: {output[:500]}")  # Log first 500 chars
+        return []
 
 def get_local_modules(db_name):
     if db_name == "prod_db":
@@ -217,15 +235,20 @@ def main():
     # modules_collection.delete_many({})
     
     central_modules = get_central_modules(by_name=args.by_name, location=args.location)
+    
+    if not central_modules:
+        logging.error("No modules retrieved from central DB. Aborting sync.")
+        return
+    
     local_modules = get_local_modules(DB_NAME)
-    
-    # print(local_modules)
-    
+
+    # print([local_module["moduleName"] for local_module in local_modules])
+
     logging.info(f"Central DB has {len(central_modules)} modules.")
     logging.info(f"Local DB has {len(local_modules)} modules.")
     
     local_names = set(m["moduleName"] for m in local_modules)
-    print([m["SERIAL_NUMBER"] for m in central_modules if m["SERIAL_NUMBER"] in local_names])
+    # print("Modules in central we already have in local", [m["SERIAL_NUMBER"] for m in central_modules if m["SERIAL_NUMBER"] in local_names])
     missing = [m for m in central_modules if m["SERIAL_NUMBER"] not in local_names]
     logging.info(f"Missing modules: {len(missing)}")
     logging.info([m["SERIAL_NUMBER"] for m in missing])
