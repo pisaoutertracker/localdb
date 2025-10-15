@@ -103,6 +103,7 @@
               <th data-col="spacer">Spacer</th>
               <th data-col="status">Status</th>
               <th data-col="connections">Connections</th>
+              <th data-col="location">Center</th>
               <th data-col="position">Position</th>
               <th data-col="description">Description</th>
               <th data-col="mounted">Mounted</th>
@@ -202,10 +203,19 @@
 
       // root
       if (obj !== null && typeof obj === 'object'){
-        if (Array.isArray(obj)){
-          obj.forEach((v,i)=> container.appendChild(makeNode(String(i), v, String(i))));
+        // For read-only rendering, hide legacy center fields if present
+        let renderObj = obj;
+        if (!editable && !Array.isArray(obj)){
+          renderObj = { ...obj };
+          // remove legacy keys 'Current Center', 'CurrentCenter', 'currentCenter'
+          if ('Current Center' in renderObj) delete renderObj['Current Center'];
+          if ('CurrentCenter' in renderObj) delete renderObj['CurrentCenter'];
+          if ('currentCenter' in renderObj) delete renderObj['currentCenter'];
+        }
+        if (Array.isArray(renderObj)){
+          renderObj.forEach((v,i)=> container.appendChild(makeNode(String(i), v, String(i))));
         }else{
-          Object.keys(obj).forEach(k=> container.appendChild(makeNode(k, obj[k], k)));
+          Object.keys(renderObj).forEach(k=> container.appendChild(makeNode(k, renderObj[k], k)));
         }
       }else{
         container.textContent = String(obj);
@@ -312,6 +322,10 @@
         if (col === 'status') return (m.status||'').toLowerCase();
         if (col === 'connections') return (JSON.stringify(m.crateSide||m.connections||'')||'').toLowerCase();
         if (col === 'position') return (m.position||'').toLowerCase();
+        if (col === 'location') {
+          const c = (m.details && (m.details.LOCATION || m.details.location)) || m['details.LOCATION'] || '';
+          return String(c).toLowerCase();
+        }
         if (col === 'description') return (m.description||'').toLowerCase();
         if (col === 'mounted') return String(m.mounted||'').toLowerCase();
         return '';
@@ -417,8 +431,9 @@
         const spacerToken = computeSpacerToken(m.moduleName || m.module || '');
         if (q && !(m.moduleName||'').toLowerCase().includes(q)) return;
         if (centerF !== 'any'){
-          const centerVal = (m['Current Center'] || m['CurrentCenter'] || m.currentCenter || '') + '';
-          if (!centerVal.includes(centerF)) return;
+          // Match only against details.LOCATION (or details.location) — remove legacy 'Current Center' fields
+          const centerVal = (m.details && (m.details.LOCATION || m.details.location)) ? (m.details.LOCATION || m.details.location) : '';
+          if (!String(centerVal).includes(centerF)) return;
         }
         if (speedF !== 'any' && speedF && m.speed !== speedF) return;
         if (spacerF !== 'any' && spacerF){
@@ -476,10 +491,17 @@
           }catch(e){ connText = JSON.stringify(m.crateSide); }
         }
         // position: if it contains exactly two semicolons (three fields), render as link
-        const pos = m.position || '';
+        const pos = (m.position || '').trim();
         let posHtml = pos;
-        if ((pos.match(/;/g)||[]).length === 2){
-          posHtml = `<a href="#" class="pos-link" data-pos="${pos}">${pos}</a>`;
+        // If position is exactly 'cleanroom', link to storage by moduleName.
+        if (pos.toLowerCase() === 'cleanroom'){
+          const posAttr = (pos||'').replace(/"/g,'&quot;');
+          const modEnc = encodeURIComponent(m.moduleName || '');
+          posHtml = '<a href="#" class="pos-link" data-pos="' + posAttr + '" data-module="' + modEnc + '">' + escapeHtml(pos) + '</a>';
+        } else if ((pos.match(/;/g)||[]).length === 2){
+          const posAttr = (pos||'').replace(/"/g,'&quot;');
+          const modEnc = encodeURIComponent(m.moduleName || '');
+          posHtml = '<a href="#" class="pos-link" data-pos="' + posAttr + '" data-module="' + modEnc + '">' + escapeHtml(pos) + '</a>';
         }
         // connections column: link to connections page with bare query equal to moduleName
         // we'll display endpoints (LV/HV/FC7) fetched from /snapshot when possible
@@ -494,12 +516,13 @@
   const resultsUrl = 'https://cmstkita.web.cern.ch/Pisa/TBPS/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
   // build description by concatenating details.DESCRIPTION (or details.Description) and local_logbook
   const rawDetails = (m.details && (m.details.DESCRIPTION || m.details.Description)) || m['details.DESCRIPTION'] || m['details.Description'] || '';
+  const centerVal = (m.details && (m.details.LOCATION || m.details.location)) || m['details.LOCATION'] || '';
   const detailsText = extractTextField(rawDetails) || extractTextField(m.description);
   const localLogText = extractTextField(m.local_logbook || '');
   const descText = detailsText + (localLogText ? ('\n' + localLogText) : '');
   const escDesc = escapeHtml(descText).replace(/\n/g,'<br>');
   const editBtn = `<button class="small ghost edit-logbook" data-idx="${idx}">Edit note</button>`;
-  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
+  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${escapeHtml(centerVal)||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
   // prevent the results link from triggering the row click selection
     setTimeout(()=>{
     const rl = tr.querySelector('.results-link');
@@ -514,7 +537,17 @@
         setTimeout(()=>{
           const link = tr.querySelector('.pos-link');
           if (link){
-            link.addEventListener('click',(ev)=>{ ev.preventDefault(); ev.stopPropagation(); const p = link.getAttribute('data-pos'); window.location = '/static/storage.html?position=' + encodeURIComponent(p); });
+            link.addEventListener('click',(ev)=>{
+              ev.preventDefault(); ev.stopPropagation();
+              const p = link.getAttribute('data-pos');
+              const mEnc = link.getAttribute('data-module') || '';
+              if (String(p).trim().toLowerCase() === 'cleanroom' && mEnc){
+                // when position is cleanroom, prefer moduleName query param
+                window.location = '/static/storage.html?moduleName=' + mEnc;
+              } else {
+                window.location = '/static/storage.html?position=' + encodeURIComponent(p);
+              }
+            });
           }
         },0);
         // asynchronously fetch and render LV/HV/FC7 endpoints for crateSide (non-blocking)
@@ -688,7 +721,8 @@
     async function loadData(){
       try{
         // load only the minimal fields for the table to improve performance
-  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "Current Center": 1, CurrentCenter: 1, currentCenter: 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1 };
+  // Only project details.LOCATION for center filtering; remove legacy 'Current Center' fields
+  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "details.LOCATION": 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1 };
         const data = await postGenericQuery({}, tableFields);
         // expect an array — if wrapped, try to extract
         const tableRows = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);
