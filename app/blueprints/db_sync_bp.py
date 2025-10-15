@@ -52,10 +52,21 @@ def trigger_sync():
     by_name = data.get('by_name', False)
     location = data.get('location', 'Pisa')
     
+    # Extract Flask app config values BEFORE starting the thread
+    # (current_app is not available in background threads)
+    mongo_uri = current_app.config['MONGO_URI']
+    if '?' in mongo_uri:
+        mongo_uri = mongo_uri.split('?')[0]
+    if '/' in mongo_uri:
+        mongo_uri = mongo_uri.rsplit('/', 1)[0]
+    
+    mongo_db_name = current_app.config['MONGO_DB_NAME']
+    api_url = os.environ.get('API_URL', f'http://localhost:{os.environ.get("FLASK_PORT", "5000")}')
+    
     # Start sync in background thread
     thread = threading.Thread(
         target=run_sync_operation,
-        args=(by_name, location),
+        args=(by_name, location, mongo_uri, mongo_db_name, api_url),
         daemon=True
     )
     thread.start()
@@ -65,7 +76,7 @@ def trigger_sync():
         'status': sync_status
     }), 202  # 202 Accepted
 
-def run_sync_operation(by_name, location):
+def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
     """Run the DB sync operation in a separate thread"""
     global sync_status
     
@@ -79,18 +90,11 @@ def run_sync_operation(by_name, location):
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             sync_script = os.path.join(base_dir, 'deploy', 'db_sync.py')
             
-            # Prepare environment variables from Flask app config
+            # Prepare environment variables with passed config values
             env = os.environ.copy()
-            # Extract base MONGO_URI without database name and auth source
-            mongo_uri = current_app.config['MONGO_URI']
-            if '?' in mongo_uri:
-                mongo_uri = mongo_uri.split('?')[0]
-            if '/' in mongo_uri:
-                mongo_uri = mongo_uri.rsplit('/', 1)[0]
             env['MONGO_URI'] = mongo_uri
-            env['MONGO_DB_NAME'] = current_app.config['MONGO_DB_NAME']
-            # API_URL is only used for prod_db, but we need to set it to avoid KeyError
-            env['API_URL'] = os.environ.get('API_URL', f'http://localhost:{os.environ.get("FLASK_PORT", "5000")}')
+            env['MONGO_DB_NAME'] = mongo_db_name
+            env['API_URL'] = api_url
             
             # Build command
             cmd = ['python3', sync_script]
