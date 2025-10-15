@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>FC7 Firmware</title>
+    <link rel="stylesheet" href="/static/nav.css">
+    <script src="/static/nav.js" defer></script>
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <style>
+        body{font-family: Arial, sans-serif; margin:20px}
+        .card{background:white;border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.08);max-width:720px;margin:12px auto}
+        .row{display:flex;gap:12px;align-items:center}
+        .label{width:140px;font-weight:700}
+        table{width:100%;border-collapse:collapse}
+        td,th{padding:8px;border-bottom:1px solid #eee}
+        select,input[type=text]{padding:6px 8px;font-size:14px}
+        .small{font-size:13px;color:#666}
+    </style>
+</head>
+<body style="margin-top:46px;">
+<h1 style="margin-top:0">FC7 Firmware Lookup</h1>
+
+<div class="card">
+    <h3>All FC7 firmware</h3>
+    <div id="result" style="margin-top:12px">Loading...</div>
+    <div class="small" style="margin-top:8px">If you need to switch on/off the microTCA crate click <a href="http://192.168.0.33">here</a> (only works from local lab network).</div>
+</div>
+
+<script>
+    function fmtTimestamp(ts){
+        if(!ts) return '';
+        // try numeric epoch (seconds). If looks like milliseconds, adjust.
+        const n = Number(ts);
+        if(Number.isNaN(n)) return String(ts);
+        // heuristics: if timestamp looks like > 1e12 it's milliseconds
+        const when = n > 1e12 ? new Date(n) : new Date(n * 1000);
+        if(isNaN(when.getTime())) return String(ts);
+        return when.toLocaleString();
+    }
+
+    function renderList(data){
+        const r = document.getElementById('result');
+        if(!Array.isArray(data)){ r.innerHTML = '<em>Unexpected response format</em>'; return; }
+        // filter names starting with FC7 (case-insensitive and allow FC7.*)
+        const fc7s = data.filter(c => c && c.name && c.name.toUpperCase().startsWith('FC7'));
+        if(fc7s.length === 0){ r.innerHTML = '<em>No FC7 entries found</em>'; return; }
+        let html = '<table><thead><tr><th>Name</th><th>Type</th><th>Firmware</th><th>Firmware timestamp</th></tr></thead><tbody>';
+        fc7s.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+        for(const f of fc7s){
+            const ts = f.firmware_timestamp || f.fw_timestamp || '';
+            html += `<tr><td>${f.name||''}</td><td>${f.type||''}</td><td>${f.firmware||''}</td><td>${fmtTimestamp(ts)}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        r.innerHTML = html;
+    }
+
+    // Fetch all cables on load
+    fetch('/cables')
+        .then(res => {
+            if(!res.ok) throw new Error('Failed to fetch cables');
+            return res.json();
+        })
+        .then(data => renderList(data))
+        .catch(err => document.getElementById('result').innerHTML = `<em>Error: ${err.message}</em>`);
+</script>
+
+<br>
+<a href="/"> DB HOME </a>
+
+</body>
+</html>
