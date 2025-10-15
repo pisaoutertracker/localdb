@@ -262,7 +262,7 @@ def get_modules_by_serial_numbers(serial_numbers):
         return []
     
     # Split into batches if too many (SQL query length limit)
-    batch_size = 50
+    batch_size = 100 # adjust as needed
     all_modules = []
     
     for i in range(0, len(serial_numbers), batch_size):
