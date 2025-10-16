@@ -60,18 +60,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .options{margin: 20px 0;}
-        .option-group{margin: 10px 0;}
-        label{display: inline-block; margin-right: 10px; font-weight: 600;}
-        input[type="text"]{
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 200px;
-        }
-        input[type="checkbox"]{
-            margin-right: 5px;
-        }
         .home-link{
             display: inline-block;
             margin: 20px 0;
@@ -162,42 +150,6 @@
             text-align: center;
             margin-bottom: 15px;
         }
-        .progress-container{
-            margin: 20px 0;
-            display: none;
-        }
-        .progress-bar{
-            width: 100%;
-            height: 30px;
-            background: #e9ecef;
-            border-radius: 15px;
-            overflow: hidden;
-            position: relative;
-        }
-        .progress-fill{
-            height: 100%;
-            background: linear-gradient(90deg, #0b5ed7, #0a52c0);
-            transition: width 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        .progress-text{
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-            text-align: center;
-        }
-        .progress-step{
-            margin-top: 5px;
-            font-size: 13px;
-            color: #888;
-            text-align: center;
-            font-style: italic;
-        }
         .modules-list{
             margin-top: 15px;
             padding: 15px;
@@ -258,38 +210,28 @@
         </div>
         
         <div class="sync-section">
-            <h2>Sync Remote DB to Local DB</h2>
-            <p>This operation will synchronize module data from the remote central database to the local database. 
+            <h2>Sync Remote DB to Local DB (Pisa)</h2>
+            <p>This operation will synchronize module data from the remote central database (Pisa location) to the local database. 
                Only one sync operation can run at a time.</p>
-            
-            <div class="options">
-                <div class="option-group">
-                    <label>
-                        <input type="checkbox" id="byNameCheck">
-                        Query by name pattern (IBA/IPG) instead of location
-                    </label>
-                </div>
-                <div class="option-group">
-                    <label for="locationInput">Location:</label>
-                    <input type="text" id="locationInput" value="Pisa" placeholder="Enter location">
-                </div>
-            </div>
             
             <button id="syncButton" class="sync-button" onclick="triggerSync()">
                 Start Synchronization
             </button>
             
-            <div id="progressContainer" class="progress-container">
-                <div class="progress-bar">
-                    <div id="progressFill" class="progress-fill" style="width: 0%">0%</div>
-                </div>
-                <div id="progressText" class="progress-text"></div>
-                <div id="progressStep" class="progress-step"></div>
-            </div>
-            
             <div id="statusBox" class="status-box" style="display: none;">
                 <div class="status-label" id="statusLabel">Status</div>
                 <div class="status-message" id="statusMessage"></div>
+            </div>
+            
+            <!-- Script Output Display -->
+            <div id="scriptOutputContainer" style="display: none; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; color: #0b5ed7;">Script Output</h3>
+                    <button class="toggle-output" onclick="toggleScriptOutput()" id="toggleScriptBtn">Hide Output</button>
+                </div>
+                <div id="scriptOutput" class="output-section" style="max-height: 400px; display: block;">
+                    <pre id="scriptOutputPre" style="margin: 0;"></pre>
+                </div>
             </div>
         </div>
     </div>
@@ -299,9 +241,8 @@
         <div class="confirmation-content">
             <div class="warning-icon">⚠️</div>
             <h3>Confirm Synchronization</h3>
-            <p>You are about to sync data from the remote database to:</p>
+            <p>You are about to sync data from the remote database (Pisa location) to:</p>
             <p style="text-align: center; font-size: 18px;"><strong>Database: <span style="color: #d63384;" id="confirmDbName"></span></strong></p>
-            <p style="text-align: center; font-size: 16px;"><strong>Location: <span style="color: #0b5ed7;" id="confirmLocation"></span></strong></p>
             <p style="margin-top: 20px; font-size: 14px; color: #666;">This operation may take several minutes. Are you sure you want to continue?</p>
             <div class="confirmation-buttons">
                 <button class="btn btn-cancel" onclick="cancelSync()">Cancel</button>
@@ -357,95 +298,75 @@
             const statusLabel = document.getElementById('statusLabel');
             const statusMessage = document.getElementById('statusMessage');
             const syncButton = document.getElementById('syncButton');
-            const progressContainer = document.getElementById('progressContainer');
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            const progressStep = document.getElementById('progressStep');
+            const scriptOutputContainer = document.getElementById('scriptOutputContainer');
+            const scriptOutputPre = document.getElementById('scriptOutputPre');
 
-            if (status.last_status) {
+            if (status.is_running) {
+                // Sync is running - show live output
+                statusBox.style.display = 'block';
+                statusBox.className = 'status-box status-running';
+                statusLabel.textContent = '🔄 Sync in Progress...';
+                statusMessage.textContent = 'Synchronizing data from remote database...';
+                
+                syncButton.disabled = true;
+                syncButton.textContent = 'Sync in Progress...';
+                
+                // Show script output container and update with live output
+                if (status.output) {
+                    scriptOutputContainer.style.display = 'block';
+                    scriptOutputPre.textContent = status.output;
+                    // Auto-scroll to bottom
+                    const outputSection = document.getElementById('scriptOutput');
+                    outputSection.scrollTop = outputSection.scrollHeight;
+                }
+            } else if (status.last_status) {
+                // Sync completed (success or error)
                 statusBox.style.display = 'block';
                 statusBox.className = 'status-box status-' + status.last_status;
+                statusLabel.textContent = status.last_status === 'success' ? '✓ Last Sync: Success' : '✗ Last Sync: Failed';
                 
-                if (status.is_running) {
-                    // Show progress bar
-                    progressContainer.style.display = 'block';
-                    statusBox.style.display = 'none';
-                    
-                    // Update progress
-                    const progress = status.progress || {};
-                    const current = progress.current || 0;
-                    const total = progress.total || 0;
-                    const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
-                    
-                    progressFill.style.width = percentage + '%';
-                    progressFill.textContent = percentage + '%';
-                    
-                    if (progress.current_module) {
-                        const action = progress.action || 'Processing';
-                        const actionIcon = action === 'Importing' ? '➕' : (action === 'Updating' ? '🔄' : '⚙️');
-                        progressText.textContent = `${actionIcon} ${action} ${current}/${total}: ${progress.current_module}`;
-                    } else if (progress.step) {
-                        progressText.textContent = progress.step;
-                    } else {
-                        progressText.textContent = 'Sync operation is running...';
-                    }
-                    
-                    if (progress.step) {
-                        progressStep.textContent = progress.step;
-                    }
-                    
-                    syncButton.disabled = true;
-                    syncButton.textContent = 'Sync in Progress...';
-                } else {
-                    // Hide progress bar
-                    progressContainer.style.display = 'none';
-                    statusBox.style.display = 'block';
-                    statusLabel.textContent = status.last_status === 'success' ? 'Last Sync: Success' : 'Last Sync: Failed';
-                    
-                    let messageHtml = status.last_message || '';
-                    if (status.last_run) {
-                        messageHtml += '<br><small style="color: #6c757d;">Completed at ' + new Date(status.last_run).toLocaleString() + '</small>';
-                    }
-                    
-                    // Add modules list if available (only for NEW modules)
-                    if (status.last_status === 'success' && status.modules_added && status.modules_added.length > 0) {
-                        messageHtml += '<div class="modules-list">';
-                        messageHtml += '<h4>📦 New Modules Imported (' + status.modules_added.length + '):</h4>';
-                        status.modules_added.forEach(function(module) {
-                            messageHtml += '<div class="module-item">' + module + '</div>';
-                        });
-                        messageHtml += '</div>';
-                    }
-                    
-                    // Add button to show full output
-                    if (status.output && status.last_status === 'success') {
-                        messageHtml += '<button class="toggle-output" onclick="toggleOutput()">Show Full Output</button>';
-                        messageHtml += '<div id="outputSection" class="output-section" style="display: none;"><pre>' + escapeHtml(status.output) + '</pre></div>';
-                    } else if (status.output && status.last_status === 'error') {
-                        // For errors, show output by default
-                        messageHtml += '<div class="output-section"><pre>' + escapeHtml(status.output) + '</pre></div>';
-                    }
-                    
-                    statusMessage.innerHTML = messageHtml;
-                    syncButton.disabled = false;
-                    syncButton.textContent = 'Start Synchronization';
+                let messageHtml = status.last_message || '';
+                if (status.last_run) {
+                    messageHtml += '<br><small style="color: #6c757d;">Completed at ' + new Date(status.last_run).toLocaleString() + '</small>';
+                }
+                
+                // Add modules list if available (only for NEW modules)
+                if (status.last_status === 'success' && status.modules_added && status.modules_added.length > 0) {
+                    messageHtml += '<div class="modules-list">';
+                    messageHtml += '<h4>📦 New Modules Imported (' + status.modules_added.length + '):</h4>';
+                    status.modules_added.forEach(function(module) {
+                        messageHtml += '<div class="module-item">' + module + '</div>';
+                    });
+                    messageHtml += '</div>';
+                }
+                
+                statusMessage.innerHTML = messageHtml;
+                syncButton.disabled = false;
+                syncButton.textContent = 'Start Synchronization';
+                
+                // Show final output
+                if (status.output) {
+                    scriptOutputContainer.style.display = 'block';
+                    scriptOutputPre.textContent = status.output;
                 }
             } else {
+                // No sync has been run yet
                 statusBox.style.display = 'none';
                 syncButton.disabled = false;
                 syncButton.textContent = 'Start Synchronization';
+                scriptOutputContainer.style.display = 'none';
             }
         }
         
-        function toggleOutput() {
-            const outputSection = document.getElementById('outputSection');
-            const button = event.target;
-            if (outputSection.style.display === 'none') {
-                outputSection.style.display = 'block';
-                button.textContent = 'Hide Full Output';
+        function toggleScriptOutput() {
+            const scriptOutput = document.getElementById('scriptOutput');
+            const toggleBtn = document.getElementById('toggleScriptBtn');
+            if (scriptOutput.style.display === 'none') {
+                scriptOutput.style.display = 'block';
+                toggleBtn.textContent = 'Hide Output';
             } else {
-                outputSection.style.display = 'none';
-                button.textContent = 'Show Full Output';
+                scriptOutput.style.display = 'none';
+                toggleBtn.textContent = 'Show Output';
             }
         }
         
@@ -456,12 +377,8 @@
         }
 
         function triggerSync() {
-            const byName = document.getElementById('byNameCheck').checked;
-            const location = document.getElementById('locationInput').value || 'Pisa';
-            
             // Show confirmation dialog
             document.getElementById('confirmDbName').textContent = currentDbName;
-            document.getElementById('confirmLocation').textContent = location + (byName ? ' (by name pattern IBA/IPG)' : '');
             document.getElementById('confirmationDialog').style.display = 'flex';
         }
 
@@ -472,12 +389,16 @@
         function confirmSync() {
             document.getElementById('confirmationDialog').style.display = 'none';
             
-            const byName = document.getElementById('byNameCheck').checked;
-            const location = document.getElementById('locationInput').value || 'Pisa';
             const syncButton = document.getElementById('syncButton');
+            const scriptOutputContainer = document.getElementById('scriptOutputContainer');
+            const scriptOutputPre = document.getElementById('scriptOutputPre');
 
             syncButton.disabled = true;
             syncButton.textContent = 'Starting...';
+            
+            // Clear previous output
+            scriptOutputPre.textContent = '';
+            scriptOutputContainer.style.display = 'none';
 
             fetch('/db_sync/trigger', {
                 method: 'POST',
@@ -485,8 +406,8 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    by_name: byName,
-                    location: location
+                    by_name: false,
+                    location: 'Pisa'
                 })
             })
             .then(response => response.json())

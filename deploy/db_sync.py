@@ -307,27 +307,33 @@ def main():
     
     # Modules to import (new ones from location query)
     missing = [m for m in central_modules_by_location if m["SERIAL_NUMBER"] not in local_names]
-    
+    # now the not missing ones are the ones to update
+    existing = [m for m in central_modules_by_location if m["SERIAL_NUMBER"] in local_names]
+
     # Modules to update (existing in local, need fresh data from central)
     # Query central DB for ALL local modules (even if moved elsewhere)
     logging.info(f"STEP 3/5: Querying central DB for existing local modules (including moved ones)...")
-    local_serials = list(local_names)
-    existing_modules_from_central = get_modules_by_serial_numbers(local_serials)
+    # will be local_names minus those already in central_names_by_location
+    local_serials_not_in_Pisa = list(local_names - central_names_by_location)
+    print(f"Local serials not in Pisa: {len(local_serials_not_in_Pisa), local_serials_not_in_Pisa}")
+    modules_not_in_Pisa_from_central = get_modules_by_serial_numbers(local_serials_not_in_Pisa)
     
     logging.info(f"Central DB (by location) has {len(central_modules_by_location)} modules.")
     logging.info(f"New modules to import: {len(missing)}")
-    logging.info(f"Existing modules to update: {len(existing_modules_from_central)}")
+    logging.info(f"Existing modules to update: {len(modules_not_in_Pisa_from_central)+len(existing)}")\
+    # print all lenghts for debugging
+    print(f"Missing: {len(missing)}, Not in Pisa from central: {len(modules_not_in_Pisa_from_central)}, Existing: {len(existing)}")
     
     if missing:
         logging.info(f"New modules: {[m['SERIAL_NUMBER'] for m in missing]}")
     
-    if not missing and not existing_modules_from_central:
+    if not missing and not modules_not_in_Pisa_from_central and not existing:
         logging.info("No modules to process. Sync completed.")
         return
     
     # Step 4: Get children and component details for ALL modules (bulk query - efficient!)
     # Combine both new and existing for a single bulk query
-    all_modules = missing + existing_modules_from_central
+    all_modules = missing + modules_not_in_Pisa_from_central + existing
     logging.info(f"STEP 4/5: Fetching children and component details from central DB for {len(all_modules)} modules...")
     parent_labels = [m["NAME_LABEL"] for m in all_modules]
     children = get_children_of_modules(parent_labels)
@@ -340,9 +346,9 @@ def main():
         children_map.setdefault(parent, []).append(child)
     
     # Step 5: Process modules with progress tracking
-    total_to_process = len(missing) + len(existing_modules_from_central)
-    logging.info(f"STEP 5/5: Processing {total_to_process} modules ({len(missing)} new, {len(existing_modules_from_central)} updates)...")
-    
+    total_to_process = len(missing) + len(modules_not_in_Pisa_from_central) + len(existing)
+    logging.info(f"STEP 5/5: Processing {total_to_process} modules ({len(missing)} new, {len(modules_not_in_Pisa_from_central)+len(existing)} updates)...")
+
     processed_count = 0
     
     # First, process NEW modules (full insert with all fields)
@@ -353,13 +359,13 @@ def main():
         processed_count += 1
     
     # Second, update EXISTING modules (only details and children fields)
-    for i, module in enumerate(existing_modules_from_central, len(missing) + 1):
+    for i, module in enumerate(modules_not_in_Pisa_from_central + existing, len(missing) + 1):
         module_id = module.get("SERIAL_NUMBER", "unknown")
         logging.info(f"Progress: {i}/{total_to_process} - Updating EXISTING module {module_id}")
         update_existing_module(module, children_map, all_details, modules_collection)
         processed_count += 1
     
-    logging.info(f"Sync completed successfully. Imported {len(missing)} new module(s), updated {len(existing_modules_from_central)} existing module(s).")
+    logging.info(f"Sync completed successfully. Imported {len(missing)} new module(s), updated {len(modules_not_in_Pisa_from_central)+len(existing)} existing module(s).")
 
 if __name__ == "__main__":
     main()
