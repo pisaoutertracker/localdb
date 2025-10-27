@@ -5,5 +5,5 @@ RUN pip install gunicorn
 RUN pip3 install requests==2.31.0 bs4 ilock
 RUN pip install Flask-PyMongo
 EXPOSE 5000
-WORKDIR ./localdb/deploy
+WORKDIR ./localdb/scripts
 CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000","deploy:app"]
