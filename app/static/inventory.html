@@ -102,6 +102,7 @@
               <th data-col="speed">Speed</th>
               <th data-col="spacer">Spacer</th>
               <th data-col="status">Status</th>
+              <th data-col="cycles">#Cycles</th>
               <th data-col="connections">Connections</th>
               <th data-col="location">Center</th>
               <th data-col="position">Position</th>
@@ -119,9 +120,9 @@
           <div id="detail-json">{}</div>
         </div>
         <div class="buttons">
-          <button id="edit-selected">Edit Selected</button>
-          <button id="save-changes">Save Changes</button>
-          <button id="disconnect">Disconnect</button>
+          <button id="edit-selected" style="display:none">Edit Selected</button>
+          <button id="save-changes" style="display:none">Save Changes</button>
+          <button id="disconnect" style="display:none">Disconnect</button>
         </div>
       </div>
     </div>
@@ -313,7 +314,7 @@
     let sortCol = 'name';
     let sortDir = 'asc'; // 'asc' or 'desc'
 
-    function compareRows(a,b){
+  function compareRows(a,b){
       // a and b are module objects; use spacer token and speed computed
       const get = (m, col) => {
         if (col === 'name') return (m.moduleName||'').toLowerCase();
@@ -327,6 +328,11 @@
           return String(c).toLowerCase();
         }
         if (col === 'description') return (m.description||'').toLowerCase();
+        if (col === 'cycles') {
+          // compute burninCycles count for sorting
+          const cnt = getBurninCyclesCount(m);
+          return String(cnt).toLowerCase();
+        }
         if (col === 'mounted') return String(m.mounted||'').toLowerCase();
         return '';
       };
@@ -377,6 +383,22 @@
       if (/40/.test(n)) return '40';
       if (/16/.test(n)) return '16';
       return '';
+    }
+
+    // compute number of burnin cycles entries robustly
+    function getBurninCyclesCount(m){
+      try{
+        const v = m && (m.burninCycles || m['burninCycles']);
+        if (v === undefined || v === null) return 0;
+        if (Array.isArray(v)) return v.length;
+        if (typeof v === 'object') return Object.keys(v).length;
+        if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+        if (typeof v === 'string'){
+          try{ const parsed = JSON.parse(v); if (Array.isArray(parsed)) return parsed.length; if (typeof parsed === 'object') return Object.keys(parsed).length; }catch(e){}
+          return v.trim() ? 1 : 0;
+        }
+      }catch(e){/* ignore */}
+      return 0;
     }
 
     // Fetch module endpoints (LV/HV/FC7) from snapshot endpoint for a given module name.
@@ -513,7 +535,8 @@
           // initial placeholder text; will be updated asynchronously with endpoints
           connectionsHtml = `<a class="connections-link" href="${href}" title="Show connections for ${safeName}">` + (connText || 'Connections') + `</a>`;
         }
-  const resultsUrl = 'https://cmstkita.web.cern.ch/Pisa/TBPS/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
+  //const resultsUrl = 'https://cmstkita.web.cern.ch/Pisa/TBPS/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
+  const resultsUrl = '/static/analysis/module_results.html?module=' + encodeURIComponent(m.moduleName || '');
   // build description by concatenating details.DESCRIPTION (or details.Description) and local_logbook
   const rawDetails = (m.details && (m.details.DESCRIPTION || m.details.Description)) || m['details.DESCRIPTION'] || m['details.Description'] || '';
   const centerVal = (m.details && (m.details.LOCATION || m.details.location)) || m['details.LOCATION'] || '';
@@ -522,7 +545,10 @@
   const descText = detailsText + (localLogText ? ('\n' + localLogText) : '');
   const escDesc = escapeHtml(descText).replace(/\n/g,'<br>');
   const editBtn = `<button class="small ghost edit-logbook" data-idx="${idx}">Edit note</button>`;
-  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''} <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">🔍</span></a></td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${connectionsHtml||''}</td><td>${escapeHtml(centerVal)||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
+  const cyclesCount = getBurninCyclesCount(m);
+  const ivURL = '/static/iv_scan_plot.html?module=' + encodeURIComponent(m.moduleName || '');
+  tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''}🔍 <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">📊</span></a> <a href="${ivURL}" target="_blank" rel="noopener" title="IV Scan Plot"><span class="results-emoji" aria-hidden="true">📈</span></a>
+    </td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${cyclesCount}</td><td>${connectionsHtml||''}</td><td>${escapeHtml(centerVal)||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
   // prevent the results link from triggering the row click selection
     setTimeout(()=>{
     const rl = tr.querySelector('.results-link');
@@ -722,7 +748,7 @@
       try{
         // load only the minimal fields for the table to improve performance
   // Only project details.LOCATION for center filtering; remove legacy 'Current Center' fields
-  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "details.LOCATION": 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1 };
+  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "details.LOCATION": 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1, burninCycles: 1 };
         const data = await postGenericQuery({}, tableFields);
         // expect an array — if wrapped, try to extract
         const tableRows = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);
@@ -735,7 +761,7 @@
   if (tbody && tbody.children.length>0){ try{ selectModule(0); highlightRow(0); }catch(e){console.error(e);} }
       }catch(e){
         console.error(e);
-        document.querySelector('#modules-table tbody').innerHTML = '<tr><td colspan="9">Failed to load modules: '+e.message+'</td></tr>';
+        document.querySelector('#modules-table tbody').innerHTML = '<tr><td colspan="10">Failed to load modules: '+e.message+'</td></tr>';
       }
     }
 
