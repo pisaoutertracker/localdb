@@ -371,6 +371,36 @@ class TestAPI(TestCase):
         self.assertEqual(
             response.json["crateSide"], {"1": [], "2": [], "3": [], "4": []}
         )
+        
+        # connect again module and E31 anbd test disconnect without ports
+        connect_data = {
+            "cable1": "modulecabletest",
+            "cable2": "E31",
+            "port1": "fiber",
+            "port2": "1",
+        }
+        response = self.client.post("/connect", json=connect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables connected successfully"})
+
+        # disconnect without ports
+        disconnect_data = {
+            "cable1": "modulecabletest",
+            "cable2": "E31",
+        }
+        response = self.client.post("/disconnect", json=disconnect_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Cables disconnected successfully"})
+        # Check if cables are disconnected correctly
+        response = self.client.get("/modules/modulecabletest")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json["crateSide"], {"1": [], "2": [], "3": [], "4": []}
+        )
+        # check E31 is also disconnected
+        response = self.client.get("/cables/E31")
+        self.assertEqual(response.status_code, 200)
+
 
     def test_connect_failures(self):
 
@@ -929,8 +959,10 @@ class TestAPI(TestCase):
             # ... (other properties)
         }
         response = self.client.post("/modules", json=new_module)
-        print(response.json)
+        # print(response.json)
         self.assertEqual(response.status_code, 201)
+        response = self.client.get(f"/modules/{new_module['moduleName']}")
+        # print(response.json)
         
         new_module = {
             "moduleName": "M124",
@@ -1131,6 +1163,10 @@ class TestAPI(TestCase):
         self.assertTrue(set(response.json["_moduleTest_id"]).intersection(set(full_new_run0_response.json["_moduleTest_id"])))
         self.assertFalse(set(response.json["_moduleTest_id"]).intersection(set(full_run0_response.json["_moduleTest_id"])))
         
+        #get of the module as at the start
+        response = self.client.get("/modules/M123")
+        self.assertEqual(response.status_code, 200)
+        #print(response.json)
         
         
     def test_run_get(self):

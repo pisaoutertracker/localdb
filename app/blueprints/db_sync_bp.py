@@ -94,7 +94,7 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
         try:
             # Get the path to db_sync.py
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            sync_script = os.path.join(base_dir, 'deploy', 'db_sync.py')
+            sync_script = os.path.join(base_dir, 'scripts', 'db_sync.py')
             
             # Prepare environment variables with passed config values
             env = os.environ.copy()

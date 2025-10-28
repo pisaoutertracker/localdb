@@ -56,6 +56,7 @@ class TestIVScansAPI(TestCase):
             "sessionName": "Session_001",
             "data": { "VOLTS": [-15.0], "CURRNT_NAMP": [150.0], "TEMP_DEGC": [22.8], "RH_PRCNT": [45.5], "TIME": ["2024-01-17T11:55:00"]}
         }
+        self.sample_scan_4 = {'nameLabel': 'PS_26_IPG-10008', 'date': '2025-05-29 11:50:54', 'comment': 'quick_test measurement', 'location': 'Pisa', 'inserter': 'thermal', 'runType': 'IV_TEST', 'station': 'cleanroom', 'averageTemperature': 20.099999999999998, 'averageHumidity': 0.14460236858474082, 'sessionName': 'session0', 'IVScanId': 'HV0.6_PS_26_IPG-10008_quick_test', 'data': {'VOLTS': [-0.385, -10.69, -20.379999, -30.184999], 'CURRNT_NAMP': [-90.0, -50.0, -30.0, -10.0], 'TEMP_DEGC': [20.1, 19.7, 20.3, 20.3], 'RH_PRCNT': [0.14813525707178937, 0.14813525707178937, 0.14106948009769227, 0.14106948009769227], 'TIME': ['2025-05-29 09:50:34', '2025-05-29 09:50:41', '2025-05-29 09:50:48', '2025-05-29 09:50:54']}}
 
 
     def tearDown(self):
@@ -71,16 +72,16 @@ class TestIVScansAPI(TestCase):
 
     def test_insert_iv_scan(self):
         """Test insertion of a valid IV scan."""
-        response = self.client.post("/iv_scans", json=self.sample_scan_1)
+        response = self.client.post("/iv_scans", json=self.sample_scan_4)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json, {"message": "IV Scan inserted"})
 
         # Verify the scan was inserted by fetching it by IVScanId
-        response = self.client.get(f"/iv_scans/{self.sample_scan_1['IVScanId']}")
+        response = self.client.get(f"/iv_scans/{self.sample_scan_4['IVScanId']}")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["nameLabel"], self.sample_scan_1["nameLabel"])
-        self.assertEqual(response.json["IVScanId"], self.sample_scan_1["IVScanId"])
-        self.assertEqual(response.json["date"], self.sample_scan_1["date"])
+        self.assertEqual(response.json["nameLabel"], self.sample_scan_4["nameLabel"])
+        self.assertEqual(response.json["IVScanId"], self.sample_scan_4["IVScanId"])
+        self.assertEqual(response.json["date"], self.sample_scan_4["date"])
 
     def test_get_by_iv_scan_id(self):
         """Test fetching an IV scan by its IVScanId."""
