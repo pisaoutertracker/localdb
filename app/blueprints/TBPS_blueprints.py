@@ -574,3 +574,90 @@ def fetch_all_module_test_results():
     }
     
     return response, 200 if module_tests_list else 404
+
+@bp.route("/fetch_all_module_test_results_optimized", methods=["GET"])
+def fetch_all_module_test_results_optimized():
+    """
+    Optimized endpoint with server-side filtering and pagination.
+    
+    Query parameters:
+    - page: Page number (default: 1)
+    - per_page: Items per page (default: 25)
+    - search: Search query for test names (optional)
+    - run_types: Comma-separated list of run types to filter (optional)
+    - hide_session1: Hide tests from session1 (default: false, accepts 'true'/'false')
+    - filters_only: Only return available filters, not data (default: false)
+    """
+    db = get_db()
+    module_tests_collection = db["module_tests"]
+    
+    # Check if only filters are requested
+    filters_only = request.args.get('filters_only', 'false').lower() == 'true'
+    
+    if filters_only:
+        # Just return available filter options
+        result = get_all_module_test_with_session_data(module_tests_collection)
+        module_tests_list = result["module_tests_list"]
+        
+        unique_run_types = sorted(list(set(item.get("runType") for item in module_tests_list if item.get("runType"))))
+        
+        return {
+            "available_filters": {
+                "run_types": unique_run_types
+            }
+        }, 200
+    
+    # Parse parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    search_query = request.args.get('search', '').strip().lower()
+    run_types_param = request.args.get('run_types', '').strip()
+    hide_session1 = request.args.get('hide_session1', 'false').lower() == 'true'
+    
+    # Parse run types filter
+    run_types_filter = []
+    if run_types_param:
+        run_types_filter = [rt.strip() for rt in run_types_param.split(',') if rt.strip()]
+    
+    # Get all module tests with related data
+    result = get_all_module_test_with_session_data(module_tests_collection)
+    module_tests_list = result["module_tests_list"]
+    
+    # Apply filters
+    filtered_list = []
+    for item in module_tests_list:
+        # Filter by session
+        if hide_session1 and item.get("sessionName") == "session1":
+            continue
+        
+        # Filter by run types
+        if run_types_filter and item.get("runType") not in run_types_filter:
+            continue
+        
+        # Filter by search query
+        if search_query and search_query not in item.get("moduleTestName", "").lower():
+            continue
+        
+        filtered_list.append(item)
+    
+    # Apply pagination
+    total_items = len(filtered_list)
+    total_pages = max(1, (total_items + per_page - 1) // per_page)
+    
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    paginated_list = filtered_list[start_idx:end_idx]
+    
+    # Create optimized response (only send what's needed)
+    response = {
+        "tests": paginated_list,
+        "pagination": {
+            "total_items": total_items,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages
+        }
+    }
+    
+    return response, 200

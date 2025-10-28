@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>All Module Tests (Optimized)</title>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.20/datatables.min.css"/>
+    <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.20/datatables.min.js"></script>
+    <style>
+        .container { max-width: 100%; margin: 0 auto; padding: 20px; }
+        .plot-selector {
+            margin: 20px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+        .plot-image {
+            max-width: 400px;
+            cursor: pointer;
+        }
+        .plot-image:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s;
+        }
+        .select-all-container {
+            margin: 10px 0;
+        }
+        .plots-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            width: 100%;
+        }
+        .dataTables_wrapper {
+            overflow-x: auto;
+        }
+        #testsTable {
+            width: 100% !important;
+        }
+        .run-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .run-number {
+            font-weight: bold;
+        }
+        .run-date {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .run-type {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .run-results {
+            font-size: 0.9em;
+            margin-top: 2px;
+        }
+        .run-results a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .run-results a:hover {
+            text-decoration: underline;
+        }
+        .session-info {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        .session-operator {
+            font-weight: bold;
+        }
+        .session-description {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            background-color: #fff0f0;
+            color: #c00;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c00;
+            display: none;
+        }
+        .pass-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .fail-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background-color: #f44336;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 15px;
+            background-color: #0066cc;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background-color: #0055aa;
+        }
+        .toggle-default-sessions {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        .toggle-default-sessions input {
+            margin-right: 8px;
+        }
+        .noise-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .noise-component {
+            margin-bottom: 6px;
+            border-left: 3px solid #eee;
+            padding-left: 8px;
+        }
+        .noise-component-title {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        .noise-stat-row {
+            font-size: 0.9em;
+        }
+        .hidden-session {
+            display: none;
+        }
+        .temperature-info {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        .temperature-label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .temperature-value {
+            color: #0066cc;
+        }
+        .temperature-value-unknown {
+            color: #999;
+            font-style: italic;
+        }
+        .pagination-controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .pagination-controls button {
+            padding: 8px 15px;
+            margin: 0 5px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .pagination-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination-controls button.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0055aa;
+        }
+        .pagination-info {
+            margin: 10px 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .plot-column {
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: top;
+        }
+        .plot-header {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .module-name {
+            color: #0066cc;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .module-name:hover {
+            color: #004d99;
+        }
+        .selected-test {
+            background-color: #e6f3ff !important;
+        }
+        .module-link {
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .module-link:hover {
+            text-decoration: underline;
+        }
+        .search-container {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            flex-grow: 1;
+            max-width: 300px;
+        }
+        .search-button {
+            padding: 8px 15px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .search-button:hover {
+            background-color: #0055aa;
+        }
+        .clear-button {
+            padding: 8px 15px;
+            background-color: #666;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .clear-button:hover {
+            background-color: #555;
+        }
+        .page-length-selector {
+            margin-left: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .page-length-selector select {
+            margin-left: 10px;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .run-type-filter-container {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .run-type-filter-container label {
+            margin-right: 15px;
+            display: inline-block;
+        }
+        .run-type-filter-container input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        .filters-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>All Module Tests (Optimized)</h2>
+        
+        <div id="loading" class="loading">Loading module test data...</div>
+        <div id="error" class="error"></div>
+        
+        <div id="content" style="display: none;">
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search test names...">
+                <button id="searchButton" class="search-button">Search</button>
+                <button id="clearSearchButton" class="clear-button">Clear</button>
+                <div class="page-length-selector">
+                    <label for="pageLengthSelect">Items per page:</label>
+                    <select id="pageLengthSelect">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filters-row">
+                <!-- Add Run Type Filter Container -->
+                <div id="runTypeFilterContainer" class="run-type-filter-container">
+                    <strong>Filter by Run Type:</strong>
+                    <!-- Checkboxes will be added here dynamically -->
+                </div>
+
+                <div class="toggle-default-sessions">
+                    <input type="checkbox" id="hideDefaultSessions" checked>
+                    <label for="hideDefaultSessions">Hide default sessions (session1)</label>
+                </div>
+            </div>
+
+            <div class="plot-selectors-container">
+                <div class="plot-selector" id="plotSelector1">
+                    <div>
+                        <label for="plotType1">Select Plot Type:</label>
+                        <select id="plotType1" class="plot-type-select">
+                                                <option value="MPAtoCIC_PatternMatchingErrorRate_Hybrid0">MPA tp CIC Pattern Matching Error Rate Hybrid 0</option>
+                        <option value="MPAtoCIC_PatternMatchingErrorRate_Hybrid1">MPA tp CIC Pattern Matching Error Rate Hybrid 1</option>
+                            <option value="VTRx_LightYieldScan_OpticalGroup1">Optical Power</option>
+                            <option value="StripHybridHits_Hybrid0">Common Mode SSA Hybrid 0</option>
+                            <option value="StripHybridHits_Hybrid1">Common Mode SSA Hybrid 1</option>
+                            <option value="2DPixelNoise_Hybrid0_MPAMergedMPA">2D Pixel Noise Hybrid 0 MPA Merged</option>
+                            <option value="2DPixelNoise_Hybrid1_MPAMergedMPA">2D Pixel Noise Hybrid 1 MPA Merged</option>
+                            <option value="2DPixelNoise_MPAMultipleMPA">2D Pixel Noise MPA Multiple</option>
+                            <option value="2DPixelNoiseprojX_Hybrid0_MPAMergedMPA">2D Pixel Noise Projection X Hybrid 0 MPA Merged</option>
+                            <option value="2DPixelNoiseprojX_Hybrid1_MPAMergedMPA">2D Pixel Noise Projection X Hybrid 1 MPA Merged</option>
+                            <option value="2DPixelNoiseprojY_Hybrid0_MPAMergedMPA">2D Pixel Noise Projection Y Hybrid 0 MPA Merged</option>
+                            <option value="2DPixelNoiseprojY_Hybrid1_MPAMergedMPA">2D Pixel Noise Projection Y Hybrid 1 MPA Merged</option>
+                            <option value="BestCICinputPhases_Hybrid0">Best CIC Input Phases Hybrid 0</option>
+                            <option value="BestCICinputPhases_Hybrid1">Best CIC Input Phases Hybrid 1</option>
+                            <option value="BitSlipValues_Hybrid0">Bit Slip Values Hybrid 0</option>
+                            <option value="BitSlipValues_Hybrid1">Bit Slip Values Hybrid 1</option>
+                            <option value="ChannelNoiseDistribution_Hybrid0_MPAMergedMPA">Channel Noise Distribution Hybrid 0 MPA Merged</option>
+                            <option value="ChannelNoiseDistribution_Hybrid0_SSAMergedSSA">Channel Noise Distribution Hybrid 0 SSA Merged</option>
+                            <option value="ChannelNoiseDistribution_Hybrid1_MPAMergedMPA">Channel Noise Distribution Hybrid 1 MPA Merged</option>
+                            <option value="ChannelNoiseDistribution_Hybrid1_SSAMergedSSA">Channel Noise Distribution Hybrid 1 SSA Merged</option>
+                            <option value="ChannelNoiseDistribution_MPAMultipleMPA">Channel Noise Distribution MPA Multiple</option>
+                            <option value="ChannelNoiseDistribution_SSAMultipleSSA">Channel Noise Distribution SSA Multiple</option>
+                            <option value="ChannelPedestalDistribution_Hybrid0_MPAMergedMPA">Channel Pedestal Distribution Hybrid 0 MPA Merged</option>
+                            <option value="ChannelPedestalDistribution_Hybrid0_SSAMergedSSA">Channel Pedestal Distribution Hybrid 0 SSA Merged</option>
+                            <option value="ChannelPedestalDistribution_Hybrid1_MPAMergedMPA">Channel Pedestal Distribution Hybrid 1 MPA Merged</option>
+                            <option value="ChannelPedestalDistribution_Hybrid1_SSAMergedSSA">Channel Pedestal Distribution Hybrid 1 SSA Merged</option>
+                            <option value="ChannelPedestalDistribution_MPAMultipleMPA">Channel Pedestal Distribution MPA Multiple</option>
+                            <option value="ChannelPedestalDistribution_SSAMultipleSSA">Channel Pedestal Distribution SSA Multiple</option>
+                            <option value="CICinputPhaseHistogram_Hybrid0">CIC Input Phase Histogram Hybrid 0</option>
+                            <option value="CICinputPhaseHistogram_Hybrid1">CIC Input Phase Histogram Hybrid 1</option>
+                            <option value="CICwordAlignmentDelay_Hybrid0">CIC Word Alignment Delay Hybrid 0</option>
+                            <option value="CICwordAlignmentDelay_Hybrid1">CIC Word Alignment Delay Hybrid 1</option>
+                            <option value="CombinedNoisePlot">Combined Noise Plot</option>
+                            <option value="HybridNoiseDistribution_Hybrid0">Hybrid Noise Distribution Hybrid 0</option>
+                            <option value="HybridNoiseDistribution_Hybrid1">Hybrid Noise Distribution Hybrid 1</option>
+                            <option value="HybridPixelNoiseDistribution_Hybrid0">Hybrid Pixel Noise Distribution Hybrid 0</option>
+                            <option value="HybridPixelNoiseDistribution_Hybrid1">Hybrid Pixel Noise Distribution Hybrid 1</option>
+                            <option value="HybridStripNoiseDistribution_Hybrid0">Hybrid Strip Noise Distribution Hybrid 0</option>
+                            <option value="HybridStripNoiseDistribution_Hybrid1">Hybrid Strip Noise Distribution Hybrid 1</option>
+                            <option value="LockingEfficiencyCICinput_Hybrid0">Locking Efficiency CIC Input Hybrid 0</option>
+                            <option value="LockingEfficiencyCICinput_Hybrid1">Locking Efficiency CIC Input Hybrid 1</option>
+                            <option value="LpGBTinputAlignmentSuccess_OpticalGroup1">LpGBT Input Alignment Success Optical Group 1</option>
+                            <option value="LpGBTinputBestPhase_OpticalGroup1">LpGBT Input Best Phase Optical Group 1</option>
+                            <option value="LpGBTinputFoundPhasesDistribution_OpticalGroup1">LpGBT Input Found Phases Distribution Optical Group 1</option>
+                            <option value="NoiseDistribution_Hybrid0_MPAMergedMPA">Noise Distribution Hybrid 0 MPA Merged</option>
+                            <option value="NoiseDistribution_Hybrid0_SSAMergedSSA">Noise Distribution Hybrid 0 SSA Merged</option>
+                            <option value="NoiseDistribution_Hybrid1_MPAMergedMPA">Noise Distribution Hybrid 1 MPA Merged</option>
+                            <option value="NoiseDistribution_Hybrid1_SSAMergedSSA">Noise Distribution Hybrid 1 SSA Merged</option>
+                            <option value="NoiseDistribution_MPAMultipleMPA">Noise Distribution MPA Multiple</option>
+                            <option value="NoiseDistribution_SSAMultipleSSA">Noise Distribution SSA Multiple</option>
+                            <option value="OccupancyAfterOffsetEqualization_Hybrid0_MPAMergedMPA">Occupancy After Offset Equalization Hybrid 0 MPA Merged</option>
+                            <option value="OccupancyAfterOffsetEqualization_Hybrid0_SSAMergedSSA">Occupancy After Offset Equalization Hybrid 0 SSA Merged</option>
+                            <option value="OccupancyAfterOffsetEqualization_Hybrid1_MPAMergedMPA">Occupancy After Offset Equalization Hybrid 1 MPA Merged</option>
+                            <option value="OccupancyAfterOffsetEqualization_Hybrid1_SSAMergedSSA">Occupancy After Offset Equalization Hybrid 1 SSA Merged</option>
+                            <option value="OccupancyAfterOffsetEqualization_MPAMultipleMPA">Occupancy After Offset Equalization MPA Multiple</option>
+                            <option value="OccupancyAfterOffsetEqualization_SSAMultipleSSA">Occupancy After Offset Equalization SSA Multiple</option>
+                            <option value="Occupancy_Hybrid0_MPAMergedMPA">Occupancy Hybrid 0 MPA Merged</option>
+                            <option value="Occupancy_Hybrid0_SSAMergedSSA">Occupancy Hybrid 0 SSA Merged</option>
+                            <option value="Occupancy_Hybrid1_MPAMergedMPA">Occupancy Hybrid 1 MPA Merged</option>
+                            <option value="Occupancy_Hybrid1_SSAMergedSSA">Occupancy Hybrid 1 SSA Merged</option>
+                            <option value="Occupancy_MPAMultipleMPA">Occupancy MPA Multiple</option>
+                            <option value="Occupancy_SSAMultipleSSA">Occupancy SSA Multiple</option>
+                            <option value="OffsetValues_Hybrid0_MPAMergedMPA">Offset Values Hybrid 0 MPA Merged</option>
+                            <option value="OffsetValues_Hybrid0_SSAMergedSSA">Offset Values Hybrid 0 SSA Merged</option>
+                            <option value="OffsetValues_Hybrid1_MPAMergedMPA">Offset Values Hybrid 1 MPA Merged</option>
+                            <option value="OffsetValues_Hybrid1_SSAMergedSSA">Offset Values Hybrid 1 SSA Merged</option>
+                            <option value="PatternMatchingEfficiencyCIC_Hybrid0">Pattern Matching Efficiency CIC Hybrid 0</option>
+                            <option value="PatternMatchingEfficiencyCIC_Hybrid1">Pattern Matching Efficiency CIC Hybrid 1</option>
+                            <option value="PatternMatchingEfficiency_Hybrid0">Pattern Matching Efficiency Hybrid 0</option>
+                            <option value="PatternMatchingEfficiency_Hybrid1">Pattern Matching Efficiency Hybrid 1</option>
+                            <option value="PedestalDistribution_Hybrid0_MPAMergedMPA">Pedestal Distribution Hybrid 0 MPA Merged</option>
+                            <option value="PedestalDistribution_Hybrid0_SSAMergedSSA">Pedestal Distribution Hybrid 0 SSA Merged</option>
+                            <option value="PedestalDistribution_Hybrid1_MPAMergedMPA">Pedestal Distribution Hybrid 1 MPA Merged</option>
+                            <option value="PedestalDistribution_Hybrid1_SSAMergedSSA">Pedestal Distribution Hybrid 1 SSA Merged</option>
+                            <option value="PedestalDistribution_MPAMultipleMPA">Pedestal Distribution MPA Multiple</option>
+                            <option value="PedestalDistribution_SSAMultipleSSA">Pedestal Distribution SSA Multiple</option>
+                            <option value="SCurve_Hybrid0_MPAMergedMPA">S-Curve Hybrid 0 MPA Merged</option>
+                            <option value="SCurve_Hybrid0_SSAMergedSSA">S-Curve Hybrid 0 SSA Merged</option>
+                            <option value="SCurve_Hybrid1_MPAMergedMPA">S-Curve Hybrid 1 MPA Merged</option>
+                            <option value="SCurve_Hybrid1_SSAMergedSSA">S-Curve Hybrid 1 SSA Merged</option>
+                            <option value="sensor_data_plot">Sensor Data Plot</option>
+                            <option value="VplusValue_Hybrid0_MPAMergedMPA">V+ Value Hybrid 0 MPA Merged</option>
+                            <option value="VplusValue_Hybrid0_SSAMergedSSA">V+ Value Hybrid 0 SSA Merged</option>
+                            <option value="VplusValue_Hybrid1_MPAMergedMPA">V+ Value Hybrid 1 MPA Merged</option>
+                            <option value="VplusValue_Hybrid1_SSAMergedSSA">V+ Value Hybrid 1 SSA Merged</option>
+                            <option value="WordAlignmentRetryNumbers_Hybrid0">Word Alignment Retry Numbers Hybrid 0</option>
+                            <option value="WordAlignmentRetryNumbers_Hybrid1">Word Alignment Retry Numbers Hybrid 1</option>
+                        </select>
+                    </div>
+                    <button class="add-plot-selector" title="Add another plot type">+</button>
+                </div>
+            </div>
+
+            <div class="select-all-container">
+                <input type="checkbox" id="selectAll">
+                <label for="selectAll">Select All Tests (on current page)</label>
+            </div>
+
+            <table id="testsTable" class="display">
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Test Name</th>
+                        <th>Module</th>
+                        <th>Run</th>
+                        <th>Session</th>
+                        <th>Noise Stats</th>
+                        <th>Analysis</th>
+                        <th>Plots</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Table data will be loaded dynamically -->
+                </tbody>
+            </table>
+
+            <div class="pagination-controls">
+                <button id="prevPage" disabled>Previous</button>
+                <span id="currentPageInfo">Page 1 of 1</span>
+                <button id="nextPage">Next</button>
+            </div>
+            
+            <div class="pagination-info">
+                <span id="paginationSummary">Showing 0-0 of 0 entries</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            const server = 'www.pi.infn.it/~arizzi/db.php';
+            let currentPage = 1;
+            let totalPages = 1;
+            let totalItems = 0;
+            let itemsPerPage = 25;
+            let currentData = [];
+            let selectedTestName = null;
+            let plotSelectorCount = 1;
+            let searchQuery = '';
+            let selectedRunTypes = [];
+            let hideSession1 = true;
+            let availableRunTypes = [];
+
+            // Initialize the page
+            loadFilters();
+
+            // Event listener for search button
+            $('#searchButton').on('click', function() {
+                performSearch();
+            });
+
+            // Event listener for clear search button
+            $('#clearSearchButton').on('click', function() {
+                $('#searchInput').val('');
+                searchQuery = '';
+                currentPage = 1;
+                loadModuleTestsData();
+            });
+
+            // Event listener for search input (press Enter)
+            $('#searchInput').on('keypress', function(e) {
+                if (e.which === 13) { // Enter key
+                    performSearch();
+                }
+            });
+
+            // Event listener for page length selector
+            $('#pageLengthSelect').on('change', function() {
+                itemsPerPage = parseInt($(this).val());
+                currentPage = 1;
+                loadModuleTestsData();
+            });
+
+            // Function to perform search
+            function performSearch() {
+                searchQuery = $('#searchInput').val().trim();
+                currentPage = 1;
+                loadModuleTestsData();
+            }
+
+            // Load available filters (run types)
+            function loadFilters() {
+                $.ajax({
+                    url: `https://${server}/fetch_all_module_test_results_optimized`,
+                    type: 'GET',
+                    data: { filters_only: true },
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data && data.available_filters) {
+                            availableRunTypes = data.available_filters.run_types || [];
+                            populateRunTypeFilters();
+                            loadModuleTestsData();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Failed to load filters:", error);
+                        loadModuleTestsData(); // Continue without filters
+                    }
+                });
+            }
+
+            // Populate run type filter checkboxes
+            function populateRunTypeFilters() {
+                const container = $('#runTypeFilterContainer');
+                container.find('label').remove();
+
+                if (availableRunTypes && availableRunTypes.length > 0) {
+                    availableRunTypes.sort();
+                    availableRunTypes.forEach(runType => {
+                        if (!runType) return;
+
+                        const label = $('<label></label>');
+                        const checkbox = $('<input type="checkbox">')
+                            .attr('value', runType)
+                            .on('change', function() {
+                                updateSelectedRunTypes();
+                                currentPage = 1;
+                                loadModuleTestsData();
+                            });
+                        
+                        label.append(checkbox);
+                        label.append(` ${runType}`);
+                        container.append(label);
+                    });
+                }
+            }
+
+            // Update selected run types from checkboxes
+            function updateSelectedRunTypes() {
+                selectedRunTypes = [];
+                $('#runTypeFilterContainer input[type="checkbox"]:checked').each(function() {
+                    selectedRunTypes.push($(this).val());
+                });
+            }
+
+            // Handle hide default sessions toggle
+            $('#hideDefaultSessions').on('change', function() {
+                hideSession1 = $(this).is(':checked');
+                currentPage = 1;
+                loadModuleTestsData();
+            });
+
+            // Add event handlers for pagination buttons
+            $('#prevPage').on('click', function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadModuleTestsData();
+                }
+            });
+            
+            $('#nextPage').on('click', function() {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadModuleTestsData();
+                }
+            });
+
+            // Handle select all
+            $('#selectAll').on('change', function() {
+                $('.test-checkbox').prop('checked', this.checked).trigger('change');
+            });
+
+            // Handle plot type changes
+            $('.container').on('change', '.plot-type-select', function() {
+                updateAllPlots();
+            });
+
+            // Add event handler for the add plot selector button
+            $('.container').on('click', '.add-plot-selector', function() {
+                plotSelectorCount++;
+                const newSelectorId = `plotSelector${plotSelectorCount}`;
+                
+                const newSelector = $('#plotSelector1').clone();
+                newSelector.attr('id', newSelectorId);
+                newSelector.find('select').attr('id', `plotType${plotSelectorCount}`);
+                newSelector.find('.add-plot-selector').replaceWith(
+                    `<button class="remove-plot-selector" data-selector-id="${newSelectorId}" title="Remove this plot type">-</button>`
+                );
+                
+                $('.plot-selectors-container').append(newSelector);
+                updateAllPlots();
+            });
+            
+            // Add event handler for remove plot selector button
+            $('.container').on('click', '.remove-plot-selector', function() {
+                const selectorId = $(this).data('selector-id');
+                $(`#${selectorId}`).remove();
+                updateAllPlots();
+            });
+
+            // Load module tests data from the API (optimized)
+            function loadModuleTestsData() {
+                showLoading();
+                
+                const params = {
+                    page: currentPage,
+                    per_page: itemsPerPage,
+                    hide_session1: hideSession1
+                };
+
+                if (searchQuery) {
+                    params.search = searchQuery;
+                }
+
+                if (selectedRunTypes.length > 0) {
+                    params.run_types = selectedRunTypes.join(',');
+                }
+
+                $.ajax({
+                    url: `https://${server}/fetch_all_module_test_results_optimized`,
+                    type: 'GET',
+                    data: params,
+                    dataType: 'json',
+                    success: function(data) {
+                        hideLoading();
+                        
+                        if (data && data.tests) {
+                            currentData = data.tests;
+                            totalItems = data.pagination.total_items;
+                            totalPages = data.pagination.total_pages;
+                            
+                            displayData();
+                            updatePaginationControls();
+                            $('#content').show();
+                        } else {
+                            showError("No module tests found or invalid data format.");
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        hideLoading();
+                        showError(`Failed to fetch module tests: ${error}`);
+                    }
+                });
+            }
+
+            // Display data in table
+            function displayData() {
+                const startIdx = (currentPage - 1) * itemsPerPage + 1;
+                const endIdx = Math.min(startIdx + currentData.length - 1, totalItems);
+                
+                updatePaginationInfo(startIdx, endIdx, totalItems, totalPages);
+                
+                $('#testsTable tbody').empty();
+                
+                if (currentData.length === 0) {
+                    $('#testsTable tbody').html(`<tr><td colspan="8" style="text-align: center;">No tests found with current filters</td></tr>`);
+                } else {
+                    currentData.forEach(test => {
+                        const row = createTableRow(test);
+                        $('#testsTable tbody').append(row);
+                    });
+                }
+            }
+
+            // Create a table row for a test
+            function createTableRow(test) {
+                const runData = test.run || {};
+                const sessionData = test.session || {};
+                const noise = test.noise || {};
+                const analysisData = test.analysis || {};
+
+                const runMatch = test.test_runName ? test.test_runName.match(/run(\d+)/) : null;
+                const runNumber = runMatch ? parseInt(runMatch[1]) : 0;
+
+                const row = $('<tr></tr>');
+                if (test.moduleTestName === selectedTestName) row.addClass('selected-test');
+
+                // Checkbox column
+                const checkboxCell = $('<td></td>');
+                const checkbox = $('<input type="checkbox" class="test-checkbox">')
+                    .data('test-name', test.moduleTestName)
+                    .data('analysis-file', analysisData.analysisFile)
+                    .on('change', function() {
+                        const isChecked = $(this).is(':checked');
+                        const row = $(this).closest('tr');
+                        if (isChecked) {
+                            displayPlotsForTest(test.moduleTestName, analysisData.analysisFile, row);
+                        } else {
+                            clearPlots(row);
+                        }
+                    });
+                checkboxCell.append(checkbox);
+                row.append(checkboxCell);
+
+                // Test name column
+                const testCell = $('<td></td>');
+                const testNameSpan = $('<span></span>')
+                    .addClass('module-name')
+                    .text(test.moduleTestName)
+                    .on('click', function() {
+                        selectTest(test.moduleTestName, row);
+                    });
+                testCell.append(testNameSpan);
+                
+                if (analysisData.moduleTempStart !== undefined || analysisData.moduleTempStop !== undefined) {
+                    const startTemp = analysisData.moduleTempStart !== undefined ? parseFloat(analysisData.moduleTempStart).toFixed(2) + ' °C' : 'N/A';
+                    const stopTemp = analysisData.moduleTempStop !== undefined ? parseFloat(analysisData.moduleTempStop).toFixed(2) + ' °C' : 'N/A';
+                    testCell.append($('<div></div>').addClass('temperature-info').html(`<span class="temperature-label">Temp:</span> <span class="temperature-value">${startTemp} to ${stopTemp}</span>`));
+                } else {
+                    testCell.append($('<div></div>').addClass('temperature-info').html('<span class="temperature-label">Temp:</span> <span class="temperature-value-unknown">unknown</span>'));
+                }
+                row.append(testCell);
+
+                // Module column
+                const moduleCell = $('<td></td>');
+                if (test.moduleName) {
+                    moduleCell.append($('<a></a>').addClass('module-link').attr('href', `module_results.html?module=${encodeURIComponent(test.moduleName)}`).text(test.moduleName));
+                } else {
+                    moduleCell.text('N/A');
+                }
+                row.append(moduleCell);
+
+                // Run column
+                const runCell = $('<td></td>');
+                const runInfo = $('<div></div>').addClass('run-info');
+                runInfo.append($('<span></span>').addClass('run-number').text(`#${runNumber}`));
+                if (runData.runDate) {
+                    const date = new Date(runData.runDate);
+                    runInfo.append($('<span></span>').addClass('run-date').text(date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB')));
+                }
+                
+                // Add links if available
+                if (runData.runFile) {
+                    const pathMatch = runData.runFile.match(/([^\/]+\/[^\/]+)$/);
+                    if (pathMatch && pathMatch[1]) {
+                        const folderName = pathMatch[1].split('/')[0];
+                        const basePath = `https://cmstkita.web.cern.ch/Pisa/TBPS/navigator_eos.php/${pathMatch[1]}`;
+                        runInfo.append($('<span></span>').addClass('run-results').html(`<a href="${basePath}/${folderName}.log" target="_blank">Log</a>`));
+                        runInfo.append($('<span></span>').addClass('run-results').html(`<a href="${basePath}/Results.root" target="_blank">Results</a>`));
+                    }
+                }
+                
+                if (runData.runType) {
+                    runInfo.append($('<span></span>').addClass('run-type').text(`Type: ${runData.runType}`));
+                }
+                runCell.append(runInfo);
+                row.append(runCell);
+
+                // Session column
+                const sessionCell = $('<td></td>');
+                const sessionInfo = $('<div></div>').addClass('session-info');
+                if (sessionData.operator) sessionInfo.append($('<span></span>').addClass('session-operator').text(`Operator: ${sessionData.operator}`));
+                if (sessionData.description) sessionInfo.append($('<span></span>').addClass('session-description').text(sessionData.description));
+                if (sessionData.sessionName) sessionInfo.append($('<span></span>').addClass('session-name').text(`Session: ${sessionData.sessionName}`));
+                sessionCell.append(sessionInfo);
+                row.append(sessionCell);
+
+                // Noise Stats column
+                const noiseStatsCell = $('<td></td>');
+                if (Object.keys(noise).length > 0) {
+                    const hybrid0SSAValues = [], hybrid0MPAValues = [];
+                    const hybrid1SSAValues = [], hybrid1MPAValues = [];
+                    Object.entries(noise).forEach(([key, value]) => {
+                        if (key.startsWith('H0_SSA')) hybrid0SSAValues.push(value);
+                        else if (key.startsWith('H0_MPA')) hybrid0MPAValues.push(value);
+                        else if (key.startsWith('H1_SSA')) hybrid1SSAValues.push(value);
+                        else if (key.startsWith('H1_MPA')) hybrid1MPAValues.push(value);
+                    });
+                    const calcAvg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+                    const calcMax = arr => arr.length ? Math.max(...arr) : 0;
+                    const calcMin = arr => arr.length ? Math.min(...arr) : 0;
+                    
+                    const hasSSA = hybrid0SSAValues.length > 0 || hybrid1SSAValues.length > 0;
+                    const hasMPA = hybrid0MPAValues.length > 0 || hybrid1MPAValues.length > 0;
+                    let noiseHtml = '<div class="noise-stats">';
+                    if (hasSSA) noiseHtml += `<div class="noise-component"><div class="noise-component-title">SSA:</div><div class="noise-stat-row">Avg: ${calcAvg([...hybrid0SSAValues, ...hybrid1SSAValues]).toFixed(3)}</div><div class="noise-stat-row">Max: ${calcMax([...hybrid0SSAValues, ...hybrid1SSAValues]).toFixed(3)}</div><div class="noise-stat-row">Min: ${calcMin([...hybrid0SSAValues, ...hybrid1SSAValues]).toFixed(3)}</div></div>`;
+                    if (hasMPA) noiseHtml += `<div class="noise-component"><div class="noise-component-title">MPA:</div><div class="noise-stat-row">Avg: ${calcAvg([...hybrid0MPAValues, ...hybrid1MPAValues]).toFixed(3)}</div><div class="noise-stat-row">Max: ${calcMax([...hybrid0MPAValues, ...hybrid1MPAValues]).toFixed(3)}</div><div class="noise-stat-row">Min: ${calcMin([...hybrid0MPAValues, ...hybrid1MPAValues]).toFixed(3)}</div></div>`;
+                    noiseHtml += '</div>';
+                    noiseStatsCell.html(noiseHtml);
+                } else {
+                    noiseStatsCell.text('No noise data');
+                }
+                row.append(noiseStatsCell);
+
+                // Analysis column
+                const analysisCell = $('<td></td>');
+                if (analysisData.analysisVersion) analysisCell.append($('<div></div>').text(`Version: ${analysisData.analysisVersion}`));
+                if (analysisData.analysisFile) analysisCell.append($('<div></div>').html(`<a href="${analysisData.analysisFile}" target="_blank">View Analysis</a>`));
+                row.append(analysisCell);
+
+                // Plots column
+                const plotsCell = $('<td></td>');
+                plotsCell.append($('<div></div>').addClass('plots-container'));
+                row.append(plotsCell);
+                
+                return row;
+            }
+
+            // Select a test
+            function selectTest(testName, rowElement) {
+                $('.selected-test').removeClass('selected-test');
+                rowElement.addClass('selected-test');
+                selectedTestName = testName;
+            }
+            
+            // Clear plots for a row
+            function clearPlots(row) {
+                const plotsContainer = row.find('.plots-container');
+                plotsContainer.empty();
+            }
+
+            // Display plots for a specific test
+            function displayPlotsForTest(testName, analysisFile, row) {
+                const plotsContainer = row.find('.plots-container');
+                plotsContainer.empty();
+                if (!analysisFile) {
+                    plotsContainer.html('<p>No plot data available</p>');
+                    return;
+                }
+                
+                $('.plot-type-select').each(function() {
+                    const plotType = $(this).val();
+                    const plotName = $(this).find('option:selected').text();
+                    const plotUrl = `${analysisFile}${plotType}.png`;
+                    const plotColumn = $('<div class="plot-column"></div>').attr('data-plot-type', plotType);
+                    plotColumn.html(`
+                        <div class="plot-header">${plotName}</div>
+                        <img class="plot-image" src="${plotUrl}" alt="${testName} - ${plotName}" 
+                             onerror="this.onerror=null;this.src='';this.alt='Plot not available';this.style.height='200px';this.style.width='300px';this.style.backgroundColor='#f5f5f5';this.style.display='flex';this.style.alignItems='center';this.style.justifyContent='center';">
+                    `);
+                    plotsContainer.append(plotColumn);
+                });
+            }
+
+            function updateAllPlots() {
+                $('.test-checkbox:checked').each(function() {
+                    const row = $(this).closest('tr');
+                    const testName = $(this).data('test-name');
+                    const analysisFile = $(this).data('analysis-file');
+                    displayPlotsForTest(testName, analysisFile, row);
+                });
+            }
+            
+            // Update pagination controls
+            function updatePaginationControls() {
+                $('#prevPage').prop('disabled', currentPage <= 1);
+                $('#nextPage').prop('disabled', currentPage >= totalPages);
+                const displayTotalPages = Math.max(totalPages, 1);
+                $('#currentPageInfo').text(`Page ${currentPage} of ${displayTotalPages}`);
+            }
+            
+            // Update pagination information
+            function updatePaginationInfo(start, end, total, pages) {
+                const displayTotalPages = Math.max(pages, 1);
+                $('#paginationSummary').text(`Showing ${start}-${end} of ${total} entries`);
+                $('#currentPageInfo').text(`Page ${currentPage} of ${displayTotalPages}`);
+                $('#prevPage').prop('disabled', currentPage <= 1);
+                $('#nextPage').prop('disabled', currentPage >= pages);
+            }
+            
+            // Show loading indicator
+            function showLoading() {
+                $('#loading').show();
+                $('#content').hide();
+                $('#error').hide();
+            }
+            
+            // Hide loading indicator
+            function hideLoading() {
+                $('#loading').hide();
+            }
+            
+            // Show error message
+            function showError(message) {
+                $('#error').text(message).show();
+                $('#loading').hide();
+            }
+        });
+    </script>
+</body>
+</html>
