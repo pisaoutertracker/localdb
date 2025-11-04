@@ -277,6 +277,22 @@
         .run-type-filter-container input[type="checkbox"] {
             margin-right: 5px;
         }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .status-pass {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status-fail {
+            background-color: #f44336;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -1017,6 +1033,10 @@
                         // Extract test status
                         const testStatus = analysisData.analysisResults ? 
                             Object.values(analysisData.analysisResults)[0] || 'N/A' : 'N/A';
+ 
+                        // Get run status and determine pass/fail
+                        const runStatus = runData.runStatus || '';
+                        const isPassed = runStatus.toLowerCase() === 'done';
 
                         // Calculate noise stats
                         const hybrid0SSAValues = [], hybrid0MPAValues = [];
@@ -1065,8 +1085,14 @@
                             .data('test-name', test.moduleTestName)
                             .on('click', function() { /* ... existing click handler ... */ });
                         testCell.append(testNameSpan);
-                        // if (testStatus.toLowerCase() === 'pass') testCell.append($('<span></span>').addClass('pass-badge').text('PASS'));
-                        // else if (testStatus.toLowerCase() === 'failed') testCell.append($('<span></span>').addClass('fail-badge').text('FAIL'));
+                        
+                        // Add status badge based on runStatus
+                        const statusBadge = $('<span></span>')
+                            .addClass('status-badge')
+                            .addClass(isPassed ? 'status-pass' : 'status-fail')
+                            .text(isPassed ? 'PASS' : 'FAIL');
+                        testCell.append(statusBadge);
+                        
                         // Temperature info
                         if (analysisData.moduleTempStart !== undefined || analysisData.moduleTempStop !== undefined) {
                             const startTemp = analysisData.moduleTempStart !== undefined ? parseFloat(analysisData.moduleTempStart).toFixed(2) + ' °C' : 'N/A';

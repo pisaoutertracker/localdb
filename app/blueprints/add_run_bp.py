@@ -79,12 +79,14 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                 board, optical_group = board_and_optical_group.split("_optical")
                 optical_group = int(optical_group)
                 # Update or find the module to get its ObjectId
-                module_doc = modules_collection.find_one_and_update(
-                    {"moduleName": module_key},
-                    {"$set": {"hardwareName": hw_id}},
-                    upsert=True,
-                    return_document=True,
-                )
+                # module_doc = modules_collection.find_one_and_update(
+                #     {"moduleName": module_key},
+                #     {"$set": {"hardwareName": hw_id}},
+                #     upsert=True,
+                #     return_document=True,
+                # )
+                module_doc = modules_collection.find_one({"moduleName": module_key})
+
                 # module_tests_names_list = module_doc.get("moduleTestName", [])
                 # print(f"module_tests_names_list: {module_tests_names_list}")
                 # module_tests_ids_list = module_doc.get("_moduleTest_id", [])
@@ -99,7 +101,7 @@ def process_run(run_key, data, testRuns_collection, modules_collection, moduleTe
                     "test_runName": run_key,
                     "_module_id": module_doc["_id"],
                     "moduleName": module_key,
-                    "noise": data["runNoise"][hw_id],
+                    "noise": data["runNoise"].get(hw_id,{}),
                     "board": board,
                     "opticalGroupName": optical_group,
                 }

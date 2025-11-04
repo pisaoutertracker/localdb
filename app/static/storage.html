@@ -102,15 +102,16 @@
 <body style="margin-top:46px;">
     <div class="control-panel">
         <div class="form-group">
-            <label for="moduleName">Module Name</label>
-            <input type="text" id="moduleName" list="moduleList" placeholder="Click a slot or find by name...">
-            <datalist id="moduleList"></datalist>
-            <button id="findBtn">Find Module</button>
+
         </div>
         <div class="form-group">
             <label for="positionInput">Position</label>
             <input type="text" id="positionInput" placeholder="Click a slot to select...">
+            <label for="moduleName">Module Name</label>
+            <input type="text" id="moduleName" list="moduleList" placeholder="Click a slot or find by name...">
+            <datalist id="moduleList"></datalist>            
             <button id="updateBtn">Update Position</button>
+            <button id="findBtn">Find Module</button>
         </div>
         <div id="statusMessage"></div>
     </div>
@@ -313,14 +314,16 @@
             async function confirmAndUpdatePosition() {
                 const moduleToMove = moduleNameInput.value.trim();
                 const newPosition = positionInput.value.trim();
-
+/*
                 if (!moduleToMove) return showStatus('No module selected to move. Find a module or click an occupied slot first.', 'error');
                 if (!positionRegex.test(newPosition)) return showStatus('Invalid destination position format.', 'error');
                 if (positionToModuleMap.has(newPosition) && positionToModuleMap.get(newPosition) !== moduleToMove) {
                      return showStatus('Destination is already occupied by another module.', 'error');
                 }
-
-                if (highlightPosition(newPosition)) {
+*/
+//                if (
+highlightPosition(newPosition); //) ;
+//{
                     setTimeout(() => {
                         const confirmed = confirm(`Move module "${moduleToMove}" to the highlighted position "${newPosition}"?`);
                         if (confirmed) {
@@ -331,7 +334,7 @@
                         }
                     }, 100);
                 }
-            }
+  //          }
 
             async function updateModulePositionInDb(moduleName, newPosition) {
                  showStatus(`Updating "${moduleName}" to position ${newPosition}...`, 'info');
@@ -344,14 +347,19 @@
                         const response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                         if (!response.ok) throw new Error(`Failed to update (HTTP ${response.status})`);
                     }
-                    
-                    if (originalPosition) positionToModuleMap.delete(originalPosition);
-                    positionToModuleMap.set(newPosition, moduleName);
-                    updateAllSlotColors();
+                        // After successful update, refresh authoritative occupancy from DB
+                        await loadAndDisplayOccupancy();
 
-                    originalPosition = newPosition;
-                    highlightPosition(newPosition);
-                    showStatus(`Successfully moved "${moduleName}" to ${newPosition}.`, 'success');
+                        // Ensure we still highlight the newly moved module if it exists in the refreshed data
+                        if (positionRegex.test(newPosition) && highlightPosition(newPosition)) {
+                            originalPosition = newPosition;
+                            showStatus(`Successfully moved "${moduleName}" to ${newPosition}.`, 'success');
+                        } else {
+                            // If highlight failed, just show a generic success and clear selection
+                            originalPosition = null;
+                            clearHighlight();
+                            showStatus(`Updated position for "${moduleName}"; occupancy refreshed.`, 'success');
+                        }
 
                 } catch (error) {
                     showStatus(`Error updating position: ${error.message}`, 'error');
@@ -379,6 +387,10 @@
                     } else {
                          moduleNameInput.value = '';
                          showStatus(`Selected free slot ${positionString}.`, 'info');
+                    }
+                    // After choosing a free slot (position updated), move focus to the Module Name input
+                    if (moduleNameInput && typeof moduleNameInput.focus === 'function') {
+                        moduleNameInput.focus();
                     }
                 }
             }

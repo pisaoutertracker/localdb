@@ -560,7 +560,7 @@
                     return {
                         checkbox: '',
                         name: test.name,
-                        status: testStatus,
+                        status: runData.runStatus,
                         temperatures: temperatures,
                         runNumber: runNumber, // Keep this as a sortable value
                         runDateTimestamp: runData.runDate ? new Date(runData.runDate).getTime() : 0,
@@ -720,7 +720,7 @@
                     return {
                         checkbox: '',
                         name: test.name,
-                        status: testStatus,
+                        status: runData.runStatus,
                         temperatures: temperatures,
                         runNumber: runNumber, // Keep this as a sortable value
                         runDateTimestamp: runData.runDate ? new Date(runData.runDate).getTime() : 0,
@@ -779,9 +779,9 @@
                                 // Create a proper link similar to the root and log file links
                                 let html = `<a href="${analysisUrl}" target="_blank" class="clickable">${data}</a>`;
                                 
-                                if (row.status.toLowerCase() === 'pass') {
+                                if (row.status.toLowerCase() === 'done') {
                                     html += `<span class="pass-badge">PASS</span>`;
-                                } else if (row.status.toLowerCase() === 'failed') {
+                                } else  { //if (row.status.toLowerCase() === 'failed') {
                                     html += `<span class="fail-badge">FAIL</span>`;
                                 }
                                 
@@ -966,9 +966,9 @@
                                     // Create a proper link similar to the root and log file links
                                     let html = `<a href="${analysisUrl}" target="_blank" class="clickable">${data}</a>`;
                                     
-                                    if (row.status.toLowerCase() === 'pass') {
+                                    if (row.status === 'done') {
                                         html += `<span class="pass-badge">PASS</span>`;
-                                    } else if (row.status.toLowerCase() === 'failed') {
+                                    } else { //if (row.status.toLowerCase() === 'failed') {
                                         html += `<span class="fail-badge">FAIL</span>`;
                                     }
                                     
