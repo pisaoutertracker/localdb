@@ -790,7 +790,23 @@ def fetch_session_testing_flow(session_name):
         
         # Build a time-segmented structure with test type aggregation
         # First, identify burn-in cycles to use as segment boundaries
-        cycle_events = [e for e in all_events if e.get("type") == "cycle"]
+        # Group cycle events by their cycle name (since same cycle applies to all modules)
+        cycle_groups = {}
+        for event in all_events:
+            if event.get("type") == "cycle":
+                cycle_name = event.get("cycle_name")
+                if cycle_name not in cycle_groups:
+                    cycle_groups[cycle_name] = {
+                        "cycle_name": cycle_name,
+                        "event_name": event.get("event_name"),
+                        "timestamp": event.get("timestamp"),
+                        "temperatures": event.get("temperatures"),
+                        "modules": []
+                    }
+                cycle_groups[cycle_name]["modules"].append(event.get("module_name"))
+        
+        # Convert to list and sort by timestamp
+        cycle_events = sorted(cycle_groups.values(), key=lambda x: get_timestamp({"timestamp": x["timestamp"]}))
         test_events = [e for e in all_events if e.get("type") == "test"]
         
         # Create segments: each segment is either a group of tests or a burn-in cycle
@@ -807,7 +823,7 @@ def fetch_session_testing_flow(session_name):
                 })
         else:
             # Add test segment before first cycle
-            first_cycle_time = get_timestamp(cycle_events[0])
+            first_cycle_time = get_timestamp({"timestamp": cycle_events[0]["timestamp"]})
             tests_before_first_cycle = [e for e in test_events if get_timestamp(e) < first_cycle_time]
             if tests_before_first_cycle:
                 segments.append({
@@ -822,14 +838,14 @@ def fetch_session_testing_flow(session_name):
                 # Add the cycle itself
                 segments.append({
                     "type": "cycle",
-                    "event": cycle,
-                    "timestamp": get_timestamp(cycle)
+                    "cycle_data": cycle,
+                    "timestamp": get_timestamp({"timestamp": cycle["timestamp"]})
                 })
                 
                 # Add tests between this cycle and the next (or end)
-                current_cycle_time = get_timestamp(cycle)
+                current_cycle_time = get_timestamp({"timestamp": cycle["timestamp"]})
                 if i < len(cycle_events) - 1:
-                    next_cycle_time = get_timestamp(cycle_events[i + 1])
+                    next_cycle_time = get_timestamp({"timestamp": cycle_events[i + 1]["timestamp"]})
                     tests_in_segment = [e for e in test_events 
                                        if current_cycle_time < get_timestamp(e) < next_cycle_time]
                 else:
@@ -851,14 +867,16 @@ def fetch_session_testing_flow(session_name):
         
         for seg_idx, segment in enumerate(segments):
             if segment["type"] == "cycle":
-                # Single column for the cycle
-                cycle_event = segment["event"]
+                # Single column for the cycle (applies to all modules in the cycle)
+                cycle_data = segment["cycle_data"]
                 columns.append({
                     "type": "cycle",
                     "column_id": f"seg_{seg_idx}_cycle",
-                    "event_name": cycle_event.get("event_name"),
+                    "event_name": cycle_data["event_name"],
                     "timestamp": segment["timestamp"],
-                    "cycle_event": cycle_event
+                    "cycle_name": cycle_data["cycle_name"],
+                    "temperatures": cycle_data["temperatures"],
+                    "modules": cycle_data["modules"]  # List of modules in this cycle
                 })
             else:  # test_group
                 # Group tests by test_type within this segment
@@ -898,14 +916,13 @@ def fetch_session_testing_flow(session_name):
                 
                 if column["type"] == "cycle":
                     # Check if this module participated in this cycle
-                    cycle_event = column["cycle_event"]
-                    if module == cycle_event.get("module_name"):
+                    if module in column["modules"]:
                         row["columns"][col_key] = {
                             "present": True,
                             "type": "cycle",
-                            "event_name": cycle_event.get("event_name"),
-                            "cycle_name": cycle_event.get("cycle_name"),
-                            "temperatures": cycle_event.get("temperatures")
+                            "event_name": column["event_name"],
+                            "cycle_name": column["cycle_name"],
+                            "temperatures": column["temperatures"]
                         }
                     else:
                         row["columns"][col_key] = {"present": False}
