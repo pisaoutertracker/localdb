@@ -788,24 +788,100 @@ def fetch_session_testing_flow(session_name):
         
         all_events.sort(key=get_timestamp)
         
-        # Build unique events list for column headers
-        # This is done in Python as it requires preserving order while deduplicating
-        unique_events = []
-        seen_timestamps = set()
+        # Build a time-segmented structure with test type aggregation
+        # First, identify burn-in cycles to use as segment boundaries
+        cycle_events = [e for e in all_events if e.get("type") == "cycle"]
+        test_events = [e for e in all_events if e.get("type") == "test"]
         
-        for event in all_events:
-            timestamp_key = str(event.get("timestamp", "")) + "_" + event.get("event_name", "")
-            if timestamp_key not in seen_timestamps:
-                seen_timestamps.add(timestamp_key)
-                unique_events.append({
-                    "timestamp": event.get("timestamp"),
-                    "event_name": event.get("event_name"),
-                    "type": event.get("type")
+        # Create segments: each segment is either a group of tests or a burn-in cycle
+        segments = []
+        
+        if not cycle_events:
+            # No cycles, all tests in one segment
+            if test_events:
+                segments.append({
+                    "type": "test_group",
+                    "events": test_events,
+                    "start_time": get_timestamp(test_events[0]) if test_events else None,
+                    "end_time": get_timestamp(test_events[-1]) if test_events else None
                 })
+        else:
+            # Add test segment before first cycle
+            first_cycle_time = get_timestamp(cycle_events[0])
+            tests_before_first_cycle = [e for e in test_events if get_timestamp(e) < first_cycle_time]
+            if tests_before_first_cycle:
+                segments.append({
+                    "type": "test_group",
+                    "events": tests_before_first_cycle,
+                    "start_time": get_timestamp(tests_before_first_cycle[0]),
+                    "end_time": get_timestamp(tests_before_first_cycle[-1])
+                })
+            
+            # Interleave cycles and test groups
+            for i, cycle in enumerate(cycle_events):
+                # Add the cycle itself
+                segments.append({
+                    "type": "cycle",
+                    "event": cycle,
+                    "timestamp": get_timestamp(cycle)
+                })
+                
+                # Add tests between this cycle and the next (or end)
+                current_cycle_time = get_timestamp(cycle)
+                if i < len(cycle_events) - 1:
+                    next_cycle_time = get_timestamp(cycle_events[i + 1])
+                    tests_in_segment = [e for e in test_events 
+                                       if current_cycle_time < get_timestamp(e) < next_cycle_time]
+                else:
+                    # Tests after last cycle
+                    tests_in_segment = [e for e in test_events 
+                                       if get_timestamp(e) > current_cycle_time]
+                
+                if tests_in_segment:
+                    segments.append({
+                        "type": "test_group",
+                        "events": tests_in_segment,
+                        "start_time": get_timestamp(tests_in_segment[0]),
+                        "end_time": get_timestamp(tests_in_segment[-1])
+                    })
         
-        # Build the flow matrix
-        # This is done in Python because the nested loop logic for matching events to columns
-        # would be extremely complex and unreadable in MongoDB aggregation syntax
+        # Now build the column structure
+        # Each segment becomes columns (test types for test_group, single column for cycle)
+        columns = []
+        
+        for seg_idx, segment in enumerate(segments):
+            if segment["type"] == "cycle":
+                # Single column for the cycle
+                cycle_event = segment["event"]
+                columns.append({
+                    "type": "cycle",
+                    "column_id": f"seg_{seg_idx}_cycle",
+                    "event_name": cycle_event.get("event_name"),
+                    "timestamp": segment["timestamp"],
+                    "cycle_event": cycle_event
+                })
+            else:  # test_group
+                # Group tests by test_type within this segment
+                test_types_in_segment = {}
+                for event in segment["events"]:
+                    test_type = event.get("test_type", "Unknown")
+                    if test_type not in test_types_in_segment:
+                        test_types_in_segment[test_type] = []
+                    test_types_in_segment[test_type].append(event)
+                
+                # Create a column for each test type in this segment
+                for test_type, type_events in sorted(test_types_in_segment.items()):
+                    columns.append({
+                        "type": "test_group",
+                        "column_id": f"seg_{seg_idx}_{test_type}",
+                        "test_type": test_type,
+                        "event_name": test_type,
+                        "start_time": segment["start_time"],
+                        "end_time": segment["end_time"],
+                        "test_events": type_events  # All events of this type in this segment
+                    })
+        
+        # Build the flow matrix with the new column structure
         module_flows = {module: [] for module in modules_list}
         
         for event in all_events:
@@ -815,32 +891,43 @@ def fetch_session_testing_flow(session_name):
         
         flow_matrix = []
         for module in modules_list:
-            row = {"module_name": module, "events": {}}
+            row = {"module_name": module, "columns": {}}
             
-            for i, unique_event in enumerate(unique_events):
-                event_key = f"event_{i}"
+            for col_idx, column in enumerate(columns):
+                col_key = f"col_{col_idx}"
                 
-                # Find matching event for this module at this timestamp/event_name
-                matching_events = [
-                    e for e in module_flows[module]
-                    if e.get("timestamp") == unique_event["timestamp"] and 
-                       e.get("event_name") == unique_event["event_name"]
-                ]
-                
-                if matching_events:
-                    event = matching_events[0]
-                    row["events"][event_key] = {
-                        "present": True,
-                        "type": event.get("type"),
-                        "event_name": event.get("event_name"),
-                        "test_type": event.get("test_type"),
-                        "test_name": event.get("test_name"),
-                        "run_name": event.get("run_name"),
-                        "cycle_name": event.get("cycle_name"),
-                        "temperatures": event.get("temperatures")
-                    }
-                else:
-                    row["events"][event_key] = {"present": False}
+                if column["type"] == "cycle":
+                    # Check if this module participated in this cycle
+                    cycle_event = column["cycle_event"]
+                    if module == cycle_event.get("module_name"):
+                        row["columns"][col_key] = {
+                            "present": True,
+                            "type": "cycle",
+                            "event_name": cycle_event.get("event_name"),
+                            "cycle_name": cycle_event.get("cycle_name"),
+                            "temperatures": cycle_event.get("temperatures")
+                        }
+                    else:
+                        row["columns"][col_key] = {"present": False}
+                        
+                else:  # test_group
+                    # Find all tests of this type for this module in this segment
+                    test_type = column["test_type"]
+                    module_tests_in_column = [
+                        e for e in column["test_events"]
+                        if e.get("module_name") == module
+                    ]
+                    
+                    if module_tests_in_column:
+                        row["columns"][col_key] = {
+                            "present": True,
+                            "type": "test_group",
+                            "test_type": test_type,
+                            "count": len(module_tests_in_column),
+                            "tests": module_tests_in_column  # List of all tests
+                        }
+                    else:
+                        row["columns"][col_key] = {"present": False}
             
             flow_matrix.append(row)
         
@@ -852,7 +939,7 @@ def fetch_session_testing_flow(session_name):
                 "description": session.get("description")
             },
             "modules": modules_list,
-            "unique_events": unique_events,
+            "columns": columns,  # New structured column info
             "flow_matrix": flow_matrix
         }
         
