@@ -718,6 +718,7 @@ def fetch_session_testing_flow(session_name):
                 "test_type": "$runType",
                 "test_name": "$moduleTestName",
                 "run_name": "$test_runName",
+                "run_status": "$runStatus",  # Include run status
                 "event_name": "$runType"
             }},
             
@@ -936,11 +937,17 @@ def fetch_session_testing_flow(session_name):
                     ]
                     
                     if module_tests_in_column:
+                        # Count tests by status
+                        passed = sum(1 for t in module_tests_in_column if t.get("run_status") == "done")
+                        failed = sum(1 for t in module_tests_in_column if t.get("run_status") != "done")
+                        
                         row["columns"][col_key] = {
                             "present": True,
                             "type": "test_group",
                             "test_type": test_type,
                             "count": len(module_tests_in_column),
+                            "passed": passed,
+                            "failed": failed,
                             "tests": module_tests_in_column  # List of all tests
                         }
                     else:
