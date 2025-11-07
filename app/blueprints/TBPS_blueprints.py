@@ -661,3 +661,185 @@ def fetch_all_module_test_results_optimized():
     }
     
     return response, 200
+
+
+@bp.route("/fetch_session_testing_flow/<session_name>", methods=["GET"])
+def fetch_session_testing_flow(session_name):
+    """
+    Fetch the complete testing flow for all modules in a session using MongoDB aggregation.
+    Returns module tests and burn-in cycles sorted by timestamp for visualization.
+    
+    This uses two efficient pipelines (one for test runs, one for burn-in cycles) then
+    combines the results in Python. The matrix building is done in Python as it requires
+    complex nested logic that's more readable and maintainable in Python than in MongoDB.
+    """
+    if not session_name:
+        return jsonify({"error": "Session name is required"}), 400
+
+    db = get_db()
+    
+    # First, get basic session info
+    sessions_collection = db["sessions"]
+    session = sessions_collection.find_one({"sessionName": session_name}, 
+                                          {"operator": 1, "timestamp": 1, "description": 1, "modulesList": 1})
+    
+    if not session:
+        return jsonify({"error": f"Session {session_name} not found"}), 404
+    
+    modules_list = session.get("modulesList", [])
+    
+    # PIPELINE 1: Get all test runs with their module tests in a single aggregation
+    test_runs_collection = db["test_runs"]
+    test_events_pipeline = [
+        # Match runs for this session
+        {"$match": {"runSession": session_name}},
+        
+        # Unwind module test IDs to process each separately
+        {"$unwind": {"path": "$moduleTestName", "preserveNullAndEmptyArrays": False}},
+        
+        # Lookup the actual module test document
+        {"$lookup": {
+            "from": "module_tests",
+            "localField": "moduleTestName",
+            "foreignField": "moduleTestName",
+            "as": "moduleTestDoc"
+        }},
+        
+        # Unwind the lookup result
+        {"$unwind": {"path": "$moduleTestDoc", "preserveNullAndEmptyArrays": False}},
+        
+        # Project only the fields we need for the visualization
+        {"$project": {
+            "_id": 0,
+            "type": {"$literal": "test"},
+            "timestamp": "$runDate",
+            "module_name": "$moduleTestDoc.moduleName",
+            "test_type": "$runType",
+            "test_name": "$moduleTestName",
+            "run_name": "$test_runName",
+            "event_name": "$runType"
+        }},
+        
+        # Sort by timestamp
+        {"$sort": {"timestamp": 1}}
+    ]
+    
+    module_test_events = list(test_runs_collection.aggregate(test_events_pipeline))
+    
+    # PIPELINE 2: Get all burn-in cycles for this session
+    burnin_cycles_collection = db["burnin_cycles"]
+    burnin_events_pipeline = [
+        # Match cycles that contain the session name
+        {"$match": {"BurninCycleName": {"$regex": f".*{session_name}.*"}}},
+        
+        # Unwind the modules array to create one event per module
+        {"$unwind": {"path": "$BurninCycleModules", "preserveNullAndEmptyArrays": False}},
+        
+        # Project the fields we need, including temperature label generation
+        {"$project": {
+            "_id": 0,
+            "type": {"$literal": "cycle"},
+            "timestamp": "$BurninCycleDate",
+            "module_name": "$BurninCycleModules",
+            "cycle_name": "$BurninCycleName",
+            "temperatures": "$BurninCycleTemperatures",
+            # Create event_name with temperature info
+            "event_name": {
+                "$cond": {
+                    "if": {"$and": [
+                        {"$ifNull": ["$BurninCycleTemperatures.low", False]},
+                        {"$ifNull": ["$BurninCycleTemperatures.high", False]}
+                    ]},
+                    "then": {
+                        "$concat": [
+                            "Cycle ",
+                            {"$toString": "$BurninCycleTemperatures.low"},
+                            "°C/",
+                            {"$toString": "$BurninCycleTemperatures.high"},
+                            "°C"
+                        ]
+                    },
+                    "else": "Cycle"
+                }
+            }
+        }},
+        
+        # Sort by timestamp
+        {"$sort": {"timestamp": 1}}
+    ]
+    
+    burnin_events = list(burnin_cycles_collection.aggregate(burnin_events_pipeline))
+    
+    # Combine and sort all events (MongoDB did most of the work!)
+    all_events = module_test_events + burnin_events
+    all_events.sort(key=lambda x: x.get("timestamp") or datetime.datetime.min)
+    
+    # Build unique events list for column headers
+    # This is done in Python as it requires preserving order while deduplicating
+    unique_events = []
+    seen_timestamps = set()
+    
+    for event in all_events:
+        timestamp_key = str(event.get("timestamp", "")) + "_" + event.get("event_name", "")
+        if timestamp_key not in seen_timestamps:
+            seen_timestamps.add(timestamp_key)
+            unique_events.append({
+                "timestamp": event.get("timestamp"),
+                "event_name": event.get("event_name"),
+                "type": event.get("type")
+            })
+    
+    # Build the flow matrix
+    # This is done in Python because the nested loop logic for matching events to columns
+    # would be extremely complex and unreadable in MongoDB aggregation syntax
+    module_flows = {module: [] for module in modules_list}
+    
+    for event in all_events:
+        module_name = event.get("module_name")
+        if module_name in module_flows:
+            module_flows[module_name].append(event)
+    
+    flow_matrix = []
+    for module in modules_list:
+        row = {"module_name": module, "events": {}}
+        
+        for i, unique_event in enumerate(unique_events):
+            event_key = f"event_{i}"
+            
+            # Find matching event for this module at this timestamp/event_name
+            matching_events = [
+                e for e in module_flows[module]
+                if e.get("timestamp") == unique_event["timestamp"] and 
+                   e.get("event_name") == unique_event["event_name"]
+            ]
+            
+            if matching_events:
+                event = matching_events[0]
+                row["events"][event_key] = {
+                    "present": True,
+                    "type": event.get("type"),
+                    "event_name": event.get("event_name"),
+                    "test_type": event.get("test_type"),
+                    "test_name": event.get("test_name"),
+                    "run_name": event.get("run_name"),
+                    "cycle_name": event.get("cycle_name"),
+                    "temperatures": event.get("temperatures")
+                }
+            else:
+                row["events"][event_key] = {"present": False}
+        
+        flow_matrix.append(row)
+    
+    response = {
+        "session_name": session_name,
+        "session_info": {
+            "operator": session.get("operator"),
+            "timestamp": session.get("timestamp"),
+            "description": session.get("description")
+        },
+        "modules": modules_list,
+        "unique_events": unique_events,
+        "flow_matrix": flow_matrix
+    }
+    
+    return jsonify(response), 200
