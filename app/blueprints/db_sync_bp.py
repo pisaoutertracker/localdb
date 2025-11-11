@@ -119,7 +119,33 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
             if location != 'Pisa':
                 cmd.extend(['--location', location])
             
-            logging.info(f"Running sync command: {' '.join(cmd)}")
+            # Log environment and command details
+            logging.info("="*80)
+            logging.info("STARTING DB SYNC FROM WEB INTERFACE")
+            logging.info("="*80)
+            logging.info(f"Command: {' '.join(cmd)}")
+            logging.info(f"Environment variables:")
+            logging.info(f"  MONGO_URI: {mongo_uri}")
+            logging.info(f"  MONGO_DB_NAME: {mongo_db_name}")
+            logging.info(f"  API_URL: {api_url}")
+            logging.info(f"Script path: {sync_script}")
+            logging.info(f"Working directory: {os.getcwd()}")
+            logging.info("="*80)
+            
+            # Add environment info to output
+            sync_status['output'] = f"""{'='*80}
+                STARTING DB SYNC FROM WEB INTERFACE
+                {'='*80}
+                Command: {' '.join(cmd)}
+                Environment variables:
+                MONGO_URI: {mongo_uri}
+                MONGO_DB_NAME: {mongo_db_name}
+                API_URL: {api_url}
+                Script path: {sync_script}
+                Working directory: {os.getcwd()}
+                {'='*80}
+
+                """
             
             # Run the sync script with real-time output parsing
             process = subprocess.Popen(
@@ -136,6 +162,7 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
             for line in iter(process.stdout.readline, ''):
                 if line:
                     output_lines.append(line)
+                    sync_status['output'] += line
                     # Parse progress from lines like:
                     # "Progress: 5/10 - Importing NEW module PS_26_IPG-10013"
                     # "Progress: 5/10 - Updating EXISTING module PS_26_IPG-10013"
