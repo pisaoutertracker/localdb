@@ -16,6 +16,9 @@ API_URL = os.environ["API_URL"]
 MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = os.environ["MONGO_DB_NAME"]
 
+# Directory where rhapi.py is located (same as this script)
+RHAPI_DIR = os.path.dirname(os.path.abspath(__file__))
+
 PARTS_TABLES = {
     "PS Module": "p9020",
     "PS-s Sensor": "p1160",
@@ -35,7 +38,8 @@ PARTS_TABLES = {
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def run_rhapi_command(command):
-    result = subprocess.run(command, capture_output=True, text=True, shell=True)
+    # Change to the directory where rhapi.py is located
+    result = subprocess.run(command, capture_output=True, text=True, shell=True, cwd=RHAPI_DIR)
     if result.returncode != 0:
         logging.error(f"Command failed: {command}\n{result.stderr}")
     return result.stdout
@@ -286,6 +290,18 @@ def main():
     parser.add_argument('--by-name', action='store_true', help='Query modules by name pattern (IBA/IPG) instead of location')
     parser.add_argument('--location', default='Pisa', help='Location to filter modules (default: Pisa)')
     args = parser.parse_args()
+
+    # Log all environment variables and configuration
+    logging.info("="*80)
+    logging.info("ENVIRONMENT CONFIGURATION:")
+    logging.info("="*80)
+    logging.info(f"API_URL: {API_URL}")
+    logging.info(f"MONGO_URI: {MONGO_URI}")
+    logging.info(f"DB_NAME: {DB_NAME}")
+    logging.info(f"Arguments: by_name={args.by_name}, location={args.location}")
+    logging.info(f"Python executable: {sys.executable}")
+    logging.info(f"Working directory: {os.getcwd()}")
+    logging.info("="*80)
 
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
