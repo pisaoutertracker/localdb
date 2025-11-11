@@ -87,9 +87,19 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
     global sync_status
     
     with sync_lock:
+        # Reset sync_status to avoid cached values
         sync_status['is_running'] = True
         sync_status['last_status'] = 'running'
         sync_status['last_message'] = f'Sync started at {datetime.now().isoformat()}'
+        sync_status['output'] = ''
+        sync_status['modules_added'] = []
+        sync_status['progress'] = {
+            'current': 0,
+            'total': 0,
+            'step': '',
+            'current_module': '',
+            'action': ''
+        }
         
         try:
             # Get the path to db_sync.py

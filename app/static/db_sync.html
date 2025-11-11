@@ -275,7 +275,12 @@
         }
 
         function checkStatus() {
-            fetch('/db_sync/status')
+            fetch('/db_sync/status?' + new Date().getTime(), {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
                     updateStatusDisplay(data);
@@ -404,6 +409,9 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 },
                 body: JSON.stringify({
                     by_name: false,
