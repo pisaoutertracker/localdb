@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Testing Flow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #0b5ed7;
+            padding-bottom: 8px;
+        }
+        .session-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .session-card {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .session-card:hover {
+            background: #e9ecef;
+            border-color: #0b5ed7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .session-card h3 {
+            margin: 0 0 10px 0;
+            color: #0b5ed7;
+            font-size: 18px;
+        }
+        .session-card p {
+            margin: 5px 0;
+            color: #555;
+            font-size: 14px;
+        }
+        .session-card .session-date {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+        }
+        .session-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0b5ed7;
+        }
+        .session-info h3 {
+            margin: 0 0 10px 0;
+            color: #0b5ed7;
+        }
+        .session-info p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .back-button {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin-bottom: 15px;
+        }
+        .back-button:hover {
+            background: #5a6268;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            background-color: #fff0f0;
+            color: #c00;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c00;
+        }
+        .flow-table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        .flow-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 800px;
+            font-size: 13px;
+        }
+        .flow-table th {
+            background: #0b5ed7;
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border: 1px solid #0952b8;
+        }
+        .flow-table th.module-header {
+            background: #495057;
+            min-width: 150px;
+            max-width: 200px;
+            text-align: left;
+            position: sticky;
+            left: 0;
+            z-index: 11;
+        }
+        .flow-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .flow-table td.module-name {
+            font-weight: bold;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            border-right: 2px solid #999;
+            min-width: 150px;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .flow-table tr:hover td.module-name {
+            background: #e9ecef;
+        }
+        .event-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            white-space: nowrap;
+            min-width: 40px;
+            max-width: 60px;
+            padding: 8px 4px !important;
+        }
+        .event-cell {
+            min-width: 40px;
+            max-width: 60px;
+        }
+        .event-present {
+            background: #d4edda;
+            color: #155724;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .event-present:hover {
+            background: #c3e6cb;
+            transform: scale(1.05);
+        }
+        .event-present.test-event {
+            background: #cfe2ff;
+            color: #084298;
+        }
+        .event-present.test-event:hover {
+            background: #b6d4fe;
+        }
+        .event-present.test-event.has-failed {
+            background: #f8d7da;
+            color: #842029;
+        }
+        .event-present.test-event.has-failed:hover {
+            background: #f1aeb5;
+        }
+        .event-present.test-event.all-passed {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+        .event-present.test-event.all-passed:hover {
+            background: #badbcc;
+        }
+        .event-present.cycle-event {
+            background: #fff3cd;
+            color: #997404;
+        }
+        .event-present.cycle-event:hover {
+            background: #ffe69c;
+        }
+        .event-absent {
+            background: #f8f9fa;
+            color: #999;
+        }
+        .tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            max-width: 300px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+        .timestamp-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-box {
+            width: 30px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+        .legend-box.test {
+            background: #cfe2ff;
+        }
+        .legend-box.test-passed {
+            background: #d1e7dd;
+        }
+        .legend-box.test-failed {
+            background: #f8d7da;
+        }
+        .legend-box.cycle {
+            background: #fff3cd;
+        }
+        .legend-box.absent {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Session Testing Flow Visualization</h1>
+        
+        <!-- Session List View -->
+        <div id="sessionListContainer">
+            <h2>Select a Session</h2>
+            <div id="loadingMessage" class="loading" style="display: none;">
+                Loading sessions...
+            </div>
+            <div id="sessionList" class="session-list"></div>
+        </div>
+
+        <!-- Session Flow View -->
+        <div id="sessionFlowContainer" style="display: none;">
+            <a href="#" class="back-button" id="backButton">← Back to Sessions</a>
+            
+            <div id="sessionInfoContainer">
+                <div class="session-info">
+                    <h3 id="sessionTitle">Session: </h3>
+                    <p><strong>Operator:</strong> <span id="sessionOperator"></span></p>
+                    <p><strong>Date:</strong> <span id="sessionDate"></span></p>
+                    <p><strong>Description:</strong> <span id="sessionDescription"></span></p>
+                    <p><strong>Modules:</strong> <span id="sessionModuleCount"></span></p>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-box test"></div>
+                        <span>Test Unknown Status</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box test-passed"></div>
+                        <span>All Tests Passed</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box test-failed"></div>
+                        <span>Tests Failed/Mixed</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box cycle"></div>
+                        <span>Burn-in Cycle</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box absent"></div>
+                        <span>Not Tested</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loadingFlowMessage" class="loading" style="display: none;">
+                Loading session flow data...
+            </div>
+
+            <div id="flowTableContainer" class="flow-table-container">
+                <table class="flow-table" id="flowTable">
+                    <thead>
+                        <tr id="tableHeader">
+                            <th class="module-header">Module Name</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error" style="display: none;"></div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // API base URL
+        const API_BASE = 'https://www.pi.infn.it/~arizzi/db.php';
+
+        let currentSessionData = null;
+
+        // Get URL parameters
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        // Load and display all sessions
+        async function loadSessions() {
+            try {
+                showLoading(true);
+                const response = await fetch(`${API_BASE}/sessions`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                const sessionListDiv = document.getElementById('sessionList');
+                sessionListDiv.innerHTML = '';
+                
+                // The API returns a list of sessions
+                if (data && Array.isArray(data)) {
+                    // Sort sessions by timestamp (descending) to show newest first
+                    data.sort((a, b) => {
+                        const dateA = new Date(a.timestamp || 0);
+                        const dateB = new Date(b.timestamp || 0);
+                        return dateB - dateA;
+                    });
+                    
+                    data.forEach(session => {
+                        const card = document.createElement('a');
+                        card.className = 'session-card';
+                        card.href = `?session=${encodeURIComponent(session.sessionName || session._id)}`;
+                        
+                        const title = document.createElement('h3');
+                        title.textContent = session.sessionName || session._id;
+                        card.appendChild(title);
+                        
+                        const operator = document.createElement('p');
+                        operator.innerHTML = `<strong>Operator:</strong> ${session.operator || 'N/A'}`;
+                        card.appendChild(operator);
+                        
+                        const description = document.createElement('p');
+                        description.innerHTML = `<strong>Description:</strong> ${truncate(session.description || 'N/A', 60)}`;
+                        card.appendChild(description);
+                        
+                        const modules = document.createElement('p');
+                        modules.innerHTML = `<strong>Modules:</strong> ${session.modulesList ? session.modulesList.length : 0}`;
+                        card.appendChild(modules);
+                        
+                        const date = document.createElement('p');
+                        date.className = 'session-date';
+                        date.textContent = formatDateTime(session.timestamp);
+                        card.appendChild(date);
+                        
+                        sessionListDiv.appendChild(card);
+                    });
+                }
+                showLoading(false);
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                showError('Failed to load sessions. Please try again.');
+                showLoading(false);
+            }
+        }
+
+        // Load session testing flow
+        async function loadSessionFlow(sessionName) {
+            if (!sessionName) {
+                showError('No session specified.');
+                return;
+            }
+
+            // Show flow container, hide list
+            document.getElementById('sessionListContainer').style.display = 'none';
+            document.getElementById('sessionFlowContainer').style.display = 'block';
+            
+            hideError();
+            showLoadingFlow(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/fetch_session_testing_flow/${encodeURIComponent(sessionName)}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                currentSessionData = data;
+                
+                displaySessionInfo(data);
+                displayFlowTable(data);
+                
+                showLoadingFlow(false);
+            } catch (error) {
+                console.error('Error loading session flow:', error);
+                showError(`Failed to load session flow: ${error.message}`);
+                showLoadingFlow(false);
+            }
+        }
+
+        // Display session information
+        function displaySessionInfo(data) {
+            document.getElementById('sessionTitle').textContent = `Session: ${data.session_name}`;
+            document.getElementById('sessionOperator').textContent = data.session_info.operator || 'N/A';
+            document.getElementById('sessionDate').textContent = formatDateTime(data.session_info.timestamp);
+            document.getElementById('sessionDescription').textContent = data.session_info.description || 'N/A';
+            document.getElementById('sessionModuleCount').textContent = data.modules.length;
+            
+            document.getElementById('sessionInfoContainer').style.display = 'block';
+        }
+
+        // Display flow table
+        function displayFlowTable(data) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            
+            // Clear existing content
+            tableHeader.innerHTML = '<th class="module-header">Module Name</th>';
+            tableBody.innerHTML = '';
+
+            // Create column headers for each column (cycles and aggregated test types)
+            data.columns.forEach((column, index) => {
+                const th = document.createElement('th');
+                th.className = 'event-header';
+                
+                if (column.type === 'cycle') {
+                    th.textContent = column.event_name;
+                    th.title = `${column.event_name}\n${formatDateTime(column.timestamp)}`;
+                } else {
+                    // Test group - show the test type
+                    th.textContent = column.test_type;
+                    th.title = `${column.test_type}\nPeriod: ${formatDateTime(column.start_time)} - ${formatDateTime(column.end_time)}`;
+                }
+                
+                tableHeader.appendChild(th);
+            });
+
+            // Create rows for each module
+            data.flow_matrix.forEach(moduleRow => {
+                const tr = document.createElement('tr');
+                
+                // Module name cell
+                const moduleCell = document.createElement('td');
+                moduleCell.className = 'module-name';
+                moduleCell.textContent = moduleRow.module_name;
+                moduleCell.title = moduleRow.module_name;
+                tr.appendChild(moduleCell);
+
+                // Column cells
+                data.columns.forEach((column, index) => {
+                    const colKey = `col_${index}`;
+                    const cellData = moduleRow.columns[colKey];
+                    
+                    const td = document.createElement('td');
+                    td.className = 'event-cell';
+                    
+                    if (cellData.present) {
+                        td.classList.add('event-present');
+                        
+                        if (cellData.type === 'test_group') {
+                            td.classList.add('test-event');
+                            
+                            // Determine status styling
+                            if (cellData.failed > 0) {
+                                td.classList.add('has-failed');
+                            } else if (cellData.passed > 0 && cellData.failed === 0) {
+                                td.classList.add('all-passed');
+                            }
+                            
+                            // Create display text
+                            let displayText = '';
+                            if (cellData.passed > 0 && cellData.failed > 0) {
+                                // Mixed results
+                                displayText = `✓${cellData.passed}✗${cellData.failed}`;
+                            } else if (cellData.failed > 0) {
+                                // All failed
+                                displayText = cellData.failed > 1 ? `✗${cellData.failed}` : '✗';
+                            } else if (cellData.passed > 0) {
+                                // All passed
+                                displayText = cellData.passed > 1 ? `✓${cellData.passed}` : '✓';
+                            } else {
+                                // Unknown status
+                                displayText = cellData.count > 1 ? `?${cellData.count}` : '?';
+                            }
+                            
+                            td.textContent = displayText;
+                            td.dataset.tooltip = createTestGroupTooltip(cellData, column);
+                        } else if (cellData.type === 'cycle') {
+                            td.classList.add('cycle-event');
+                            td.textContent = '●';
+                            td.dataset.tooltip = createCycleTooltip(cellData);
+                        }
+                        
+                        // Add hover effect
+                        td.addEventListener('mouseenter', showTooltip);
+                        td.addEventListener('mousemove', moveTooltip);
+                        td.addEventListener('mouseleave', hideTooltip);
+                    } else {
+                        td.classList.add('event-absent');
+                        td.textContent = '—';
+                    }
+                    
+                    tr.appendChild(td);
+                });
+
+                tableBody.appendChild(tr);
+            });
+
+            document.getElementById('flowTableContainer').style.display = 'block';
+        }
+
+        // Create tooltip for aggregated test groups
+        function createTestGroupTooltip(cellData, column) {
+            let tooltip = `<strong>${column.test_type}</strong><br>`;
+            tooltip += `Total Tests: ${cellData.count}<br>`;
+            tooltip += `Passed: ${cellData.passed} | Failed: ${cellData.failed}<br><br>`;
+            
+            // List all individual tests with their status
+            cellData.tests.forEach((test, idx) => {
+                if (idx > 0) tooltip += '<br>';
+                const statusIcon = test.run_status === 'done' ? '✓' : '✗';
+                const statusText = test.run_status === 'done' ? 'PASSED' : (test.run_status || 'UNKNOWN');
+                tooltip += `${statusIcon} ${test.run_name || test.test_name} (${statusText})`;
+            });
+            
+            return tooltip;
+        }
+
+        // Create tooltip for cycle events
+        function createCycleTooltip(eventData) {
+            let tooltip = `<strong>Burn-in Cycle</strong><br>`;
+            tooltip += `${eventData.cycle_name}<br>`;
+            if (eventData.temperatures) {
+                const temps = eventData.temperatures;
+                if (temps.low !== undefined && temps.high !== undefined) {
+                    tooltip += `Temp: ${temps.low}°C to ${temps.high}°C`;
+                }
+            }
+            return tooltip;
+        }
+
+        // Tooltip functions
+        function showTooltip(e) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = e.target.dataset.tooltip;
+            tooltip.style.display = 'block';
+            moveTooltip(e);
+        }
+
+        function moveTooltip(e) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+        }
+
+        function hideTooltip() {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.display = 'none';
+        }
+
+        // Utility functions
+        function formatDateTime(dateStr) {
+            if (!dateStr) return 'N/A';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleString();
+            } catch {
+                return dateStr;
+            }
+        }
+
+        function truncate(str, maxLength) {
+            if (!str) return '';
+            if (str.length <= maxLength) return str;
+            return str.substring(0, maxLength) + '...';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
+        }
+
+        function showLoadingFlow(show) {
+            document.getElementById('loadingFlowMessage').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                hideError();
+            }, 5000);
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // Event listeners
+        document.getElementById('backButton').addEventListener('click', (e) => {
+            e.preventDefault();
+            // Update URL without session parameter
+            window.history.pushState({}, '', window.location.pathname);
+            // Show session list, hide flow
+            document.getElementById('sessionListContainer').style.display = 'block';
+            document.getElementById('sessionFlowContainer').style.display = 'none';
+            hideError();
+        });
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const sessionParam = getUrlParameter('session');
+            
+            if (sessionParam) {
+                // Load specific session flow
+                loadSessionFlow(sessionParam);
+            } else {
+                // Load session list
+                loadSessions();
+            }
+        });
+    </script>
+</body>
+</html>
