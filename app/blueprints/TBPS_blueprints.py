@@ -1191,3 +1191,122 @@ def fetch_session_testing_flow(session_name):
         print(traceback.format_exc())
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
+
+@bp.route("/fetch_sessions_for_testing_flow", methods=["GET"])
+def fetch_sessions_for_testing_flow():
+    """
+    Fetch all sessions annotated with metadata useful for the testing flow page:
+      - has_runs: whether the session has at least one linked test_run
+      - has_full_test: whether the session has at least one test_run with runType containing 'full' (case-insensitive)
+      - has_heat_step: whether the session has at least one test_run with runType containing 'heat' (case-insensitive)
+      - has_cool_step: whether the session has at least one test_run with runType containing 'cool' (case-insensitive)
+      - run_count: total number of test_runs linked to the session
+      - run_types: list of distinct runType values across all linked test_runs
+
+    This uses a single MongoDB aggregation pipeline with $lookup to efficiently
+    join sessions with test_runs, avoiding N+1 queries on the frontend.
+    """
+    try:
+        db = get_db()
+        sessions_collection = db["sessions"]
+
+        pipeline = [
+            # Lookup test_runs linked to each session via runSession field
+            {"$lookup": {
+                "from": "test_runs",
+                "localField": "sessionName",
+                "foreignField": "runSession",
+                "as": "linked_runs"
+            }},
+            # Project the fields we need plus computed filter metadata
+            {"$project": {
+                "sessionName": 1,
+                "operator": 1,
+                "timestamp": 1,
+                "description": 1,
+                "modulesList": 1,
+                "run_count": {"$size": "$linked_runs"},
+                "has_runs": {"$gt": [{"$size": "$linked_runs"}, 0]},
+                "has_full_test": {
+                    "$gt": [
+                        {"$size": {
+                            "$filter": {
+                                "input": "$linked_runs",
+                                "as": "run",
+                                "cond": {
+                                    "$regexMatch": {
+                                        "input": {"$ifNull": ["$$run.runType", ""]},
+                                        "regex": "full",
+                                        "options": "i"
+                                    }
+                                }
+                            }
+                        }},
+                        0
+                    ]
+                },
+                "has_heat_step": {
+                    "$gt": [
+                        {"$size": {
+                            "$filter": {
+                                "input": "$linked_runs",
+                                "as": "run",
+                                "cond": {
+                                    "$regexMatch": {
+                                        "input": {"$ifNull": ["$$run.runType", ""]},
+                                        "regex": "heat",
+                                        "options": "i"
+                                    }
+                                }
+                            }
+                        }},
+                        0
+                    ]
+                },
+                "has_cool_step": {
+                    "$gt": [
+                        {"$size": {
+                            "$filter": {
+                                "input": "$linked_runs",
+                                "as": "run",
+                                "cond": {
+                                    "$regexMatch": {
+                                        "input": {"$ifNull": ["$$run.runType", ""]},
+                                        "regex": "cool",
+                                        "options": "i"
+                                    }
+                                }
+                            }
+                        }},
+                        0
+                    ]
+                },
+                "run_types": {
+                    "$setUnion": [
+                        {"$map": {
+                            "input": "$linked_runs",
+                            "as": "run",
+                            "in": "$$run.runType"
+                        }},
+                        []
+                    ]
+                }
+            }},
+            # Sort by timestamp descending (newest first)
+            {"$sort": {"timestamp": -1}}
+        ]
+
+        sessions = list(sessions_collection.aggregate(pipeline))
+
+        # Convert ObjectId to string for JSON serialization
+        for s in sessions:
+            s["_id"] = str(s["_id"])
+
+        return jsonify(sessions), 200
+
+    except Exception as e:
+        import traceback
+        print(f"Error in fetch_sessions_for_testing_flow: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+
