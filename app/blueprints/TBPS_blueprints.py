@@ -1198,8 +1198,11 @@ def fetch_sessions_for_testing_flow():
     Fetch all sessions annotated with metadata useful for the testing flow page:
       - has_runs: whether the session has at least one linked test_run
       - has_full_test: whether the session has at least one test_run with runType containing 'full' (case-insensitive)
-      - has_heat_step: whether the session has at least one test_run with runType containing 'heat' (case-insensitive)
-      - has_cool_step: whether the session has at least one test_run with runType containing 'cool' (case-insensitive)
+      - has_step_list: whether the session document has a non-empty stepList field
+      - has_heat_step: whether stepList contains an entry matching 'heat' (case-insensitive)
+      - has_cool_step: whether stepList contains an entry matching 'cool' (case-insensitive)
+      - nCycles: the session's nCycles field (0 if absent)
+      - good_for_silvio: has_full_test AND nCycles > 0
       - run_count: total number of test_runs linked to the session
       - run_types: list of distinct runType values across all linked test_runs
 
@@ -1225,6 +1228,7 @@ def fetch_sessions_for_testing_flow():
                 "timestamp": 1,
                 "description": 1,
                 "modulesList": 1,
+                "nCycles": {"$ifNull": ["$nCycles", 0]},
                 "run_count": {"$size": "$linked_runs"},
                 "has_runs": {"$gt": [{"$size": "$linked_runs"}, 0]},
                 "has_full_test": {
@@ -1245,15 +1249,22 @@ def fetch_sessions_for_testing_flow():
                         0
                     ]
                 },
+                # stepList-based filters: stepList is an array of step name strings on the session doc
+                "has_step_list": {
+                    "$and": [
+                        {"$isArray": {"$ifNull": ["$stepList", False]}},
+                        {"$gt": [{"$size": {"$ifNull": ["$stepList", []]}}, 0]}
+                    ]
+                },
                 "has_heat_step": {
                     "$gt": [
                         {"$size": {
                             "$filter": {
-                                "input": "$linked_runs",
-                                "as": "run",
+                                "input": {"$ifNull": ["$stepList", []]},
+                                "as": "step",
                                 "cond": {
                                     "$regexMatch": {
-                                        "input": {"$ifNull": ["$$run.runType", ""]},
+                                        "input": {"$ifNull": ["$$step", ""]},
                                         "regex": "heat",
                                         "options": "i"
                                     }
@@ -1267,11 +1278,11 @@ def fetch_sessions_for_testing_flow():
                     "$gt": [
                         {"$size": {
                             "$filter": {
-                                "input": "$linked_runs",
-                                "as": "run",
+                                "input": {"$ifNull": ["$stepList", []]},
+                                "as": "step",
                                 "cond": {
                                     "$regexMatch": {
-                                        "input": {"$ifNull": ["$$run.runType", ""]},
+                                        "input": {"$ifNull": ["$$step", ""]},
                                         "regex": "cool",
                                         "options": "i"
                                     }
@@ -1289,6 +1300,15 @@ def fetch_sessions_for_testing_flow():
                             "in": "$$run.runType"
                         }},
                         []
+                    ]
+                }
+            }},
+            # Add a second $project stage to compute good_for_silvio which depends on has_full_test and nCycles
+            {"$addFields": {
+                "good_for_silvio": {
+                    "$and": [
+                        {"$eq": ["$has_full_test", True]},
+                        {"$gt": ["$nCycles", 0]}
                     ]
                 }
             }},
