@@ -532,48 +532,152 @@ def fetch_module_test_results(module_test_id):
     module_test = get_module_test_with_session_data(module_tests_collection, module_test_id)
     return module_test, 200 if module_test else 404
 
+def get_all_module_test_metadata(module_tests_collection):
+    """
+    Fetch lightweight metadata for all module tests to support frontend filtering/search
+    without loading full documents.
+    """
+    pipeline = [
+        {"$lookup": {
+            "from": "test_runs",
+            "localField": "test_runName",
+            "foreignField": "test_runName",
+            "as": "run"
+        }},
+        {"$unwind": {
+            "path": "$run",
+            "preserveNullAndEmptyArrays": True
+        }},
+        {"$sort": {"run.runDate": -1}},
+        {"$project": {
+            "moduleTestName": 1,
+            "runType": "$run.runType",
+            "sessionName": "$run.runSession",
+            "_id": 0
+        }}
+    ]
+    return list(module_tests_collection.aggregate(pipeline))
+
+def get_module_test_page(module_tests_collection, page, per_page):
+    """
+    Fetch full data for a specific page of module tests, applying lookups only
+    to the requested slice.
+    """
+    skip = (page - 1) * per_page
+    pipeline = [
+        # 1. Join with runs for sorting
+        {"$lookup": {
+            "from": "test_runs",
+            "localField": "test_runName",
+            "foreignField": "test_runName",
+            "as": "run"
+        }},
+        {"$unwind": {
+            "path": "$run",
+            "preserveNullAndEmptyArrays": True
+        }},
+        
+        # 2. Sort and Pagination EARLY (Optimization key: reduce working set)
+        {"$sort": {"run.runDate": -1}},
+        {"$skip": skip},
+        {"$limit": per_page},
+
+        # 3. Heavy lookups only for the page
+        
+        # Lookup Session
+        {"$lookup": {
+            "from": "sessions",
+            "localField": "run.runSession",
+            "foreignField": "sessionName",
+            "as": "session"
+        }},
+        {"$unwind": {
+            "path": "$session",
+            "preserveNullAndEmptyArrays": True
+        }},
+        
+        # Lookup Analysis
+        {"$addFields": {
+             "lastAnalysisId": { "$arrayElemAt": ["$analysesList", -1] }
+        }},
+        {"$lookup": {
+            "from": "module_test_analysis",
+            "localField": "lastAnalysisId",
+            "foreignField": "moduleTestAnalysisName",
+            "as": "analysis"
+        }},
+        {"$unwind": {
+            "path": "$analysis",
+            "preserveNullAndEmptyArrays": True
+        }},
+        
+        # 4. Final Projection
+        {"$addFields": {
+            "analysisFile": "$analysis.analysisFile",
+            "sessionName": "$session.sessionName",
+            "runDate": "$run.runDate",
+            "runType": "$run.runType",
+        }},
+        {"$project": {
+            "_id": 1,
+            "moduleTestName": 1,
+            "test_runName": 1,
+            "runDate": 1,
+            "runType": 1,
+            "moduleName": 1,
+            "noise": 1,
+            "run": 1,
+            "session": 1,
+            "analysis": 1,
+            "analysisFile": 1,
+            "sessionName": 1,
+            "dataPath": 1,
+            "moduleTestLog": 1
+        }}
+    ]
+    
+    result = list(module_tests_collection.aggregate(pipeline))
+    return {item["moduleTestName"]: item for item in result}
+
 @bp.route("/fetch_all_module_test_results", methods=["GET"])
 def fetch_all_module_test_results():
     db = get_db()
     module_tests_collection = db["module_tests"]
     
-    # Optional pagination parameters
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 100, type=int)
     
-    # Get all module tests with related data
-    result = get_all_module_test_with_session_data(module_tests_collection)
-    
-    # Basic pagination implementation
-    module_tests_list = result["module_tests_list"]
-    total_items = len(module_tests_list)
-    # The list is already sorted by runDate in descending order by the pipeline
-    
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    
-    paginated_list = module_tests_list[start_idx:end_idx]
-    
-    # Create a paginated response
-    response = {
-        "module_tests": {
-            # "as_list": paginated_list,
-            "all_names": [item["moduleTestName"] for item in module_tests_list],
-            "all_types": [item["runType"] for item in module_tests_list],
-            "unique_types": list(set(item["runType"] for item in module_tests_list)),
-            "is_from_session1": [item["sessionName"] == "session1" for item in module_tests_list],
-            "current_names": [item["moduleTestName"] for item in paginated_list],
-            "as_dict": {item["moduleTestName"]: item for item in paginated_list}
-        },
-        "pagination": {
-            "total_items": total_items,
-            "page": page,
-            "per_page": per_page,
-            "total_pages": (total_items + per_page - 1) // per_page
-        }
+    response_data = {
+        "module_tests": {}
     }
     
-    return response, 200 if module_tests_list else 404
+    # 1. Fetch Metadata (Only on page 1 to allow frontend to build filter lists)
+    if page == 1:
+        metadata_list = get_all_module_test_metadata(module_tests_collection)
+        response_data["module_tests"]["all_names"] = [m["moduleTestName"] for m in metadata_list]
+        response_data["module_tests"]["all_types"] = [m.get("runType") for m in metadata_list]
+        response_data["module_tests"]["unique_types"] = list(set(m.get("runType") for m in metadata_list if m.get("runType")))
+        response_data["module_tests"]["is_from_session1"] = [m.get("sessionName") == "session1" for m in metadata_list]
+        total_items = len(metadata_list)
+    else:
+        # For other pages, get count efficiently
+        total_items = module_tests_collection.count_documents({})
+    
+    # 2. Fetch Page Data (Efficiently)
+    page_data_dict = get_module_test_page(module_tests_collection, page, per_page)
+    
+    # Fill response
+    response_data["module_tests"]["current_names"] = list(page_data_dict.keys())
+    response_data["module_tests"]["as_dict"] = page_data_dict
+    
+    response_data["pagination"] = {
+        "total_items": total_items,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total_items + per_page - 1) // per_page
+    }
+    
+    return jsonify(response_data), 200
 
 @bp.route("/fetch_all_module_test_results_optimized", methods=["GET"])
 def fetch_all_module_test_results_optimized():
