@@ -115,6 +115,21 @@ def create_app(config_name):
     app.register_blueprint(webgui_bp.bp)
     app.register_blueprint(TBPS_blueprints.bp)
     app.register_blueprint(db_sync_bp.bp)
+
+    # Ensure MongoDB indexes exist for performant $lookup and $sort operations.
+    # create_index is idempotent — it's a no-op if the index already exists.
+    with app.app_context():
+        db = get_db()
+        db["test_runs"].create_index("test_runName")
+        db["test_runs"].create_index("runSession")
+        db["test_runs"].create_index("runDate")
+        db["sessions"].create_index("sessionName")
+        db["module_test_analysis"].create_index("moduleTestAnalysisName")
+        db["module_tests"].create_index("test_runName")
+        db["module_tests"].create_index("moduleTestName")
+        db["module_tests"].create_index("moduleName")
+        db["modules"].create_index("moduleName")
+        db["burnin_cycles"].create_index("BurninCycleName")
     
     # flask-pymongo blueprint for generic mongodb queries on modules
     @app.route("/generic_module_query", methods=['POST'])

@@ -536,12 +536,26 @@ def get_all_module_test_metadata(module_tests_collection):
     """
     Fetch lightweight metadata for all module tests to support frontend filtering/search
     without loading full documents.
+
+    Optimization: uses a $lookup pipeline with $project inside the sub-pipeline
+    so MongoDB only fetches the three small fields it needs from test_runs,
+    rather than pulling entire run documents.  With an index on
+    test_runs.test_runName this becomes an indexed nested-loop join.
     """
     pipeline = [
+        # Project only the field needed for the join before the $lookup
+        {"$project": {
+            "moduleTestName": 1,
+            "test_runName": 1,
+            "_id": 0
+        }},
         {"$lookup": {
             "from": "test_runs",
-            "localField": "test_runName",
-            "foreignField": "test_runName",
+            "let": {"trn": "$test_runName"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
+                {"$project": {"runType": 1, "runSession": 1, "runDate": 1, "_id": 0}}
+            ],
             "as": "run"
         }},
         {"$unwind": {
@@ -560,16 +574,26 @@ def get_all_module_test_metadata(module_tests_collection):
 
 def get_module_test_page(module_tests_collection, page, per_page):
     """
-    Fetch full data for a specific page of module tests, applying lookups only
+    Fetch full data for a specific page of module tests, applying heavy lookups only
     to the requested slice.
+
+    Optimization: uses sub-pipeline $lookup (with $project) so MongoDB fetches
+    only the fields needed from each joined collection, and the expensive
+    session + analysis lookups only run on the already-paginated slice.
     """
     skip = (page - 1) * per_page
     pipeline = [
-        # 1. Join with runs for sorting
+        # 1. Join with runs for sorting — use sub-pipeline to limit fetched fields
         {"$lookup": {
             "from": "test_runs",
-            "localField": "test_runName",
-            "foreignField": "test_runName",
+            "let": {"trn": "$test_runName"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
+                {"$project": {
+                    "test_runName": 1, "runDate": 1, "runType": 1,
+                    "runSession": 1, "runStatus": 1, "_id": 1
+                }}
+            ],
             "as": "run"
         }},
         {"$unwind": {
@@ -577,18 +601,24 @@ def get_module_test_page(module_tests_collection, page, per_page):
             "preserveNullAndEmptyArrays": True
         }},
         
-        # 2. Sort and Pagination EARLY (Optimization key: reduce working set)
+        # 2. Sort and Pagination EARLY (reduce working set before heavy lookups)
         {"$sort": {"run.runDate": -1}},
         {"$skip": skip},
         {"$limit": per_page},
 
-        # 3. Heavy lookups only for the page
+        # 3. Heavy lookups only for the page — sub-pipelines to limit fetched fields
         
-        # Lookup Session
+        # Lookup Session (only need sessionName, operator, description, timestamp)
         {"$lookup": {
             "from": "sessions",
-            "localField": "run.runSession",
-            "foreignField": "sessionName",
+            "let": {"sn": "$run.runSession"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$sessionName", "$$sn"]}}},
+                {"$project": {
+                    "sessionName": 1, "operator": 1, "description": 1,
+                    "timestamp": 1, "_id": 0
+                }}
+            ],
             "as": "session"
         }},
         {"$unwind": {
@@ -596,14 +626,17 @@ def get_module_test_page(module_tests_collection, page, per_page):
             "preserveNullAndEmptyArrays": True
         }},
         
-        # Lookup Analysis
+        # Lookup Analysis (only the last one)
         {"$addFields": {
              "lastAnalysisId": { "$arrayElemAt": ["$analysesList", -1] }
         }},
         {"$lookup": {
             "from": "module_test_analysis",
-            "localField": "lastAnalysisId",
-            "foreignField": "moduleTestAnalysisName",
+            "let": {"aid": "$lastAnalysisId"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$moduleTestAnalysisName", "$$aid"]}}},
+                {"$project": {"_id": 0}}
+            ],
             "as": "analysis"
         }},
         {"$unwind": {
@@ -683,6 +716,8 @@ def fetch_all_module_test_results():
 def fetch_all_module_test_results_optimized():
     """
     Optimized endpoint with server-side filtering and pagination.
+    All filtering and pagination is pushed into a single MongoDB aggregation
+    so that only the needed documents are loaded into Python.
     
     Query parameters:
     - page: Page number (default: 1)
@@ -699,15 +734,27 @@ def fetch_all_module_test_results_optimized():
     filters_only = request.args.get('filters_only', 'false').lower() == 'true'
     
     if filters_only:
-        # Just return available filter options
-        result = get_all_module_test_with_session_data(module_tests_collection)
-        module_tests_list = result["module_tests_list"]
-        
-        unique_run_types = sorted(list(set(item.get("runType") for item in module_tests_list if item.get("runType"))))
-        
+        # Lightweight aggregation: just get distinct runTypes via a single
+        # $lookup + $group — no need to load full documents.
+        pipeline = [
+            {"$lookup": {
+                "from": "test_runs",
+                "let": {"trn": "$test_runName"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
+                    {"$project": {"runType": 1, "_id": 0}}
+                ],
+                "as": "run"
+            }},
+            {"$unwind": {"path": "$run", "preserveNullAndEmptyArrays": True}},
+            {"$group": {"_id": "$run.runType"}},
+            {"$match": {"_id": {"$ne": None}}},
+            {"$sort": {"_id": 1}}
+        ]
+        unique_types = [doc["_id"] for doc in module_tests_collection.aggregate(pipeline)]
         return {
             "available_filters": {
-                "run_types": unique_run_types
+                "run_types": unique_types
             }
         }, 200
     
@@ -723,37 +770,101 @@ def fetch_all_module_test_results_optimized():
     if run_types_param:
         run_types_filter = [rt.strip() for rt in run_types_param.split(',') if rt.strip()]
     
-    # Get all module tests with related data
-    result = get_all_module_test_with_session_data(module_tests_collection)
-    module_tests_list = result["module_tests_list"]
+    # Build the aggregation pipeline with all filters pushed into MongoDB
+    pipeline = []
     
-    # Apply filters
-    filtered_list = []
-    for item in module_tests_list:
-        # Filter by session
-        if hide_session1 and item.get("sessionName") == "session1":
-            continue
-        
-        # Filter by run types
-        if run_types_filter and item.get("runType") not in run_types_filter:
-            continue
-        
-        # Filter by search query
-        if search_query and search_query not in item.get("moduleTestName", "").lower():
-            continue
-        
-        filtered_list.append(item)
+    # Apply search filter early (before $lookup) to reduce working set
+    if search_query:
+        pipeline.append({"$match": {
+            "moduleTestName": {"$regex": search_query, "$options": "i"}
+        }})
     
-    # Apply pagination
-    total_items = len(filtered_list)
+    # Join with test_runs (sub-pipeline for efficiency)
+    pipeline.append({"$lookup": {
+        "from": "test_runs",
+        "let": {"trn": "$test_runName"},
+        "pipeline": [
+            {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
+            {"$project": {
+                "test_runName": 1, "runDate": 1, "runType": 1,
+                "runSession": 1, "runStatus": 1, "_id": 1
+            }}
+        ],
+        "as": "run"
+    }})
+    pipeline.append({"$unwind": {"path": "$run", "preserveNullAndEmptyArrays": True}})
+    
+    # Apply run type filter after the join
+    if run_types_filter:
+        pipeline.append({"$match": {"run.runType": {"$in": run_types_filter}}})
+    
+    # Apply session filter after the join
+    if hide_session1:
+        pipeline.append({"$match": {"run.runSession": {"$ne": "session1"}}})
+    
+    # Use $facet to get both count and paginated results in one round-trip
+    data_pipeline = [
+        {"$sort": {"run.runDate": -1}},
+        {"$skip": (page - 1) * per_page},
+        {"$limit": per_page},
+        # Heavy lookups only on the paginated slice
+        {"$lookup": {
+            "from": "sessions",
+            "let": {"sn": "$run.runSession"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$sessionName", "$$sn"]}}},
+                {"$project": {
+                    "sessionName": 1, "operator": 1, "description": 1,
+                    "timestamp": 1, "_id": 0
+                }}
+            ],
+            "as": "session"
+        }},
+        {"$unwind": {"path": "$session", "preserveNullAndEmptyArrays": True}},
+        {"$addFields": {
+            "lastAnalysisId": {"$arrayElemAt": ["$analysesList", -1]}
+        }},
+        {"$lookup": {
+            "from": "module_test_analysis",
+            "let": {"aid": "$lastAnalysisId"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$moduleTestAnalysisName", "$$aid"]}}},
+                {"$project": {"_id": 0}}
+            ],
+            "as": "analysis"
+        }},
+        {"$unwind": {"path": "$analysis", "preserveNullAndEmptyArrays": True}},
+        {"$addFields": {
+            "analysisFile": "$analysis.analysisFile",
+            "sessionName": "$session.sessionName",
+            "runDate": "$run.runDate",
+            "runType": "$run.runType",
+        }},
+        {"$project": {
+            "_id": 1, "moduleTestName": 1, "test_runName": 1,
+            "runDate": 1, "runType": 1, "moduleName": 1, "noise": 1,
+            "run": 1, "session": 1, "analysis": 1, "analysisFile": 1,
+            "sessionName": 1, "dataPath": 1, "moduleTestLog": 1
+        }}
+    ]
+    
+    pipeline.append({"$facet": {
+        "metadata": [{"$count": "total"}],
+        "data": data_pipeline
+    }})
+    
+    facet_result = list(module_tests_collection.aggregate(pipeline))
+    
+    total_items = 0
+    paginated_list = []
+    if facet_result:
+        metadata = facet_result[0].get("metadata", [])
+        if metadata:
+            total_items = metadata[0]["total"]
+        paginated_list = facet_result[0].get("data", [])
+    
     total_pages = max(1, (total_items + per_page - 1) // per_page)
     
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    
-    paginated_list = filtered_list[start_idx:end_idx]
-    
-    # Create optimized response (only send what's needed)
     response = {
         "tests": paginated_list,
         "pagination": {
