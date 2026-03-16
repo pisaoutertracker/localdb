@@ -256,7 +256,7 @@ def run_sync_operation(by_name, location, mongo_uri, mongo_db_name, api_url):
                 elif num_updated > 0:
                     sync_status['last_message'] = f'✓ 0 new modules imported, {num_updated} existing module(s) updated in local DB (details and children fields)'
                 else:
-                    sync_status['last_message'] = f'✓ Sync completed, no changes needed'
+                    sync_status['last_message'] = f'✓ Sync completed, but changes were detected only in non-module fields (e.g. details, children) or no changes were needed'
                 
                 # Store counts for HTML display
                 sync_status['num_new'] = num_new
