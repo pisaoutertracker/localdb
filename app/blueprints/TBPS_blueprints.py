@@ -593,7 +593,7 @@ def get_module_test_page(module_tests_collection, page, per_page):
                 {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
                 {"$project": {
                     "test_runName": 1, "runDate": 1, "runType": 1,
-                    "runSession": 1, "runStatus": 1, "_id": 1
+                    "runSession": 1, "runStatus": 1, "runFile": 1, "_id": 1
                 }}
             ],
             "as": "run"
@@ -790,7 +790,7 @@ def fetch_all_module_test_results_optimized():
             {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
             {"$project": {
                 "test_runName": 1, "runDate": 1, "runType": 1,
-                "runSession": 1, "runStatus": 1, "_id": 1
+                "runSession": 1, "runStatus": 1, "runFile": 1, "_id": 1
             }}
         ],
         "as": "run"
