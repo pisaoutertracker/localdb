@@ -13,6 +13,7 @@ def get_modules_on_ring():
     modules_collection = get_db()["modules"]
     cursor = modules_collection.find(
         {"status": "MOUNTED", "Current Center": "IT-Pisa[INFN Pisa]"},
-        {"_id": 0, "moduleName": 1, "mounted_on": 1},
+        # get also the LOCATION attributre living under "details"
+        {"_id": 0, "moduleName": 1, "mounted_on": 1, "details.LOCATION": 1},
     )
     return jsonify(list(cursor)), 200
