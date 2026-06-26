@@ -105,6 +105,7 @@
               <th data-col="cycles">#Cycles</th>
               <th data-col="connections">Connections</th>
               <th data-col="location">Center</th>
+              <th data-col="centralstatus">Central status</th>
               <th data-col="position">Position</th>
               <th data-col="description">Description</th>
               <th data-col="mounted">Mounted</th>
@@ -327,6 +328,10 @@
           const c = (m.details && (m.details.LOCATION || m.details.location)) || m['details.LOCATION'] || '';
           return String(c).toLowerCase();
         }
+        if (col === 'centralstatus') {
+          const cs = (m.details && m.details.ASTATUS) || m['details.ASTATUS'] || '';
+          return String(cs).toLowerCase();
+        }
         if (col === 'description') return (m.description||'').toLowerCase();
         if (col === 'cycles') {
           // compute burninCycles count for sorting
@@ -547,8 +552,9 @@
   const editBtn = `<button class="small ghost edit-logbook" data-idx="${idx}">Edit note</button>`;
   const cyclesCount = getBurninCyclesCount(m);
   const ivURL = '/static/iv_scan_plot.html?module=' + encodeURIComponent(m.moduleName || '');
+  const centralStatus = (m.details && m.details.ASTATUS) || m['details.ASTATUS'] || '';
   tr.innerHTML = `<td class="name" title="${(m.moduleName||'').replace(/"/g,'&quot;')}">${m.moduleName || ''}🔍 <a class="results-link" href="${resultsUrl}" target="_blank" rel="noopener" title="Test & analysis results"><span class="results-emoji" aria-hidden="true">📊</span></a> <a href="${ivURL}" target="_blank" rel="noopener" title="IV Scan Plot"><span class="results-emoji" aria-hidden="true">📈</span></a>
-    </td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${cyclesCount}</td><td>${connectionsHtml||''}</td><td>${escapeHtml(centerVal)||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
+    </td><td>${m.speed||''}</td><td>${spacerToken ? spacerTokenToLabel(spacerToken) : ''}</td><td>${m.status||''}</td><td>${cyclesCount}</td><td>${connectionsHtml||''}</td><td>${escapeHtml(centerVal)||''}</td><td>${escapeHtml(centralStatus)||''}</td><td>${posHtml||''}</td><td>${escDesc} ${editBtn}</td><td>${m.mounted||''}</td>`;
   // prevent the results link from triggering the row click selection
     setTimeout(()=>{
     const rl = tr.querySelector('.results-link');
@@ -748,7 +754,7 @@
       try{
         // load only the minimal fields for the table to improve performance
   // Only project details.LOCATION for center filtering; remove legacy 'Current Center' fields
-  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "details.LOCATION": 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1, burninCycles: 1 };
+  const tableFields = { moduleName: 1, speed: 1, status: 1, connections: 1, crateSide: 1, position: 1, description: 1, mounted: 1, "children.PS Read-out Hybrid.details.ALPGBT_BANDWIDTH": 1, "details.LOCATION": 1, "details.ASTATUS": 1, "details.DESCRIPTION": 1, "details.Description": 1, local_logbook: 1, burninCycles: 1 };
         const data = await postGenericQuery({}, tableFields);
         // expect an array — if wrapped, try to extract
         const tableRows = Array.isArray(data) ? data : (Array.isArray(data.result) ? data.result : []);

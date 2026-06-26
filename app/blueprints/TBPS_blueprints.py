@@ -546,6 +546,7 @@ def get_all_module_test_metadata(module_tests_collection):
         # Project only the field needed for the join before the $lookup
         {"$project": {
             "moduleTestName": 1,
+            "moduleName": 1,
             "test_runName": 1,
             "_id": 0
         }},
@@ -565,6 +566,7 @@ def get_all_module_test_metadata(module_tests_collection):
         {"$sort": {"run.runDate": -1}},
         {"$project": {
             "moduleTestName": 1,
+            "moduleName": 1,
             "runType": "$run.runType",
             "sessionName": "$run.runSession",
             "_id": 0
@@ -591,7 +593,7 @@ def get_module_test_page(module_tests_collection, page, per_page):
                 {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
                 {"$project": {
                     "test_runName": 1, "runDate": 1, "runType": 1,
-                    "runSession": 1, "runStatus": 1, "_id": 1
+                    "runSession": 1, "runStatus": 1, "runFile": 1, "_id": 1
                 }}
             ],
             "as": "run"
@@ -688,6 +690,7 @@ def fetch_all_module_test_results():
     if page == 1:
         metadata_list = get_all_module_test_metadata(module_tests_collection)
         response_data["module_tests"]["all_names"] = [m["moduleTestName"] for m in metadata_list]
+        response_data["module_tests"]["all_module_names"] = [m.get("moduleName") for m in metadata_list]
         response_data["module_tests"]["all_types"] = [m.get("runType") for m in metadata_list]
         response_data["module_tests"]["unique_types"] = list(set(m.get("runType") for m in metadata_list if m.get("runType")))
         response_data["module_tests"]["is_from_session1"] = [m.get("sessionName") == "session1" for m in metadata_list]
@@ -787,7 +790,7 @@ def fetch_all_module_test_results_optimized():
             {"$match": {"$expr": {"$eq": ["$test_runName", "$$trn"]}}},
             {"$project": {
                 "test_runName": 1, "runDate": 1, "runType": 1,
-                "runSession": 1, "runStatus": 1, "_id": 1
+                "runSession": 1, "runStatus": 1, "runFile": 1, "_id": 1
             }}
         ],
         "as": "run"
